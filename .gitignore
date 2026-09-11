@@ -14,6 +14,9 @@ build/
 .env
 .env.local
 
+# 生成物（サンプル実行の出力）
+out/
+
 # Java
 target/
 *.class

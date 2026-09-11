@@ -1,0 +1,17 @@
+{
+  "name": "kensetsu-kyoka-toolkit",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "建設業許可の申請・更新業務を自動化するためのツールキット（要件判定エンジン／書類自動生成／更新リマインド）",
+  "scripts": {
+    "test": "node --test test/",
+    "gen:youshiki1": "node scripts/generate-youshiki1-sample.js"
+  },
+  "dependencies": {
+    "docx": "^9.0.2"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
