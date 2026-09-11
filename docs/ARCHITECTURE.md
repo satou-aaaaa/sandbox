@@ -1,5 +1,11 @@
 # アーキテクチャ方針
 
+> 本書はアーキテクチャ方針の要約版。外部開発者への委託にあたっては、
+> [`docs/REQUIREMENTS.md`](REQUIREMENTS.md)（要件定義書）、
+> [`docs/DESIGN.md`](DESIGN.md)（技術設計書・モジュール詳細）、
+> [`docs/DEVELOPMENT_GUIDE.md`](DEVELOPMENT_GUIDE.md)（開発環境構築・コーディング規約・Git運用）
+> もあわせて参照すること。
+
 ## 全体パイプライン
 
 ```
@@ -55,5 +61,7 @@ TypeScriptと同等に効く。プロジェクトが育ってきたら `tsconfig
 - 試験合格・行政書士登録が完了するまで、このツールを使って有償で
   書類作成・提出代理を行うことはできない。
 
-## Git CLI ���[�N�t���[ 
-���̃��|�W�g���͈ȍ~�AFork�ł͂Ȃ� `git` CLI (Git CMD) �Œ��ڑ��삵�܂��B
+## Git CLI ワークフロー
+
+このリポジトリの操作（コミット・push等）は、GUIツール（Forkなど）ではなく
+`git` CLI（Git CMD）で完結させる運用に統一している。

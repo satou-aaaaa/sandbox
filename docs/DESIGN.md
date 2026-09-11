@@ -1,0 +1,326 @@
+# 設計書 — kensetsu-kyoka-toolkit（建設業許可 自動化ツールキット）
+
+version: 0.1 / 2026-09 作成
+対応する要件: `docs/REQUIREMENTS.md`
+
+## 1. 設計原則
+
+開発を委託する上で、以下の原則は**変更してはならない前提**として扱うこと。
+変更が必要だと考えた場合は、実装を進める前に発注者に確認すること。
+
+1. **人手レビューを唯一の必須ステップとして残す**: ④人手レビュー・職印押印の工程を
+   自動化・省略する機能（自動押印、自動提出など）を追加しない。判定結果・生成書類には
+   常に「最終確認は行政書士本人が行う」ことが分かる表示・注記を含める。
+2. **ビルドレス構成を維持する**: TypeScriptのコンパイルステップを導入しない。
+   型情報はJSDocコメントで表現し、`node` コマンドで直接実行できる状態を保つ。
+3. **外部送信をしない**: 顧客の個人情報・財務情報を扱うため、これらをローカル環境の
+   外へ送信する処理（HTTPリクエスト等）を、明示的な要件がない限り実装しない。
+4. **法令根拠を明記する**: 判定ロジック・期限計算ロジックには、根拠となる法令・
+   公式情報源へのURLをコメントとして残す。
+
+## 2. 全体アーキテクチャ
+
+```
+① インテイク（顧客からの情報収集）
+        ↓
+② 要件判定エンジン（src/eligibility/）
+        ↓  ← ここで不足があれば申請前に顧客へフィードバック
+③ 書類自動生成（src/documents/）
+        ↓
+④ 人手レビュー・職印押印 ★唯一、自動化できない必須ステップ
+        ↓
+⑤ 提出（JCIP電子申請 or 印刷パッケージ）
+        ↓
+⑥ 更新リマインドエンジン（src/reminders/）→ ①へ戻る（次回更新・決算変更届）
+```
+
+②③⑥が本プロジェクトの実装対象。①④⑤は行政書士本人（発注者）が人手で行う工程であり、
+ソフトウェアの対象範囲外（①のうちデータ入力の型・受け渡し方法のみが実装対象）。
+
+## 3. ディレクトリ構成
+
+```
+src/
+  eligibility/
+    types.js          申請者データのJSDoc型定義（唯一の情報源）
+    engine.js          5要件をまとめて判定し、総合結果とレポートを生成
+    rules/
+      keieiGyomuKanri.js    要件1: 経営業務管理体制
+      senninGijutsusha.js   要件2: 専任技術者（営業所単位）
+      zaisanKiso.js         要件3: 財産的基礎
+      kekkaku.js             要件4: 欠格要件
+      seijitsusei.js         要件5: 誠実性
+  documents/
+    youshiki1.js        様式第一号のdocx生成（実装済み・他様式のテンプレート）
+    （M2で youshiki6.js, youshiki7.js, youshiki8.js, youshiki20-2.js 等を追加）
+  reminders/
+    renewalSchedule.js  5年更新・決算変更届の期限計算
+test/
+  eligibility.test.js    要件判定エンジンのユニットテスト
+  renewalSchedule.test.js 期限計算のユニットテスト
+scripts/
+  generate-eligibility-sample.js  要件判定のサンプル実行
+  generate-youshiki1-sample.js    様式第一号サマリーのdocx生成サンプル
+docs/
+  ARCHITECTURE.md   アーキテクチャ方針の要約（本書のダイジェスト版）
+  PROPOSAL.md       ビジネス背景・ロードマップ
+  REQUIREMENTS.md   要件定義書
+  DESIGN.md         本書
+  DEVELOPMENT_GUIDE.md  開発環境構築・コーディング規約・Git運用
+```
+
+## 4. データモデル
+
+すべての型は `src/eligibility/types.js` にJSDoc `@typedef` として定義されている。
+**この型定義がデータモデルの唯一の正（single source of truth）であり、
+様式生成モジュールを含む全モジュールがこの型を再利用する。様式ごとに
+個別の入力型を新設しないこと**（FR-2.7 に対応）。
+
+### 4.1 ApplicantProfile（申請者の総合入力データ）
+
+| フィールド | 型 | 説明 |
+|---|---|---|
+| applicantName | string | 申請者名（会社名 or 個人名） |
+| keieiGyomuKanri | KeieiGyomuKanriInput | 経営業務管理体制の入力 |
+| senninGijutsushaList | SenninGijutsushaInput[] | 営業所ごとの専任技術者情報 |
+| zaisanKiso | ZaisanKisoInput | 財産的基礎の入力 |
+| kekkaku | KekkakuInput | 欠格要件の入力 |
+| seijitsusei | SeijitsuseiInput | 誠実性の入力 |
+
+### 4.2 KeieiGyomuKanriInput
+
+| フィールド | 型 | 説明 |
+|---|---|---|
+| yearsAsResponsibleOfficer | number | 経営業務管理責任者としての経験年数 |
+| yearsAsQuasiResponsibleOfficer | number | 準ずる地位での経験年数 |
+| yearsAsAssistant | number | 補佐する業務での経験年数 |
+| isOfficerFor2Years | boolean | 直近2年以上、常勤役員等の地位にあるか |
+| assistantSupportYears | {finance, labor, operations: number} | 財務・労務・運営の補佐者配置年数 |
+| hasSocialInsurance | boolean | 社会保険（健保・厚生年金・雇用保険）加入の有無 |
+
+### 4.3 SenninGijutsushaInput（営業所単位）
+
+| フィールド | 型 | 説明 |
+|---|---|---|
+| officeName | string | 対象営業所名 |
+| licenseType | "一般" \| "特定" | 許可区分 |
+| hasNationalLicense | boolean | 該当国家資格等の保有有無 |
+| isDesignatedCourseGraduate | boolean | 指定学科卒業か |
+| educationLevel | "高卒" \| "大卒" \| "その他" \| null | 学歴区分 |
+| yearsOfPracticalExperience | number | 指定学科卒業者としての実務経験年数 |
+| yearsOfGeneralExperience | number | 学歴不問の実務経験年数（10年要件用） |
+| yearsOfSupervisoryExperience | number | 指導監督的実務経験年数（特定建設業用） |
+
+### 4.4 ZaisanKisoInput
+
+| フィールド | 型 | 説明 |
+|---|---|---|
+| licenseType | "一般" \| "特定" | 許可区分 |
+| netAssets | number | 自己資本額（円） |
+| fundingCapacity | number | 資金調達能力（円） |
+| hasFiveYearsContinuousOperation | boolean | 直近5年間の継続営業実績有無 |
+| capitalAmount | number | 資本金の額（円。特定建設業判定用） |
+| deficitRatio | number | 欠損の額 ÷ 資本金（%。特定建設業判定用） |
+| currentRatio | number | 流動比率（%。特定建設業判定用） |
+
+### 4.5 KekkakuInput（欠格要件・6フラグ）
+
+`isUndischargedBankrupt` / `hadLicenseRevokedWithin5Years` /
+`hasCriminalRecordWithin5Years` / `isBoryokudanMemberOrWithin5Years` /
+`hasMentalImpairmentAffectingDuties` / `hasFalseOrOmittedStatement`
+（すべて boolean。1つでも true なら不合格）
+
+### 4.6 SeijitsuseiInput
+
+`hasNoDishonestActRisk`（boolean）、`notes`（string, 任意）
+
+### 4.7 共通の出力型
+
+- **RequirementCheckResult**: `{key, label, passed, reasons[], warnings[]}` — 個別要件の判定結果
+- **EligibilityResult**: `{eligible, checks: RequirementCheckResult[], blockingIssues[]}` — 総合判定結果
+
+様式生成モジュールもこの `RequirementCheckResult` 形式に準じたログ・警告表現を
+踏襲すること（一貫性のため）。
+
+## 5. モジュール詳細設計
+
+### 5.1 `src/eligibility/rules/keieiGyomuKanri.js` — 経営業務管理体制
+
+令和2年10月の建設業法改正により、単一の「経営業務管理責任者」要件から
+複数の経験パスで満たせる要件に緩和されている。4つの独立したルート（OR条件）＋
+社会保険加入（AND条件、必須）で判定する。
+
+| ルート | 条件 |
+|---|---|
+| A | 経営業務管理責任者としての経験が5年以上 |
+| B | 準ずる地位（経営権限の委任を受けた者等）としての経験が5年以上 |
+| C | 補佐する業務としての経験が6年以上 |
+| D | 直近2年以上役員等の地位 **かつ** 財務・労務・運営の補佐者をそれぞれ5年以上配置 |
+
+判定式: `(A or B or C or D) and hasSocialInsurance`
+
+ルートDが該当した場合、組織図・辞令等の裏付け書類が必要である旨の warning を返す。
+
+### 5.2 `src/eligibility/rules/senninGijutsusha.js` — 専任技術者
+
+営業所ごとに判定し（`checkSenninGijutsushaForOffice`）、全営業所の結果を
+`checkSenninGijutsusha` で集約する（1つでも不合格な営業所があれば全体も不合格）。
+
+判定順序（優先順にOR評価）:
+
+1. 該当する国家資格等を保有 → 即合格
+2. 指定学科卒業 **かつ** （高卒で実務経験5年以上 **または** 大卒で実務経験3年以上）
+3. 学歴不問の実務経験が10年以上
+
+上記いずれかを満たし、かつ `licenseType === "特定"` の場合は追加で
+「指導監督的実務経験（4,500万円以上の工事）2年以上」が必須（この条件を
+満たさない場合、他の条件を満たしていても全体としては不合格になる）。
+
+合格した営業所には、資格者証・卒業証明書・実務経験証明書等の
+裏付け書類準備を促す warning を必ず付与する。
+
+### 5.3 `src/eligibility/rules/zaisanKiso.js` — 財産的基礎
+
+`licenseType` によって判定方法が完全に分岐する。
+
+- **一般建設業**（3ルートのOR）:
+  - 自己資本500万円以上
+  - 資金調達能力500万円以上
+  - 直近5年間の継続営業実績
+- **特定建設業**（3条件すべてのAND、一般より厳格）:
+  - 欠損比率（欠損額 ÷ 資本金）が20%以下
+  - 流動比率が75%以上
+  - 資本金2,000万円以上 **かつ** 自己資本4,000万円以上
+
+一般と特定で「OR条件」と「AND条件」という判定方式そのものが異なる点が
+本モジュールの実装上の要注意点。特定建設業の場合は、3条件それぞれの
+合否を個別に reasons に出力し、どの条件で不合格になったかが分かるようにしている。
+
+### 5.4 `src/eligibility/rules/kekkaku.js` — 欠格要件
+
+6項目のネガティブリスト形式。1つでも該当すれば不合格。新規の様式・要件を
+追加する際にこの形式（フラグ配列 → filter → 該当項目を reasons に列挙）は
+横展開しやすいパターンなので踏襲すること。
+
+### 5.5 `src/eligibility/rules/seijitsusei.js` — 誠実性
+
+定量的に判定できない性質上、自己申告フラグ（`hasNoDishonestActRisk`）を
+そのまま合否に反映しつつ、**合格した場合でも必ず** 「本ツールの結果を
+鵜呑みにせず本人が個別確認すること」という warning を付与する設計。
+このパターン（機械判定に限界がある要件では、結果によらず注意喚起を出す）は
+他の主観的要件を追加する場合にも踏襲すること。
+
+### 5.6 `src/eligibility/engine.js` — 統合エンジン
+
+5つのルールモジュールを呼び出し、`checks` 配列にまとめ、
+`eligible = checks.every(passed)` で総合判定する。`blockingIssues` は
+不合格の要件についてラベルと理由を結合した文字列の配列。
+
+`formatEligibilityReport` はMarkdown風のプレーンテキストレポートを生成する
+（CLI表示・ログ・議事メモ用）。書類生成モジュール（5.8節）はこのレポートとは
+別に、docx形式で出力する点に注意（テキストレポートとdocxは別の出力経路）。
+
+### 5.7 `src/reminders/renewalSchedule.js` — 更新リマインド
+
+- `addMonthsClamped(date, months)`（非公開ヘルパー）: 日付にUTC基準で月単位の
+  オフセットを加算する。対象月に同じ日が存在しない場合（例: 1/31 + 1ヶ月は
+  2月31日が存在しない）は対象月の**末日に丸める**。`Date.setMonth()` を
+  素朴に使うと月がロールオーバーする既知のバグ（例: 12/31 + 4ヶ月が
+  誤って5/1になる）があり、これを避けるために導入されている。
+  **今後、期限計算ロジックを追加・変更する場合は、必ずこの関数を再利用し、
+  同様のロールオーバーバグを作り込まないこと。**
+- `calcLicenseExpiry(grantDateIso)`: 許可年月日+5年の前日（法令上「5年を
+  経過する日の前日まで」が有効期間であるため、`-1日` する）
+- `calcRenewalSchedule(grantDateIso)`: 満了日、60日前（準備開始推奨日）、
+  30日前（最終締切）の3点セットを返す
+- `calcKessanHenkoDeadline(fiscalYearEndIso)`: 事業年度終了日+4ヶ月
+- `daysUntil(targetDateIso, fromDateIso?)`: 基準日から対象日までの残り日数
+  （通知バッチ処理での「残り30日を切ったら送る」等の判定に使う想定）
+
+日付はすべてUTC基準の `Date` オブジェクトで内部計算し、入出力は
+`YYYY-MM-DD` のISO文字列に統一している。タイムゾーンに起因するズレを
+避けるための意図的な設計であり、ローカルタイムでの `Date` 生成
+（例: `new Date("2026-01-01")` をブラウザのローカルタイムとして解釈させる等）
+に変更しないこと。
+
+### 5.8 `src/documents/youshiki1.js` — 様式第一号（実装済み・テンプレート）
+
+`docx` ライブラリを使い、A4サイズの `Document` を組み立てて `.docx` として
+書き出す。現状のスコープは「正式様式のレイアウト再現」ではなく、
+「申請内容サマリー（下書き・確認用の表形式）」であることが明記されている
+（ファイル冒頭のコメントおよび生成される文書内の赤字注記の両方）。
+
+`buildYoushiki1Document(data)` がdocxの `Document` オブジェクトを構築し、
+`writeYoushiki1Docx(data, outPath)` がファイル書き出しまで行う。
+この2関数分離パターン（構築とI/Oの分離）は、テストのしやすさ・
+将来的な出力形式の追加（PDF化等）のために他の様式モジュールでも踏襲すること。
+
+#### 5.8.1 M2で追加する様式モジュールの実装方針
+
+`youshiki1.js` と同じ構造・命名規則で以下を追加する。
+
+```
+src/documents/youshiki6.js      様式第六号（役員等の一覧表）
+src/documents/youshiki7.js      様式第七号（経営業務管理責任者証明書）
+src/documents/youshiki8.js      様式第八号（専任技術者証明書）
+src/documents/youshiki20-2.js   様式第二十号の二（誓約書）
+```
+
+各モジュールの実装ルール:
+
+- 入力データ型は `ApplicantProfile`（またはそのサブセット）を再利用し、
+  様式固有の独自型を新設しない。様式固有の追加項目がどうしても必要な場合は
+  `types.js` に当該様式向けの補助型を追加し、`ApplicantProfile` のオプション
+  フィールドとして生やす（既存フィールドの意味を変えない）
+- `build<様式名>Document(data)` と `write<様式名>Docx(data, outPath)` の
+  2関数構成に統一する
+- 生成文書には必ず「これは正式提出様式ではなく、内容確認・下書き用の
+  サマリーです」の旨の注記を赤字等で含める（`youshiki1.js` の実装を踏襲）
+- 対応する `scripts/generate-<様式名>-sample.js` をダミーデータ付きで用意する
+- 対応するユニットテストを `test/` に追加する（少なくとも、必須項目が
+  欠けている場合に「（未入力）」等で分かる形になることを確認するテスト）
+
+## 6. エラーハンドリング方針
+
+- 現状、各判定関数は例外を投げず、`passed: false` と理由文字列で
+  「判定できない／要件を満たさない」ことを表現する設計になっている
+  （呼び出し側でtry/catchを必須にしない、CLI用途での使いやすさを優先）。
+  この方針を維持すること。
+- 入力データの型不備（必須フィールドの欠落等）についても、現状は
+  明示的なバリデーション層を持たない。M2の範囲でバリデーションを追加する場合は、
+  「エラーを投げて止める」のではなく「warningとして出力し、処理は継続する」
+  方針を基本とする（人手レビュー工程で気づける設計を優先するため）。
+
+## 7. テスト方針
+
+- テストランナーは `node --test`（Node.js標準機能）。外部テストフレームワークを
+  導入しない（NFR-1のビルドレス方針と整合させるため）。
+- 既存テスト: `test/eligibility.test.js`（8件）、`test/renewalSchedule.test.js`（4件）
+- 新規モジュールを追加する場合、最低限次のケースをカバーすること
+  - 正常系（すべての条件を満たすケース）
+  - 境界値（年数・金額等の基準値ちょうど、基準値-1）
+  - 異常系（必須条件を満たさないケース）
+- 日付計算を新規に追加・変更する場合は、月末日・うるう年をまたぐケースを
+  必ずテストに含めること（`addMonthsClamped` のバグ修正がこの観点から
+  発見された実績があるため）
+
+## 8. 非機能設計
+
+- **機密データの扱い**: `ApplicantProfile` には顧客の氏名・住所・財務情報が
+  含まれうる。サンプルスクリプト・テストコードでは必ずダミーデータを使用し、
+  実データをリポジトリにコミットしないこと。
+- **ログ出力**: 現状 `console.log` ベースのシンプルな出力のみ。外部ログ収集
+  サービスへの送信は行わない（NFR-4）。
+- **国際化**: 対応不要。日本語UI・日本語コメント固定でよい。
+
+## 9. 今後の拡張ポイント（M2以降・設計時の留意点）
+
+- **M3 Webフォーム化**: `ApplicantProfile` 型がそのままフォームのスキーマと
+  1対1対応するよう設計されているため、フォーム側はこの型定義から
+  自動生成またはそれに準拠したバリデーションを組むことを推奨する。
+- **M4 通知連携**: `daysUntil` を使ったバッチ処理を想定。通知先（メールアドレス等）の
+  データモデルは現状未定義のため、追加時に `types.js` へ型を追加すること。
+- **M6 複数都道府県対応**: 都道府県固有の追加要件が判明した場合、
+  既存の5要件モジュールを直接改変せず、都道府県固有ルールを別モジュールとして
+  追加し、`engine.js` 側で「共通要件＋都道府県固有要件」を合成する構成に
+  拡張することを推奨する（既存ロジックへの影響を局所化するため）。

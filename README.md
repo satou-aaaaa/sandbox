@@ -20,6 +20,13 @@
 
 詳細な設計方針は [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) を参照。
 
+外部の開発者にソフトウェア開発を委託する場合は、以下のドキュメント一式を参照すること。
+
+- [`docs/PROPOSAL.md`](docs/PROPOSAL.md) — ビジネス背景・開発ロードマップ
+- [`docs/REQUIREMENTS.md`](docs/REQUIREMENTS.md) — 要件定義書
+- [`docs/DESIGN.md`](docs/DESIGN.md) — 技術設計書（モジュール詳細設計を含む）
+- [`docs/DEVELOPMENT_GUIDE.md`](docs/DEVELOPMENT_GUIDE.md) — 開発環境構築・コーディング規約・Git運用ガイド
+
 ## セットアップ
 
 ```bash
