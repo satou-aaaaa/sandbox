@@ -53,7 +53,7 @@ Martin Fowler・OWASP・Google Cloud DORAチーム等の公開資料を出典と
 | テストカバレッジ計測 | ✅ | `npm run test:coverage`（`--experimental-test-coverage`）。CIでは22.xのジョブでのみ表示（Node 20系に既知の不具合があるため）。現在ライン網羅率 約98% |
 | カバレッジの閾値強制 | ⛔ | `--test-coverage-lines` 等で閾値未達を失敗にする設定は未導入。個人開発でカバレッジ数値そのものを目的化しないため、情報表示に留めている |
 | ブランチ保護ルール（必須レビュー等） | 🟡 | GitHub側のリポジトリ設定（Settings > Branches）で有効化可能。単独開発のためレビュー必須は現実的でないが、「CIが通るまでマージ不可」の設定は検討の余地あり。コードからは変更できないため、必要なら発注者（あなた）がGitHub UIで設定すること |
-| 型チェック（JSDoc + `tsconfig.json` の `checkJs`） | 🟡 | ARCHITECTURE.md で「プロジェクトが育ってきたら検討する」とされていた項目。M1〜M4が完了し規模が育ってきたため、次の一手として現実的な選択肢になった。ただし導入するとJSDocの不備が一括で顕在化し、既存コードの手直しが発生する可能性があるため、今回の監査では見送り、独立したタスクとして着手することを推奨 |
+| 型チェック（JSDoc + `tsconfig.json` の `checkJs`） | ✅ | 独立したタスクとして着手し導入済み。`npm run typecheck`（`tsc --noEmit`）をCIに追加。対象は`src/`・`scripts/`のみ（`test/`は対象外。ダミーデータ主体でstrictモードとの相性が悪いため）。導入時に判明した既存コードの型不備（暗黙のany、`err.code`アクセス時のunknown型、`req.url`のundefined未考慮等）は修正済み。詳細は[ADR-0007](adr/0007-checkjs-type-checking.md) |
 | テストピラミッド構成の明文化 | ✅ | DESIGN.md 7章に追記。単体テストを主体とし、`web.test.js`のような結合テストは最小限。外部連携・UI遷移がないためE2Eテストは対象外と明記 |
 | テストが実装ではなく振る舞いを検証しているか | ✅ | 既存テストは公開関数（`checkKeieiGyomuKanri`、`buildYoushiki1Document`等）の入出力を検証しており、プライベートな内部実装には依存していない。新規踏襲すべきパターンとして継続する |
 
@@ -99,7 +99,7 @@ Googleのeng-practicesが挙げる12のレビュー観点（設計・機能性�
 | CODEOWNERS | ⛔ | 単独開発のため不要 |
 | Issueテンプレート | 🟡 | 自分用のバグ管理にIssueを使うなら検討の余地あり。現状は口頭・Obsidian Vaultで管理していると想定し見送り |
 | GitHub Releases（マイルストーンごとのリリースノート） | 🟡 | `CHANGELOG.md` で代替できるため必須ではないが、区切りが欲しければ `git tag` + GitHub Releasesの活用を検討してもよい |
-| アーキテクチャ決定記録（ADR） | ✅ | `docs/adr/` を新設。ビルドレス構成、ApplicantProfile型の共有、JSONファイル永続化、mailto下書き、都道府県固有ルールの合成、JCIP連携の保留、の計6件を記録済み |
+| アーキテクチャ決定記録（ADR） | ✅ | `docs/adr/` を新設。ビルドレス構成、ApplicantProfile型の共有、JSONファイル永続化、mailto下書き、都道府県固有ルールの合成、JCIP連携の保留、checkJsによる型チェック導入、の計7件を記録済み |
 
 ## DevOps・CI/CD・運用
 
@@ -151,13 +151,23 @@ Googleのeng-practicesが挙げる12のレビュー観点（設計・機能性�
 - `.github/pull_request_template.md` と本ドキュメント（§2「コードレビュー」）を
   訂正済み
 
+### 第4回（2026年9月・型チェック（`checkJs`）の導入）
+
+- `typescript` / `@types/node` を開発依存として追加
+- `tsconfig.json`（`checkJs: true` / `noEmit: true` / `strict: true`、対象は
+  `src/`・`scripts/`のみ）を追加し、`npm run typecheck` をCIに追加
+- 導入時に判明した既存コードの型不備を修正（`src/documents/youshiki7.js` 等の
+  ラベル・値の表データに対する型注釈追加、`src/eligibility/rules/senninGijutsusha.js`
+  の暗黙any、`src/reminders/clientCsv.js` の`ClientLicenseRecord`型不足、
+  `src/reminders/clientStore.js`・`src/web/draftStore.js` の`catch`節での
+  unknown型対応、`src/web/server.js` の`req.url`未定義考慮など）
+- 詳細は [ADR-0007](adr/0007-checkjs-type-checking.md) 参照
+
 ## 6. 次に検討する価値がある項目（優先度順の目安）
 
-1. **型チェック（`checkJs`）の導入**: プロジェクトが一定規模に育った今が導入の好機。
-   ただし既存コードの手直しが発生しうるため、独立したタスクとして着手すること
-2. **ブランチ保護ルール**: GitHub Settings上で「CI成功をマージ条件にする」設定を
+1. **ブランチ保護ルール**: GitHub Settings上で「CI成功をマージ条件にする」設定を
    有効化すると、テストが壊れた状態で誤って `master` にマージすることを防げる
-3. **ESLint導入**: コーディング規約の自動チェックが欲しくなった場合に検討
+2. **ESLint導入**: コーディング規約の自動チェックが欲しくなった場合に検討
 
 ## 参考情報
 

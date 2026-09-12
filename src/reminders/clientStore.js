@@ -24,7 +24,7 @@ export async function loadClients(filePath = DEFAULT_CLIENTS_PATH) {
   try {
     text = await fs.readFile(filePath, "utf8");
   } catch (err) {
-    if (err.code === "ENOENT") return [];
+    if (/** @type {NodeJS.ErrnoException} */ (err).code === "ENOENT") return [];
     throw err;
   }
 

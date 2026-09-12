@@ -30,6 +30,7 @@ import {
  */
 export function resolveYoushiki7Fields(profile) {
   const check = checkKeieiGyomuKanri(profile.keieiGyomuKanri);
+  /** @type {[string, string][]} */
   const rows = [
     ["商号又は名称", orNotEntered(profile.applicantName)],
     ["許可行政庁", orNotEntered(profile.prefecture)],

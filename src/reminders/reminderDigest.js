@@ -63,6 +63,10 @@ export function buildReminderDigest(records, todayIso) {
 
 /**
  * @param {ClientLicenseRecord} record
+ * @param {ReminderAlert["type"]} type
+ * @param {string} label
+ * @param {string} dueDateIso
+ * @param {string} [todayIso]
  * @returns {ReminderAlert}
  */
 function makeAlert(record, type, label, dueDateIso, todayIso) {

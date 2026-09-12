@@ -36,6 +36,7 @@ export function resolveYoushiki8Sections(profile) {
   const list = profile.senninGijutsushaList ?? [];
   return list.map((office) => {
     const check = checkSenninGijutsushaForOffice(office);
+    /** @type {[string, string][]} */
     const rows = [
       ["営業所名", orNotEntered(office.officeName)],
       ["専任技術者の氏名", orNotEntered(office.personName)],
@@ -53,6 +54,7 @@ export function resolveYoushiki8Sections(profile) {
  */
 export function buildYoushiki8Document(profile) {
   const sections = resolveYoushiki8Sections(profile);
+  /** @type {(import('docx').Paragraph | import('docx').Table)[]} */
   const children = [
     buildTitleHeading("専任技術者証明書（様式第八号）— 記載内容サマリー"),
     buildDisclaimerParagraph(),

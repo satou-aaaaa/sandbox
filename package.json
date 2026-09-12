@@ -12,6 +12,7 @@
   "scripts": {
     "test": "node --test",
     "test:coverage": "node --experimental-test-coverage --test",
+    "typecheck": "tsc --noEmit",
     "gen:eligibility": "node scripts/generate-eligibility-sample.js",
     "gen:youshiki1": "node scripts/generate-youshiki1-sample.js",
     "gen:youshiki6": "node scripts/generate-youshiki6-sample.js",
@@ -29,7 +30,15 @@
   "dependencies": {
     "docx": "^9.0.2"
   },
+  "devDependencies": {
+    "@types/node": "^22.20.2",
+    "typescript": "^7.0.2"
+  },
   "engines": {
     "node": ">=20"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.2",
+    "typescript": "^7.0.2"
   }
 }

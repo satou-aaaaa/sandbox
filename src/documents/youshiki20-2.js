@@ -34,6 +34,7 @@ import {
  */
 export function resolveYoushiki20_2Fields(profile) {
   const check = checkKekkaku(profile.kekkaku);
+  /** @type {[string, string][]} */
   const rows = [
     ["申請者名（商号又は名称）", orNotEntered(profile.applicantName)],
     ["代表者氏名", orNotEntered(profile.representativeName)],
