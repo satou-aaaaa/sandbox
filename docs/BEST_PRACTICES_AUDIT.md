@@ -81,7 +81,7 @@ Googleのeng-practicesが挙げる12のレビュー観点（設計・機能性�
 |---|---|---|
 | 改行コードの正規化 | ✅ | `.gitattributes`（`* text=auto eol=lf`）を追加。Windows環境で `git add` のたびにCRLF警告が出ていた問題を解消 |
 | Node.jsバージョン固定（開発環境） | ✅ | `.nvmrc`（`20`）を追加。`nvm use` で `engines` の最小バージョンに揃えられる |
-| Linter（ESLint等） | 🟡 | 未導入。`docx`以外に依存パッケージが無い現状の規模では費用対効果が薄いと判断し見送ったが、コーディング規約（DEVELOPMENT_GUIDE.md 2章）の逸脱を自動検知したい場合は `eslint` の導入を推奨（ビルドステップは増えない。あくまで静的チェック） |
+| Linter（ESLint等） | ✅ | `eslint`（flat config、`eslint.config.js`）を導入。`npm run lint` としてCIに追加。ビルドステップは増やしていない（`js.configs.recommended` ベース。型チェックはtsconfig.json/checkJs側の役割のため型関連ルールは扱わない）。導入時点でエラー0件 |
 | Formatter（Prettier等） | 🟡 | 同上。現状はコードスタイルが手作業で概ね統一されているため見送り |
 | コミット規約（Conventional Commits等） | ⛔ | DEVELOPMENT_GUIDE.md 3.3節で「日本語で簡潔に」という既存方針があり、変更しない |
 
@@ -163,11 +163,25 @@ Googleのeng-practicesが挙げる12のレビュー観点（設計・機能性�
   unknown型対応、`src/web/server.js` の`req.url`未定義考慮など）
 - 詳細は [ADR-0007](adr/0007-checkjs-type-checking.md) 参照
 
+### 第5回（2026年9月・ESLint導入）
+
+- `eslint` / `@eslint/js` / `globals` を開発依存として追加
+- `eslint.config.js`（flat config。`js.configs.recommended` ベース）を追加し、
+  `npm run lint` をCIに追加。ビルドステップは増やしていない
+- 導入時点で既存コードのlintエラーは0件だった
+
 ## 6. 次に検討する価値がある項目（優先度順の目安）
 
-1. **ブランチ保護ルール**: GitHub Settings上で「CI成功をマージ条件にする」設定を
-   有効化すると、テストが壊れた状態で誤って `master` にマージすることを防げる
-2. **ESLint導入**: コーディング規約の自動チェックが欲しくなった場合に検討
+1. **ブランチ保護ルール（保留・要発注者判断）**: GitHub Settings上で「CI成功を
+   マージ条件にする」設定を有効化すると、テストが壊れた状態で誤って `master`
+   にマージすることを防げる。ただし2026年9月時点で確認したところ、**GitHub
+   Freeプランの非公開リポジトリでは、必須ステータスチェック（Required status
+   checks）を含むブランチ保護ルール・Repository Rulesetsのいずれも使用できない**
+   （API・GitHub UIとも「Upgrade to GitHub Pro or make this repository public」
+   と表示される）。有効化するには (a) GitHub Proへのアップグレード（個人向け、
+   月額数百円程度）、(b) リポジトリを公開にする、のいずれかが必要。本リポジトリは
+   非公開運用を前提としているため(b)は推奨しない。(a)を選ぶかどうかは費用対効果の
+   判断であり、発注者（あなた）の判断が必要
 
 ## 参考情報
 
