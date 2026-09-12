@@ -34,3 +34,4 @@ Architecture Decision Record（ADR）を管理する。
 | [0006](0006-jcip-integration-deferred.md) | JCIP自動連携は本フェーズで実装せず、公開情報の調査結果のみ記録する | Accepted |
 | [0007](0007-checkjs-type-checking.md) | `tsconfig.json` の `checkJs` によるビルドレスな型チェック導入 | Accepted |
 | [0008](0008-multi-license-client-model.md) | クライアントが複数の許可を保有できるデータモデルへ変更する | Accepted |
+| [0009](0009-keishin-scope-documents-only.md) | 経営事項審査（経審）対応は書類準備支援に限定し、点数計算は対象外とする | Accepted |
