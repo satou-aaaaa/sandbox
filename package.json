@@ -14,6 +14,7 @@
     "test:coverage": "node --experimental-test-coverage --test",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
+    "check-secrets": "node hooks/check-secrets.mjs --all",
     "gen:eligibility": "node scripts/generate-eligibility-sample.js",
     "gen:youshiki1": "node scripts/generate-youshiki1-sample.js",
     "gen:youshiki2": "node scripts/generate-youshiki2-sample.js",

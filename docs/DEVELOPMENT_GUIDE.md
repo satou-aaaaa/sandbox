@@ -49,6 +49,11 @@ pre-commitフックを有効化すること（`hooks/` 参照。追加の依存�
 git config core.hooksPath hooks
 ```
 
+なお `npm run check-secrets` で、ステージ済みの差分だけでなくリポジトリ全体
+（HEAD時点の全ファイル）を対象に同じチェックを手動実行できる。CIでも
+このコマンドを実行しており（`.github/workflows/test.yml`）、ローカルの
+pre-commitフックが未設定・バイパスされた場合の二重の安全網としている。
+
 ### 1.3 生成物の確認方法
 
 `scripts/generate-youshiki1-sample.js` を実行すると `out/` ディレクトリに
@@ -120,7 +125,8 @@ Microsoft Word、LibreOffice Writer等で開いて内容を確認すること。
 - 小規模な副業プロジェクトのため、厳密なブランチ保護ルールは設定していない。
   ただし `main` へ直接pushする場合は、事前に `npm test` を通してからにすること。
 - GitHub Actions（`.github/workflows/test.yml`）が push・PR時に自動で
-  `npm test` を実行する（Node.js 20.x / 22.x の2バージョンで実行）。
+  `npm test` を実行する（Node.js 20.x / 22.x × ubuntu-latest / windows-latest
+  の計4通りで実行。開発機がWindowsであるためWindows環境も対象に含めている）。
   ローカルでの確認を代替するものではないが、レビュー時の安全網として機能する。
 
 ### 3.3 コミットメッセージ
