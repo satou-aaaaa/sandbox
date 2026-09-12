@@ -128,6 +128,25 @@ test("POST /submit で profileJson が無ければ400を返す", async () => {
   }
 });
 
+test("POST /submit で profileJson が不正なJSONなら400を返す（サーバーが落ちない）", async () => {
+  const ctx = await startTestServer();
+  try {
+    const body = new URLSearchParams({ profileJson: "{this is not json" });
+    const res = await fetch(`${ctx.baseUrl}/submit`, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: body.toString(),
+    });
+    assert.equal(res.status, 400);
+
+    // サーバーが引き続き正常応答できることを確認する。
+    const followUp = await fetch(`${ctx.baseUrl}/`);
+    assert.equal(followUp.status, 200);
+  } finally {
+    await ctx.close();
+  }
+});
+
 test("存在しないパスは404を返す", async () => {
   const ctx = await startTestServer();
   try {
