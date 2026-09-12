@@ -11,7 +11,8 @@
     "gen:youshiki6": "node scripts/generate-youshiki6-sample.js",
     "gen:youshiki7": "node scripts/generate-youshiki7-sample.js",
     "gen:youshiki8": "node scripts/generate-youshiki8-sample.js",
-    "gen:youshiki20-2": "node scripts/generate-youshiki20-2-sample.js"
+    "gen:youshiki20-2": "node scripts/generate-youshiki20-2-sample.js",
+    "web": "node src/web/server.js"
   },
   "dependencies": {
     "docx": "^9.0.2"
