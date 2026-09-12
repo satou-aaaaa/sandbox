@@ -122,7 +122,7 @@ docs/
 | seijitsusei | SeijitsuseiInput | 誠実性の入力 |
 | representativeName | string（任意） | 代表者氏名（M2で書類生成用に追加） |
 | address | string（任意） | 主たる営業所の所在地（M2で書類生成用に追加） |
-| prefecture | string（任意） | 許可行政庁となる都道府県名（M2で書類生成用に追加） |
+| prefecture | string（任意） | 許可行政庁となる都道府県名（M2で書類生成用に追加。M6では都道府県固有ルールの合成キーとしても使う。§5.6.1参照） |
 | applicationDate | string（任意） | 申請年月日（YYYY-MM-DD。M2で書類生成用に追加） |
 | constructionTypes | string[]（任意） | 許可を受けようとする建設業の種類（M2で書類生成用に追加） |
 | officers | OfficerInput[]（任意） | 役員等の一覧（M2・様式第六号用に追加） |
