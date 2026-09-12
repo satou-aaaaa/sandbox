@@ -6,6 +6,21 @@
 日付単位のリリースではなく `docs/PROPOSAL.md` のマイルストーン（M1〜）を
 単位として記録する。
 
+## M6: 拡張（土台のみ・対象都道府県未確定のため保留中）
+
+- **都道府県固有ルールの合成の仕組み**: `src/eligibility/prefectureRules.js`
+  を追加。`registerPrefectureRules(prefecture, checkFn)` で都道府県固有の
+  追加要件を登録すると、`evaluateEligibility` が共通5要件の判定結果に
+  合成するようになった。未登録の都道府県（＝現時点のデフォルト）では
+  従来どおり共通5要件のみで判定し、既存の挙動（M1〜M4）には影響しない
+  （`docs/adr/0005-prefecture-rule-composition.md`）。対象都道府県が未確定の
+  ため、具体的な追加要件は1件も登録していない
+- **JCIP外部インターフェイス仕様の調査**: 国土交通省が公開する
+  「電子申請システム外部インターフェース仕様書」（XML形式、2026年9月時点で
+  v1.3）の所在・概要のみ調査。実際の自動連携コードは、行政書士登録の完了・
+  対象都道府県の確定・仕様書本文の精査がすべて揃うまで実装しない
+  （`docs/adr/0006-jcip-integration-deferred.md`）
+
 ## インテイクフォームの使い勝手改善（M3拡張）
 
 - **下書き保存・再開**: 入力途中の `ApplicantProfile` を `data/drafts.json`

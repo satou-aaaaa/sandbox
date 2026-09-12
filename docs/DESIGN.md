@@ -43,7 +43,8 @@ version: 0.1 / 2026-09 作成
 src/
   eligibility/
     types.js          申請者データのJSDoc型定義（唯一の情報源）
-    engine.js          5要件をまとめて判定し、総合結果とレポートを生成
+    engine.js          5要件（＋登録済みの都道府県固有要件）をまとめて判定し、総合結果とレポートを生成
+    prefectureRules.js 都道府県固有の追加要件を登録・合成する仕組み（M6の土台。具体的な要件は未登録）
     rules/
       keieiGyomuKanri.js    要件1: 経営業務管理体制
       senninGijutsusha.js   要件2: 専任技術者（営業所単位）
@@ -72,6 +73,7 @@ src/
     htmlUtils.js          HTMLエスケープ等の共通ヘルパー
 test/
   eligibility.test.js    要件判定エンジンのユニットテスト
+  prefectureRules.test.js 都道府県固有ルール合成の仕組みのユニットテスト（架空の都道府県のみ使用）
   renewalSchedule.test.js 期限計算のユニットテスト
   reminderDigest.test.js  リマインド・ダイジェストのユニットテスト
   clientStore.test.js     クライアント永続化層のユニットテスト
@@ -258,13 +260,36 @@ docs/
 
 ### 5.6 `src/eligibility/engine.js` — 統合エンジン
 
-5つのルールモジュールを呼び出し、`checks` 配列にまとめ、
+5つのルールモジュールを呼び出し、`checks` 配列にまとめる。さらに
+`profile.prefecture` に対応する都道府県固有ルールが登録されていれば
+（§5.6.1参照）、それも `checks` に合成してから
 `eligible = checks.every(passed)` で総合判定する。`blockingIssues` は
 不合格の要件についてラベルと理由を結合した文字列の配列。
 
 `formatEligibilityReport` はMarkdown風のプレーンテキストレポートを生成する
 （CLI表示・ログ・議事メモ用）。書類生成モジュール（5.8節）はこのレポートとは
 別に、docx形式で出力する点に注意（テキストレポートとdocxは別の出力経路）。
+
+#### 5.6.1 `src/eligibility/prefectureRules.js` — 都道府県固有ルールの合成（M6の土台）
+
+`docs/REQUIREMENTS.md` 8章により対象都道府県は現時点で未確定のため、
+特定の都道府県の実際の追加要件は一切含まれていない。用意されているのは
+「都道府県名をキーにルール関数を登録・取得する」仕組みのみ（ADR-0005参照）。
+
+- `registerPrefectureRules(prefecture, checkFn)`: `checkFn` は
+  `ApplicantProfile` を受け取り、`RequirementCheckResult[]` を返す関数。
+  同じ都道府県名で再登録すると上書きされる
+- `getPrefectureRules(prefecture)`: 登録済みなら `checkFn` を、未登録または
+  `prefecture` が未入力なら `undefined` を返す
+- `engine.js` は `getPrefectureRules(profile.prefecture)` が `undefined` を
+  返す限り、常に共通5要件のみで判定する（＝現時点のデフォルト動作。
+  M1〜M4の既存挙動を一切変えない）
+
+対象都道府県が確定し、固有要件の内容が判明したら、
+`src/eligibility/prefectures/<都道府県名>.js` のような新規モジュールを
+既存の `rules/*.js` と同じ作法（`RequirementCheckResult` 形式、法令根拠の
+URLをコメントに明記、`node --test` によるユニットテスト）で追加し、
+`registerPrefectureRules()` を呼び出すだけで組み込める設計にしている。
 
 ### 5.7 `src/reminders/renewalSchedule.js` — 更新リマインド
 
@@ -492,8 +517,10 @@ Webの `GET /clients.csv`（読み取り専用のダウンロードのみ。登�
   のような結合テスト（実際にHTTPサーバーを起動しリクエストを送る）は
   最小限に絞る。本ツールには外部サービスとの連携やUI操作を伴う画面遷移が
   ないため、E2Eテストは導入していない（`docs/BEST_PRACTICES_AUDIT.md` 参照）。
-- 既存テスト（計76件）: `test/eligibility.test.js`（8件）、
-  `test/renewalSchedule.test.js`（4件）、
+- 既存テスト（計82件）: `test/eligibility.test.js`（8件）、
+  `test/prefectureRules.test.js`（6件。都道府県固有ルールの登録・合成・
+  未登録時のフォールバックを検証。実在の都道府県の要件は含まず架空データのみ
+  使用）、`test/renewalSchedule.test.js`（4件）、
   `test/documents.test.js`（15件。様式生成モジュールの「未入力」フォールバック・
   判定ロジック再利用・docx出力の3観点をカバー）、`test/web.test.js`（19件。
   ランダムポートでサーバーを起動し `fetch` で結合テストする。ダウンロードの
@@ -532,7 +559,14 @@ Webの `GET /clients.csv`（読み取り専用のダウンロードのみ。登�
   実際の自動送信は外部サービス連携が前提になり、NFR-2（追加の外部サービスを
   必須にしない）・NFR-4（個人情報を外部送信しない）との整合を発注者と
   確認してから着手すること（送信チャネルの選定は本書の範囲外）。
-- **M6 複数都道府県対応**: 都道府県固有の追加要件が判明した場合、
-  既存の5要件モジュールを直接改変せず、都道府県固有ルールを別モジュールとして
-  追加し、`engine.js` 側で「共通要件＋都道府県固有要件」を合成する構成に
-  拡張することを推奨する（既存ロジックへの影響を局所化するため）。
+- **M6 複数都道府県対応**: 「共通要件＋都道府県固有要件」を合成する仕組み
+  （`src/eligibility/prefectureRules.js`、§5.6.1・ADR-0005参照）は実装済み。
+  対象都道府県が確定し具体的な追加要件の内容が判明した段階で、
+  `src/eligibility/prefectures/<都道府県名>.js` を追加して
+  `registerPrefectureRules()` を呼び出せば組み込める
+- **M6 JCIP連携**: 国土交通省が公開する外部インターフェイス仕様書
+  （XML形式。2026年9月時点でバージョン1.3が公開されている）の存在と概要のみ
+  調査済み（ADR-0006参照）。行政書士登録の完了・対象都道府県の確定・
+  仕様書本文の精査、をすべて満たすまでは自動連携コードを実装しない
+  （登録前に有償の提出代理を自動化することは設計原則1・法的前提と
+  相容れないため）。

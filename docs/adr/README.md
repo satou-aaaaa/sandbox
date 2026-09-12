@@ -30,3 +30,5 @@ Architecture Decision Record（ADR）を管理する。
 | [0002](0002-shared-applicant-profile-type.md) | 全様式生成モジュールでApplicantProfile型を共有する | Accepted |
 | [0003](0003-json-file-persistence-over-database.md) | クライアント情報の永続化にデータベースではなく単一JSONファイルを使う | Accepted |
 | [0004](0004-mailto-draft-over-auto-send.md) | 更新リマインドの通知はメール自動送信ではなくmailto:下書きに留める | Accepted |
+| [0005](0005-prefecture-rule-composition.md) | 都道府県固有要件は共通5要件モジュールを改変せず、登録制の追加ルールとして合成する | Accepted |
+| [0006](0006-jcip-integration-deferred.md) | JCIP自動連携は本フェーズで実装せず、公開情報の調査結果のみ記録する | Accepted |
