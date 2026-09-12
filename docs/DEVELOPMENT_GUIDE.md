@@ -93,6 +93,9 @@ Microsoft Word、LibreOffice Writer等で開いて内容を確認すること。
   （例: `feature/youshiki6`, `fix/renewal-schedule`）。
 - 小規模な副業プロジェクトのため、厳密なブランチ保護ルールは設定していない。
   ただし `main` へ直接pushする場合は、事前に `npm test` を通してからにすること。
+- GitHub Actions（`.github/workflows/test.yml`）が push・PR時に自動で
+  `npm test` を実行する（Node.js 20.x / 22.x の2バージョンで実行）。
+  ローカルでの確認を代替するものではないが、レビュー時の安全網として機能する。
 
 ### 3.3 コミットメッセージ
 
@@ -120,7 +123,8 @@ Microsoft Word、LibreOffice Writer等で開いて内容を確認すること。
 
 ## 5. 受け入れ・検収の進め方
 
-1. 開発者が `npm test` を実行し、全テスト成功を確認する
+1. 開発者が `npm test` を実行し、全テスト成功を確認する（GitHub Actionsでも
+   自動実行されるため、PR画面のチェック結果でも確認できる）
 2. `docs/REQUIREMENTS.md` 7章の受け入れ基準（M2）を1項目ずつ自己チェックする
 3. 生成されたdocxサンプルを発注者に共有し、内容・注記表示を確認してもらう
 4. 発注者が `docs/ARCHITECTURE.md`（および必要なら `docs/DESIGN.md`）の

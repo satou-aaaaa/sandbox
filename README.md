@@ -1,5 +1,7 @@
 # kensetsu-kyoka-toolkit
 
+[![Test](https://github.com/satou-aaaaa/sandbox/actions/workflows/test.yml/badge.svg)](https://github.com/satou-aaaaa/sandbox/actions/workflows/test.yml)
+
 建設業許可の新規申請・更新業務を自動化するためのツールキット（開発中・雛形）。
 
 行政書士を副業として行うにあたり、「自分の関与を最終レビューと押印だけに絞り込む」ことを
