@@ -47,7 +47,7 @@ TypeScriptと同等に効く。プロジェクトが育ってきたら `tsconfig
 - `src/documents/youshiki8.js` — 様式第八号（専任技術者証明書）のdocx自動生成
 - `src/documents/youshiki20-2.js` — 様式第二十号の二（誓約書）のdocx自動生成
 - `src/reminders/renewalSchedule.js` — 5年更新・決算変更届の期限計算
-- `src/reminders/reminderDigest.js` — 複数クライアントのリマインドを集計・整形（M4の土台。実送信は行わない）
+- `src/reminders/reminderDigest.js` — 複数クライアントのリマインドを集計・整形、メール下書きURL生成（M4。実送信は行わない）
 - `src/reminders/clientStore.js` — クライアント情報を `data/clients.json` へ読み書きするローカル永続化層（DB不使用）
 - `src/web/server.js` — インテイク用の簡易Webフォーム（M3）＋リマインド表示（`/reminders`）。node:http のみで実装し、127.0.0.1のみで待受
 - `test/` — `node --test` で実行するユニットテスト（外部テストランナー不要）

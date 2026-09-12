@@ -1,6 +1,11 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { buildReminderDigest, filterDueAlerts, formatReminderDigest } from "../src/reminders/reminderDigest.js";
+import {
+  buildReminderDigest,
+  filterDueAlerts,
+  formatReminderDigest,
+  buildReminderMailtoUrl,
+} from "../src/reminders/reminderDigest.js";
 
 test("buildReminderDigest: 許可日から更新準備・最終締切の2件を計算する（決算変更届の指定なし）", () => {
   const alerts = buildReminderDigest([{ clientName: "テスト建設", grantDateIso: "2024-04-01" }], "2026-09-01");
@@ -79,4 +84,27 @@ test("formatReminderDigest: 期限超過・30日以内・今後の予定の3区�
   assert.match(report, /期限切れ社/);
   assert.match(report, /今後の予定（31日以降）/);
   assert.match(report, /余裕社/);
+});
+
+test("buildReminderDigest: contactEmailを指定するとアラートにも引き継がれる", () => {
+  const alerts = buildReminderDigest(
+    [{ clientName: "テスト建設", grantDateIso: "2024-04-01", contactEmail: "info@example.com" }],
+    "2026-09-01"
+  );
+  assert.ok(alerts.every((a) => a.contactEmail === "info@example.com"));
+});
+
+test("buildReminderMailtoUrl: contactEmailが無ければnullを返す", () => {
+  const [alert] = buildReminderDigest([{ clientName: "テスト建設", grantDateIso: "2024-04-01" }], "2026-09-01");
+  assert.equal(buildReminderMailtoUrl(alert), null);
+});
+
+test("buildReminderMailtoUrl: contactEmailがあればmailto:リンクを返す", () => {
+  const [alert] = buildReminderDigest(
+    [{ clientName: "テスト建設", grantDateIso: "2024-04-01", contactEmail: "info@example.com" }],
+    "2026-09-01"
+  );
+  const url = buildReminderMailtoUrl(alert);
+  assert.match(url, /^mailto:info@example\.com\?subject=/);
+  assert.match(decodeURIComponent(url), /テスト建設/);
 });
