@@ -117,7 +117,13 @@ ${savedNoticeBlock}
   </section>
 
   <section>
-    <h2>6. 欠格要件（該当するものにチェック）</h2>
+    <h2>6. 工事経歴（様式第二号用・任意）</h2>
+    <div id="constructionHistoryContainer"></div>
+    <button type="button" id="addConstructionHistoryBtn">＋ 工事を追加</button>
+  </section>
+
+  <section>
+    <h2>7. 欠格要件（該当するものにチェック）</h2>
     <label><input type="checkbox" id="isUndischargedBankrupt"> 破産者で復権を得ていない</label>
     <label><input type="checkbox" id="hadLicenseRevokedWithin5Years"> 5年以内に建設業許可を取り消された経験がある</label>
     <label><input type="checkbox" id="hasCriminalRecordWithin5Years"> 禁錮以上の刑、または関連法令違反による罰金刑から5年を経過していない</label>
@@ -127,7 +133,7 @@ ${savedNoticeBlock}
   </section>
 
   <section>
-    <h2>7. 誠実性</h2>
+    <h2>8. 誠実性</h2>
     <label><input type="checkbox" id="hasNoDishonestActRisk" checked> 請負契約に関して不正・不誠実な行為をするおそれが明らかでない</label>
     <label>申告メモ（任意） <textarea id="seijitsuseiNotes" rows="2"></textarea></label>
   </section>
@@ -173,6 +179,33 @@ ${savedNoticeBlock}
     <label>指定学科卒業者としての実務経験年数 <input type="number" class="office-yearsOfPracticalExperience" value="0" min="0"></label>
     <label>学歴不問の実務経験年数（10年要件用） <input type="number" class="office-yearsOfGeneralExperience" value="0" min="0"></label>
     <label>指導監督的実務経験年数（特定建設業用） <input type="number" class="office-yearsOfSupervisoryExperience" value="0" min="0"></label>
+    <button type="button" class="removeRowBtn">削除</button>
+  </fieldset>
+</template>
+
+<template id="constructionHistoryRowTemplate">
+  <fieldset class="row construction-history-row">
+    <legend>工事</legend>
+    <label>建設工事の種類 <input type="text" class="ch-constructionType" placeholder="例: 建築工事業"></label>
+    <label>元請/下請
+      <select class="ch-isSubcontract">
+        <option value="false">元請</option>
+        <option value="true">下請</option>
+      </select>
+    </label>
+    <label>注文者 <input type="text" class="ch-orderer"></label>
+    <label>工事名 <input type="text" class="ch-projectName"></label>
+    <label>請負代金の額（円） <input type="number" class="ch-contractAmount" value="0" min="0"></label>
+    <label>工期（着手年月・任意） <input type="month" class="ch-startDateIso"></label>
+    <label>工期（完成年月） <input type="month" class="ch-completionDateIso"></label>
+    <label>配置技術者の氏名（任意） <input type="text" class="ch-assignedEngineerName"></label>
+    <label>配置技術者の別（任意）
+      <select class="ch-engineerRole">
+        <option value="">未選択</option>
+        <option value="主任技術者">主任技術者</option>
+        <option value="監理技術者">監理技術者</option>
+      </select>
+    </label>
     <button type="button" class="removeRowBtn">削除</button>
   </fieldset>
 </template>
@@ -229,6 +262,10 @@ document.getElementById("addOfficeBtn").addEventListener("click", () => {
   addRow("officesContainer", "officeRowTemplate");
   refreshMissingFieldsPanel();
 });
+document.getElementById("addConstructionHistoryBtn").addEventListener("click", () => {
+  addRow("constructionHistoryContainer", "constructionHistoryRowTemplate");
+  refreshMissingFieldsPanel();
+});
 
 function fillOfficerRow(row, officer) {
   row.querySelector(".officer-name").value = officer.name || "";
@@ -246,6 +283,18 @@ function fillOfficeRow(row, office) {
   row.querySelector(".office-yearsOfPracticalExperience").value = office.yearsOfPracticalExperience ?? 0;
   row.querySelector(".office-yearsOfGeneralExperience").value = office.yearsOfGeneralExperience ?? 0;
   row.querySelector(".office-yearsOfSupervisoryExperience").value = office.yearsOfSupervisoryExperience ?? 0;
+}
+
+function fillConstructionHistoryRow(row, record) {
+  row.querySelector(".ch-constructionType").value = record.constructionType || "";
+  row.querySelector(".ch-isSubcontract").value = record.isSubcontract ? "true" : "false";
+  row.querySelector(".ch-orderer").value = record.orderer || "";
+  row.querySelector(".ch-projectName").value = record.projectName || "";
+  row.querySelector(".ch-contractAmount").value = record.contractAmount ?? 0;
+  row.querySelector(".ch-startDateIso").value = record.startDateIso || "";
+  row.querySelector(".ch-completionDateIso").value = record.completionDateIso || "";
+  row.querySelector(".ch-assignedEngineerName").value = record.assignedEngineerName || "";
+  row.querySelector(".ch-engineerRole").value = record.engineerRole || "";
 }
 
 // 役員・営業所の行を用意する。下書きから復元する場合はその件数分、
@@ -271,6 +320,15 @@ if (offices.length > 0) {
 } else {
   addRow("officesContainer", "officeRowTemplate");
 }
+
+// 工事経歴は任意項目のため、役員・営業所と異なり新規入力時に空行を
+// 1件も用意しない（新規申請者は工事実績が無いことも多いため）。
+const constructionHistory = (INITIAL_PROFILE && INITIAL_PROFILE.constructionHistory) || [];
+constructionHistory.forEach((record) => {
+  addRow("constructionHistoryContainer", "constructionHistoryRowTemplate");
+  const rows = document.querySelectorAll("#constructionHistoryContainer .construction-history-row");
+  fillConstructionHistoryRow(rows[rows.length - 1], record);
+});
 
 // 下書きからの基本情報・各要件セクションの復元。
 if (INITIAL_PROFILE) {
@@ -342,6 +400,26 @@ function collectOffices() {
   }));
 }
 
+function collectConstructionHistory() {
+  return Array.from(document.querySelectorAll("#constructionHistoryContainer .construction-history-row")).map((row) => {
+    const record = {
+      constructionType: row.querySelector(".ch-constructionType").value,
+      isSubcontract: row.querySelector(".ch-isSubcontract").value === "true",
+      orderer: row.querySelector(".ch-orderer").value,
+      projectName: row.querySelector(".ch-projectName").value,
+      contractAmount: Number(row.querySelector(".ch-contractAmount").value) || 0,
+      completionDateIso: row.querySelector(".ch-completionDateIso").value,
+    };
+    const startDateIso = row.querySelector(".ch-startDateIso").value;
+    if (startDateIso) record.startDateIso = startDateIso;
+    const assignedEngineerName = row.querySelector(".ch-assignedEngineerName").value;
+    if (assignedEngineerName) record.assignedEngineerName = assignedEngineerName;
+    const engineerRole = row.querySelector(".ch-engineerRole").value;
+    if (engineerRole) record.engineerRole = engineerRole;
+    return record;
+  });
+}
+
 function buildProfile() {
   const num = (id) => Number(document.getElementById(id).value) || 0;
   const str = (id) => document.getElementById(id).value || undefined;
@@ -360,6 +438,7 @@ function buildProfile() {
     applicationDate: str("applicationDate"),
     constructionTypes,
     officers: collectOfficers(),
+    constructionHistory: collectConstructionHistory(),
     keieiGyomuKanri: {
       yearsAsResponsibleOfficer: num("yearsAsResponsibleOfficer"),
       yearsAsQuasiResponsibleOfficer: num("yearsAsQuasiResponsibleOfficer"),
@@ -419,6 +498,13 @@ function computeMissingFieldLabels() {
     const label = row.querySelector(".office-officeName").value.trim() || "営業所 " + (i + 1);
     if (!row.querySelector(".office-officeName").value.trim()) missing.push("営業所 " + (i + 1) + " の営業所名");
     if (!row.querySelector(".office-personName").value.trim()) missing.push(label + " の専任技術者の氏名");
+  });
+  document.querySelectorAll("#constructionHistoryContainer .construction-history-row").forEach((row, i) => {
+    const label = row.querySelector(".ch-projectName").value.trim() || "工事 " + (i + 1);
+    if (!row.querySelector(".ch-constructionType").value.trim()) missing.push(label + " の建設工事の種類");
+    if (!row.querySelector(".ch-orderer").value.trim()) missing.push(label + " の注文者");
+    if (!row.querySelector(".ch-projectName").value.trim()) missing.push("工事 " + (i + 1) + " の工事名");
+    if (!row.querySelector(".ch-completionDateIso").value.trim()) missing.push(label + " の工期（完成年月）");
   });
 
   return missing;

@@ -40,12 +40,15 @@ export function renderReminderPage({ report, clientCount, actionableAlerts, acti
       ? `<h2>連絡が必要な件（メール下書きを開く）</h2>
 <ul>
 ${mailtoItems
-  .map(
-    ({ alert, mailtoUrl }) =>
-      `<li><a href="${escapeHtml(mailtoUrl)}">${escapeHtml(alert.clientName)} — ${escapeHtml(alert.label)}（${escapeHtml(
-        alert.dueDateIso
-      )}）</a></li>`
-  )
+  .map(({ alert, mailtoUrl }) => {
+    // 1クライアントが複数許可を持つ場合、同じクライアント・同じ内容・同じ期限の
+    // 項目が並びうるため、CLI向け出力（formatLine）・メール本文と同様に
+    // どの許可分かをリンク文言にも明記する（M7・FR-5.4）。
+    const licenseLabel = alert.licenseId ? `（許可: ${escapeHtml(alert.licenseId)}）` : "";
+    return `<li><a href="${escapeHtml(mailtoUrl)}">${escapeHtml(alert.clientName)}${licenseLabel} — ${escapeHtml(
+      alert.label
+    )}（${escapeHtml(alert.dueDateIso)}）</a></li>`;
+  })
   .join("\n")}
 </ul>
 <p class="notice">クリックすると既定のメールソフトで下書きが開きます。このツールがメールを送信することはありません。内容を確認してから送信してください。</p>`

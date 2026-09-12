@@ -231,6 +231,33 @@ test("GET /reminders: 連絡先メールアドレス未登録の場合はメー�
   }
 });
 
+test("GET /reminders: 複数許可を持つクライアントのメール下書きリンクには許可IDを表示する（M7）", async () => {
+  const ctx = await startTestServer();
+  try {
+    // 同じクライアントが2つの許可を持ち、どちらも期限超過（licenseIdが異なる
+    // 以外は表示内容が同じ）になるようにする。リンク文言だけで区別できることを確認する。
+    await saveClients(
+      [
+        {
+          clientName: "テスト建設",
+          contactEmail: "info@example.com",
+          licenses: [
+            { licenseId: "般-建築工事業", grantDateIso: "2015-04-01" },
+            { licenseId: "般-電気工事業", grantDateIso: "2015-04-01" },
+          ],
+        },
+      ],
+      ctx.clientsPath
+    );
+    const res = await fetch(`${ctx.baseUrl}/reminders`);
+    const html = await res.text();
+    assert.match(html, /テスト建設（許可: 般-建築工事業）/);
+    assert.match(html, /テスト建設（許可: 般-電気工事業）/);
+  } finally {
+    await ctx.close();
+  }
+});
+
 test("GET /reminders: クエリパラメータなしの場合は従来どおり全件を表示する（M7でも変更なし）", async () => {
   const ctx = await startTestServer();
   try {
