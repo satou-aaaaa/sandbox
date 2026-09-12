@@ -185,7 +185,7 @@ docs/
 ### 4.7 共通の出力型
 
 - **RequirementCheckResult**: `{key, label, passed, reasons[], warnings[]}` — 個別要件の判定結果
-- **EligibilityResult**: `{eligible, checks: RequirementCheckResult[], blockingIssues[], consistencyWarnings: ConsistencyWarning[]}` — 総合判定結果（`consistencyWarnings` はM7で追加予定。§5.16参照。`eligible`/`checks`/`blockingIssues` の算出方法には影響しない）
+- **EligibilityResult**: `{eligible, checks: RequirementCheckResult[], blockingIssues[], consistencyWarnings: ConsistencyWarning[]}` — 総合判定結果（`consistencyWarnings` はM7で追加。§5.16参照。`eligible`/`checks`/`blockingIssues` の算出方法には影響しない）
 
 様式生成モジュールもこの `RequirementCheckResult` 形式に準じたログ・警告表現を
 踏襲すること（一貫性のため）。
@@ -594,12 +594,14 @@ Webの `GET /clients.csv`（読み取り専用のダウンロードのみ。登�
   `--license-id` 等のオプションを追加する（既存の `clientName` が
   見つかった場合は `licenses` へ追記する）。
 
-### 5.16 入力内容の整合性チェック（M7・設計）
+### 5.16 入力内容の整合性チェック（M7・実装済み）
 
 競合調査で識別した「AIによる記載ミス検知」を、NFR-4（外部送信禁止）を
-守った上でルールベースで実現する（FR-6.1〜FR-6.4）。新規モジュール
+守った上でルールベースで実現した（FR-6.1〜FR-6.4）。新規モジュール
 `src/eligibility/consistencyChecks.js` を追加し、既存の5要件判定
-（`src/eligibility/rules/*.js`、合否を決める）とは明確に分離する。
+（`src/eligibility/rules/*.js`、合否を決める）とは明確に分離している。
+`ConsistencyWarning` typedef は `RequirementCheckResult`・`EligibilityResult`
+と同じ `src/eligibility/types.js` に定義する（ADR-0002の型定義集約方針に従う）。
 
 ```js
 /**
@@ -609,20 +611,28 @@ Webの `GET /clients.csv`（読み取り専用のダウンロードのみ。登�
  */
 ```
 
-初期スコープのチェック項目（いずれも既存の `ApplicantProfile` フィールドのみで
-実現可能なものに限定し、新規フィールド追加を要さない範囲から着手する）:
+実装したチェック項目（いずれも既存の `ApplicantProfile` フィールドのみで
+実現しており、新規フィールド追加は不要だった）:
 
-| チェック内容 | 対象フィールド |
-|---|---|
-| 代表者氏名と経営業務管理責任者（証明を受ける者）の氏名の不一致 | `representativeName` / `keieiGyomuKanri.responsibleName` |
-| 実務経験年数等の数値が負、または非現実的に大きい | `yearsOfPracticalExperience` 等の年数系フィールド全般 |
-| 同一人物が複数営業所の専任技術者として重複登録 | `senninGijutsushaList[].personName` |
+| チェック内容 | 対象フィールド | 実装関数 |
+|---|---|---|
+| 代表者氏名と経営業務管理責任者（証明を受ける者）の氏名の不一致 | `representativeName` / `keieiGyomuKanri.responsibleName` | `checkRepresentativeNameConsistency` |
+| 実務経験年数等の数値が負、または非現実的に大きい（しきい値: 負の値、または80年超。`MAX_PLAUSIBLE_YEARS`） | `keieiGyomuKanri.yearsAsResponsibleOfficer` 等・`assistantSupportYears.{finance,labor,operations}`・`senninGijutsushaList[].yearsOfPracticalExperience` 等の年数系フィールド全般 | `checkYearFieldPlausibility` |
+| 同一人物が複数営業所の専任技術者として重複登録 | `senninGijutsushaList[].personName`（`officeName` が2件以上異なる場合のみ検出。同一営業所内の重複や氏名未入力は誤検知しないようにしている） | `checkSenninGijutsushaExclusivity` |
 
 いずれも**合否判定ではなく注記**として扱う（不一致自体が違法とは限らないため）。
-`engine.js` の `evaluateEligibility` が `EligibilityResult.consistencyWarnings`
-（§4.7）として結果に含め、`eligible` / `checks` / `blockingIssues` の
-既存の算出方法・既存テストには影響を与えない（FR-6.4。追加のみの変更）。
-`formatEligibilityReport` にも「入力内容の確認事項」として追記する。
+`engine.js` の `evaluateEligibility` が `checkConsistency(profile)` を呼び出し、
+結果を `EligibilityResult.consistencyWarnings`（§4.7）として追加している。
+`eligible` / `checks` / `blockingIssues` の既存の算出方法・既存テストには
+影響を与えていない（FR-6.4。追加のみの変更。`test/eligibility.test.js` の
+既存82件が変更なしで通ることを確認済み）。`formatEligibilityReport` にも
+「## 入力内容の確認事項（要確認・合否には影響しません）」として、
+`consistencyWarnings` が1件以上ある場合のみ追記する。
+
+テストは `test/consistencyChecks.test.js` に実装。ダミーデータの
+サンプルプロフィール（`scripts/sampleProfile.js`）で警告0件になること、
+各FR-6.1〜6.3の検出、しきい値の境界値（80年/81年）、誤検知しないケース
+（営業所1件のみ／氏名未入力／同一営業所内の重複）を検証している。
 
 ## 6. エラーハンドリング方針
 
