@@ -19,3 +19,9 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm test
+      # --experimental-test-coverage には Node 20 系で誤って例外を投げる既知の不具合があるため、
+      # 22.x のジョブでのみ情報表示として実行する（閾値による失敗判定はしない）。
+      - if: matrix.node-version == '22.x'
+        run: npm run test:coverage
+      - name: npm audit（高深刻度以上）
+        run: npm audit --audit-level=high

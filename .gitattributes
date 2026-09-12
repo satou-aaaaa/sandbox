@@ -1,0 +1,11 @@
+# 改行コードをリポジトリ内では常にLFに正規化する。
+# Windows/Mac/Linuxのどの開発環境でcloneしても差分にCRLF/LFの
+# 揺れが混入しないようにするため（`git add` 時の警告の根本原因）。
+* text=auto eol=lf
+
+# バイナリファイルは改行変換の対象外にする（.docxはzip形式のバイナリ）。
+*.docx binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
