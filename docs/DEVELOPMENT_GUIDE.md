@@ -29,7 +29,7 @@ Git運用・進め方を統一するためのガイド。`docs/REQUIREMENTS.md`�
 git clone <リポジトリURL>
 cd kensetsu-kyoka-toolkit   # または実際のディレクトリ名
 npm install
-npm test                    # 全テスト（現時点で56件）が成功することを確認
+npm test                    # 全テスト（現時点で82件）が成功することを確認
 npm run gen:eligibility     # 要件判定のサンプル実行
 npm run gen:youshiki1       # 様式第一号サマリーのdocx生成サンプル
 npm run web                 # インテイク用Webフォームを起動（任意）
@@ -134,9 +134,12 @@ Microsoft Word、LibreOffice Writer等で開いて内容を確認すること。
 
 - マイルストーン単位（`docs/PROPOSAL.md` 6章のM1〜M6）で区切って開発を進める。
   M1〜M3は完了、M4（通知連携）はリマインドの計算・永続化・mailto下書きまで
-  完了している（実際の自動送信は未着手）。次のM5（試験運用）は行政書士登録の
-  完了、M6（複数都道府県対応）は対象都道府県の確定が、それぞれ着手の前提条件
-  となる（`docs/PROPOSAL.md` 5章・7章参照）。
+  完了している（実際の自動送信は未着手）。M6（複数都道府県対応・JCIP連携）は、
+  対象都道府県が確定した際に拡張できる「仕組み」（`prefectureRules.js`、
+  ADR-0005）とJCIP公開情報の調査（ADR-0006）までは完了しているが、
+  具体的な都道府県固有要件・自動連携コードは未着手。次のM5（試験運用）は
+  行政書士登録の完了、M6の本体着手は対象都道府県の確定が、それぞれの
+  前提条件となる（`docs/PROPOSAL.md` 5章・7章参照）。
 - 対象都道府県・対象様式の詳細（レイアウト・記載要領）が発注者側で未確定の場合、
   着手前に発注者へ確認すること（`docs/REQUIREMENTS.md` 8章の前提条件を参照）。
 - 実装方針で `docs/DESIGN.md` に明記されていない判断が必要になった場合
