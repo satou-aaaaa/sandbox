@@ -39,6 +39,7 @@
     "@types/node": "^22.20.2",
     "eslint": "^10.10.0",
     "globals": "^17.12.0",
+    "jsdom": "^26.1.0",
     "typescript": "^7.0.2"
   },
   "engines": {

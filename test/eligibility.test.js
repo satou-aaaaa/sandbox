@@ -97,6 +97,25 @@ test("専任技術者: 実務経験10年ルートで合格できる", () => {
   assert.equal(check.passed, true);
 });
 
+test("専任技術者: 特定建設業でも指導監督的実務経験2年以上あれば合格できる", () => {
+  const profile = baseProfile();
+  profile.senninGijutsushaList = [
+    {
+      officeName: "本店",
+      licenseType: "特定",
+      hasNationalLicense: false,
+      isDesignatedCourseGraduate: false,
+      educationLevel: null,
+      yearsOfPracticalExperience: 0,
+      yearsOfGeneralExperience: 10,
+      yearsOfSupervisoryExperience: 2,
+    },
+  ];
+  const result = evaluateEligibility(profile);
+  const check = result.checks.find((c) => c.key === "senninGijutsusha");
+  assert.equal(check.passed, true);
+});
+
 test("専任技術者: 特定建設業は指導監督的実務経験2年も必要", () => {
   const profile = baseProfile();
   profile.senninGijutsushaList = [
@@ -148,4 +167,289 @@ test("誠実性: 自己申告で懸念ありなら不合格", () => {
   const result = evaluateEligibility(profile);
   const check = result.checks.find((c) => c.key === "seijitsusei");
   assert.equal(check.passed, false);
+});
+
+test("誠実性: 申告メモがあれば判定理由に含まれる", () => {
+  const profile = baseProfile();
+  profile.seijitsusei = { hasNoDishonestActRisk: true, notes: "特記事項なし" };
+  const result = evaluateEligibility(profile);
+  const check = result.checks.find((c) => c.key === "seijitsusei");
+  assert.ok(check.reasons.some((r) => r.includes("特記事項なし")));
+});
+
+test("誠実性: 合格時も行政書士本人による個別確認を促す警告が必ず表示される", () => {
+  const profile = baseProfile();
+  const result = evaluateEligibility(profile);
+  const check = result.checks.find((c) => c.key === "seijitsusei");
+  assert.equal(check.passed, true);
+  assert.ok(check.warnings.length > 0);
+});
+
+test("財産的基礎: 一般建設業は自己資本500万円ちょうどで要件を満たす（境界値）", () => {
+  const profile = baseProfile();
+  profile.zaisanKiso = {
+    licenseType: "一般",
+    netAssets: 5_000_000,
+    fundingCapacity: 0,
+    hasFiveYearsContinuousOperation: false,
+    capitalAmount: 0,
+    deficitRatio: 0,
+    currentRatio: 0,
+  };
+  const result = evaluateEligibility(profile);
+  const check = result.checks.find((c) => c.key === "zaisanKiso");
+  assert.equal(check.passed, true);
+});
+
+test("財産的基礎: 一般建設業は自己資本499万9999円では単独では要件を満たさない（境界値）", () => {
+  const profile = baseProfile();
+  profile.zaisanKiso = {
+    licenseType: "一般",
+    netAssets: 4_999_999,
+    fundingCapacity: 0,
+    hasFiveYearsContinuousOperation: false,
+    capitalAmount: 0,
+    deficitRatio: 0,
+    currentRatio: 0,
+  };
+  const result = evaluateEligibility(profile);
+  const check = result.checks.find((c) => c.key === "zaisanKiso");
+  assert.equal(check.passed, false);
+});
+
+test("財産的基礎: 一般建設業は資金調達能力500万円以上のみでも要件を満たす", () => {
+  const profile = baseProfile();
+  profile.zaisanKiso = {
+    licenseType: "一般",
+    netAssets: 0,
+    fundingCapacity: 5_000_000,
+    hasFiveYearsContinuousOperation: false,
+    capitalAmount: 0,
+    deficitRatio: 0,
+    currentRatio: 0,
+  };
+  const result = evaluateEligibility(profile);
+  const check = result.checks.find((c) => c.key === "zaisanKiso");
+  assert.equal(check.passed, true);
+});
+
+test("財産的基礎: 一般建設業は直近5年間の継続営業実績のみでも要件を満たす", () => {
+  const profile = baseProfile();
+  profile.zaisanKiso = {
+    licenseType: "一般",
+    netAssets: 0,
+    fundingCapacity: 0,
+    hasFiveYearsContinuousOperation: true,
+    capitalAmount: 0,
+    deficitRatio: 0,
+    currentRatio: 0,
+  };
+  const result = evaluateEligibility(profile);
+  const check = result.checks.find((c) => c.key === "zaisanKiso");
+  assert.equal(check.passed, true);
+});
+
+test("専任技術者: 国家資格保有のみでも合格できる", () => {
+  const profile = baseProfile();
+  profile.senninGijutsushaList = [
+    {
+      officeName: "本店",
+      licenseType: "一般",
+      hasNationalLicense: true,
+      isDesignatedCourseGraduate: false,
+      educationLevel: null,
+      yearsOfPracticalExperience: 0,
+      yearsOfGeneralExperience: 0,
+      yearsOfSupervisoryExperience: 0,
+    },
+  ];
+  const result = evaluateEligibility(profile);
+  const check = result.checks.find((c) => c.key === "senninGijutsusha");
+  assert.equal(check.passed, true);
+});
+
+test("専任技術者: 指定学科卒業（高卒）+ 実務経験5年で合格できる", () => {
+  const profile = baseProfile();
+  profile.senninGijutsushaList = [
+    {
+      officeName: "本店",
+      licenseType: "一般",
+      hasNationalLicense: false,
+      isDesignatedCourseGraduate: true,
+      educationLevel: "高卒",
+      yearsOfPracticalExperience: 5,
+      yearsOfGeneralExperience: 0,
+      yearsOfSupervisoryExperience: 0,
+    },
+  ];
+  const result = evaluateEligibility(profile);
+  const check = result.checks.find((c) => c.key === "senninGijutsusha");
+  assert.equal(check.passed, true);
+});
+
+test("専任技術者: 指定学科卒業（高卒）でも実務経験4年では合格できない（境界値）", () => {
+  const profile = baseProfile();
+  profile.senninGijutsushaList = [
+    {
+      officeName: "本店",
+      licenseType: "一般",
+      hasNationalLicense: false,
+      isDesignatedCourseGraduate: true,
+      educationLevel: "高卒",
+      yearsOfPracticalExperience: 4,
+      yearsOfGeneralExperience: 0,
+      yearsOfSupervisoryExperience: 0,
+    },
+  ];
+  const result = evaluateEligibility(profile);
+  const check = result.checks.find((c) => c.key === "senninGijutsusha");
+  assert.equal(check.passed, false);
+});
+
+test("専任技術者: 指定学科卒業（大卒）+ 実務経験3年で合格できる", () => {
+  const profile = baseProfile();
+  profile.senninGijutsushaList = [
+    {
+      officeName: "本店",
+      licenseType: "一般",
+      hasNationalLicense: false,
+      isDesignatedCourseGraduate: true,
+      educationLevel: "大卒",
+      yearsOfPracticalExperience: 3,
+      yearsOfGeneralExperience: 0,
+      yearsOfSupervisoryExperience: 0,
+    },
+  ];
+  const result = evaluateEligibility(profile);
+  const check = result.checks.find((c) => c.key === "senninGijutsusha");
+  assert.equal(check.passed, true);
+});
+
+test("専任技術者: 複数営業所のうち1つでも不合格なら全体が不合格になる", () => {
+  const profile = baseProfile();
+  profile.senninGijutsushaList = [
+    {
+      officeName: "本店",
+      licenseType: "一般",
+      hasNationalLicense: true,
+      isDesignatedCourseGraduate: false,
+      educationLevel: null,
+      yearsOfPracticalExperience: 0,
+      yearsOfGeneralExperience: 0,
+      yearsOfSupervisoryExperience: 0,
+    },
+    {
+      officeName: "支店",
+      licenseType: "一般",
+      hasNationalLicense: false,
+      isDesignatedCourseGraduate: false,
+      educationLevel: null,
+      yearsOfPracticalExperience: 0,
+      yearsOfGeneralExperience: 0,
+      yearsOfSupervisoryExperience: 0,
+    },
+  ];
+  const result = evaluateEligibility(profile);
+  const check = result.checks.find((c) => c.key === "senninGijutsusha");
+  assert.equal(check.passed, false);
+  assert.ok(check.reasons.some((r) => r.includes("[支店]")));
+});
+
+test("専任技術者: 営業所が1つも登録されていなければ不合格になる", () => {
+  const profile = baseProfile();
+  profile.senninGijutsushaList = [];
+  const result = evaluateEligibility(profile);
+  const check = result.checks.find((c) => c.key === "senninGijutsusha");
+  assert.equal(check.passed, false);
+  assert.ok(check.reasons.some((r) => r.includes("営業所の情報が入力されていません")));
+});
+
+test("経営業務管理体制: ルートB（準ずる地位5年）でも合格できる", () => {
+  const profile = baseProfile();
+  profile.keieiGyomuKanri = {
+    yearsAsResponsibleOfficer: 0,
+    yearsAsQuasiResponsibleOfficer: 5,
+    yearsAsAssistant: 0,
+    isOfficerFor2Years: false,
+    assistantSupportYears: { finance: 0, labor: 0, operations: 0 },
+    hasSocialInsurance: true,
+  };
+  const result = evaluateEligibility(profile);
+  const check = result.checks.find((c) => c.key === "keieiGyomuKanri");
+  assert.equal(check.passed, true);
+});
+
+test("経営業務管理体制: ルートC（補佐業務6年）でも合格できる", () => {
+  const profile = baseProfile();
+  profile.keieiGyomuKanri = {
+    yearsAsResponsibleOfficer: 0,
+    yearsAsQuasiResponsibleOfficer: 0,
+    yearsAsAssistant: 6,
+    isOfficerFor2Years: false,
+    assistantSupportYears: { finance: 0, labor: 0, operations: 0 },
+    hasSocialInsurance: true,
+  };
+  const result = evaluateEligibility(profile);
+  const check = result.checks.find((c) => c.key === "keieiGyomuKanri");
+  assert.equal(check.passed, true);
+});
+
+test("経営業務管理体制: 補佐業務5年（6年未満）ではルートC不成立（境界値）", () => {
+  const profile = baseProfile();
+  profile.keieiGyomuKanri = {
+    yearsAsResponsibleOfficer: 0,
+    yearsAsQuasiResponsibleOfficer: 0,
+    yearsAsAssistant: 5,
+    isOfficerFor2Years: false,
+    assistantSupportYears: { finance: 0, labor: 0, operations: 0 },
+    hasSocialInsurance: true,
+  };
+  const result = evaluateEligibility(profile);
+  const check = result.checks.find((c) => c.key === "keieiGyomuKanri");
+  assert.equal(check.passed, false);
+});
+
+test("欠格要件: 破産者で復権を得ていない場合は不合格", () => {
+  const profile = baseProfile();
+  profile.kekkaku.isUndischargedBankrupt = true;
+  const result = evaluateEligibility(profile);
+  const check = result.checks.find((c) => c.key === "kekkaku");
+  assert.equal(check.passed, false);
+  assert.ok(check.reasons.some((r) => r.includes("破産者")));
+});
+
+test("欠格要件: 5年以内に建設業許可を取り消された経験がある場合は不合格", () => {
+  const profile = baseProfile();
+  profile.kekkaku.hadLicenseRevokedWithin5Years = true;
+  const result = evaluateEligibility(profile);
+  const check = result.checks.find((c) => c.key === "kekkaku");
+  assert.equal(check.passed, false);
+  assert.ok(check.reasons.some((r) => r.includes("許可を取り消された")));
+});
+
+test("欠格要件: 禁錮以上の刑等から5年を経過していない場合は不合格", () => {
+  const profile = baseProfile();
+  profile.kekkaku.hasCriminalRecordWithin5Years = true;
+  const result = evaluateEligibility(profile);
+  const check = result.checks.find((c) => c.key === "kekkaku");
+  assert.equal(check.passed, false);
+  assert.ok(check.reasons.some((r) => r.includes("禁錮以上の刑")));
+});
+
+test("欠格要件: 心身の故障により適正に営むことができないと認められる場合は不合格", () => {
+  const profile = baseProfile();
+  profile.kekkaku.hasMentalImpairmentAffectingDuties = true;
+  const result = evaluateEligibility(profile);
+  const check = result.checks.find((c) => c.key === "kekkaku");
+  assert.equal(check.passed, false);
+  assert.ok(check.reasons.some((r) => r.includes("心身の故障")));
+});
+
+test("欠格要件: 虚偽記載・重要事実の記載漏れがある場合は不合格", () => {
+  const profile = baseProfile();
+  profile.kekkaku.hasFalseOrOmittedStatement = true;
+  const result = evaluateEligibility(profile);
+  const check = result.checks.find((c) => c.key === "kekkaku");
+  assert.equal(check.passed, false);
+  assert.ok(check.reasons.some((r) => r.includes("虚偽の記載")));
 });
