@@ -169,6 +169,12 @@ test("様式第八号: docxファイルを生成できる", async () => {
   await assertWrittenDocx(writeYoushiki8Docx, buildSampleApplicantProfile());
 });
 
+test("様式第八号: 営業所が未入力でもdocxファイルを生成できる", async () => {
+  const profile = buildSampleApplicantProfile();
+  profile.senninGijutsushaList = [];
+  await assertWrittenDocx(writeYoushiki8Docx, profile);
+});
+
 test("様式第二十号の二: 代表者氏名が未入力なら（未入力）になる", () => {
   const profile = buildSampleApplicantProfile();
   profile.representativeName = undefined;

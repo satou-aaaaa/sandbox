@@ -31,7 +31,7 @@ cd kensetsu-kyoka-toolkit   # または実際のディレクトリ名
 npm install
 npm run typecheck           # JSDocの型チェック（tsc --noEmit。ビルドは行わない）
 npm run lint                # ESLintによる静的チェック
-npm test                    # 全テスト（現時点で191件）が成功することを確認
+npm test                    # 全テスト（現時点で200件）が成功することを確認
 npm run gen:eligibility     # 要件判定のサンプル実行
 npm run gen:youshiki1       # 様式第一号サマリーのdocx生成サンプル
 npm run web                 # インテイク用Webフォームを起動（任意）
@@ -156,7 +156,9 @@ Microsoft Word、LibreOffice Writer等で開いて内容を確認すること。
   貸借対照表・損益計算書本体・株主資本等変動計算書・注記表は引き続き対象外。
   2026年9月には既存機能のテスト分岐網羅率を重点的に強化した（法定要件判定の
   未検証だった分岐、`escapeHtml`・docx共通ヘルパーの直接テスト、Webフォームの
-  ブラウザ側JavaScriptをjsdomで実行するテストを追加。138件→191件。
+  ブラウザ側JavaScriptをjsdomで実行するテストを追加。さらに`npm run test:coverage`
+  の残り分岐（`formatEligibilityReport`・リマインド区分表示・エラーレスポンス系
+  ルート等）も洗い出して追加した。138件→200件、分岐網羅率は約88%→約92%。
   詳細は`docs/DESIGN.md` 7章）。
 - 対象都道府県・対象様式の詳細（レイアウト・記載要領）が発注者側で未確定の場合、
   着手前に発注者へ確認すること（`docs/REQUIREMENTS.md` 8章の前提条件を参照）。

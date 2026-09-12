@@ -4,7 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import fs from "node:fs/promises";
 
-import { createServer } from "../src/web/server.js";
+import { createServer, startServer } from "../src/web/server.js";
 import { buildSampleApplicantProfile } from "../scripts/sampleProfile.js";
 import { saveClients } from "../src/reminders/clientStore.js";
 import { upsertDraft, loadDrafts } from "../src/web/draftStore.js";
@@ -121,6 +121,30 @@ test("/download はディレクトリトラバーサルを拒否する", async (
   }
 });
 
+test("/download は存在しないファイルなら404を返す", async () => {
+  const ctx = await startTestServer();
+  try {
+    const res = await fetch(`${ctx.baseUrl}/download/no-such-session/youshiki1.docx`);
+    assert.equal(res.status, 404);
+  } finally {
+    await ctx.close();
+  }
+});
+
+test("POST /drafts で profileJson が無ければ400を返す", async () => {
+  const ctx = await startTestServer();
+  try {
+    const res = await fetch(`${ctx.baseUrl}/drafts`, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: "",
+    });
+    assert.equal(res.status, 400);
+  } finally {
+    await ctx.close();
+  }
+});
+
 test("POST /submit で profileJson が無ければ400を返す", async () => {
   const ctx = await startTestServer();
   try {
@@ -161,6 +185,25 @@ test("存在しないパスは404を返す", async () => {
     assert.equal(res.status, 404);
   } finally {
     await ctx.close();
+  }
+});
+
+test("startServer: ランダムポート（0指定）でリッスンし、実際にリクエストへ応答できる", async () => {
+  const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "kensetsu-kyoka-toolkit-startserver-test-"));
+  const server = startServer({
+    port: 0,
+    outDir: path.join(tmpDir, "out"),
+    clientsPath: path.join(tmpDir, "clients.json"),
+    draftsPath: path.join(tmpDir, "drafts.json"),
+  });
+  try {
+    await new Promise((resolve) => server.once("listening", resolve));
+    const { port } = server.address();
+    const res = await fetch(`http://127.0.0.1:${port}/`);
+    assert.equal(res.status, 200);
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
+    await fs.rm(tmpDir, { recursive: true, force: true });
   }
 });
 
