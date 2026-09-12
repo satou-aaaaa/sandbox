@@ -20,6 +20,27 @@ export function buildSampleApplicantProfile() {
       { name: "山田 太郎", title: "代表取締役", birthDate: "1975-04-01" },
       { name: "鈴木 花子", title: "取締役", birthDate: "1980-11-20" },
     ],
+    constructionHistory: [
+      {
+        constructionType: "建築工事業",
+        isSubcontract: false,
+        orderer: "サンプル物産株式会社",
+        projectName: "サンプル物産本社ビル新築工事",
+        contractAmount: 45_000_000,
+        startDateIso: "2025-04",
+        completionDateIso: "2025-12",
+        assignedEngineerName: "佐藤 一郎",
+        engineerRole: "主任技術者",
+      },
+      {
+        constructionType: "建築工事業",
+        isSubcontract: true,
+        orderer: "サンプル建材工業株式会社",
+        projectName: "サンプル倉庫増築工事",
+        contractAmount: 8_500_000,
+        completionDateIso: "2025-08",
+      },
+    ],
     keieiGyomuKanri: {
       yearsAsResponsibleOfficer: 6,
       yearsAsQuasiResponsibleOfficer: 0,

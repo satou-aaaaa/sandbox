@@ -37,6 +37,7 @@ import { pathToFileURL } from "node:url";
 
 import { evaluateEligibility, formatEligibilityReport } from "../eligibility/engine.js";
 import { writeYoushiki1Docx } from "../documents/youshiki1.js";
+import { writeYoushiki2Docx } from "../documents/youshiki2.js";
 import { writeYoushiki6Docx } from "../documents/youshiki6.js";
 import { writeYoushiki7Docx } from "../documents/youshiki7.js";
 import { writeYoushiki8Docx } from "../documents/youshiki8.js";
@@ -62,6 +63,7 @@ const MAX_BODY_BYTES = 5 * 1024 * 1024; // 5MB（フォーム入力のみを想�
 /** 各様式生成モジュールの一覧。順序は表示順を兼ねる。 */
 const DOCUMENT_TARGETS = [
   { label: "様式第一号（建設業許可申請書）", filename: "youshiki1.docx", write: writeYoushiki1Docx },
+  { label: "様式第二号（工事経歴書）", filename: "youshiki2.docx", write: writeYoushiki2Docx },
   { label: "様式第六号（役員等の一覧表）", filename: "youshiki6.docx", write: writeYoushiki6Docx },
   { label: "様式第七号（経営業務管理責任者証明書）", filename: "youshiki7.docx", write: writeYoushiki7Docx },
   { label: "様式第八号（専任技術者証明書）", filename: "youshiki8.docx", write: writeYoushiki8Docx },
@@ -69,7 +71,7 @@ const DOCUMENT_TARGETS = [
 ];
 
 /**
- * ApplicantProfile から5様式すべてのdocxサマリーを生成する。
+ * ApplicantProfile から様式すべてのdocxサマリーを生成する（DOCUMENT_TARGETS参照）。
  * @param {import('../eligibility/types.js').ApplicantProfile} profile
  * @param {string} sessionDir
  * @returns {Promise<{ label: string, filename: string }[]>}
