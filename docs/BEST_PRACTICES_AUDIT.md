@@ -41,15 +41,21 @@ Martin Fowler・OWASP・Google Cloud DORAチーム等の公開資料を出典と
 | 入力バリデーション（スキーマ検証） | ⛔ | Zod等のスキーマバリデータは未導入。設計原則上「エラーで止めるのではなくwarningで継続」方針（DESIGN.md 6章）を優先しており、意図的に厳密な入力検証を持たせていない。顧客対応はブラウザ経由でも最終的に行政書士本人が内容確認する前提のため、現状は妥当と判断 |
 | 依存パッケージ数の最小化 | ✅ | 本番依存は `docx` 1件のみ |
 | コミット前のシークレット混入防止 | ✅ | `hooks/check-secrets.mjs`（pre-commitフック）。AWSキー・Google APIキー・Slackトークン・秘密鍵・汎用的な`api_key=`等のパターンを検知する簡易チェック。導入コストを抑えるため外部ツール（gitleaks等）は使わず、`git`コマンドのみで実装 |
+| CI側でのシークレット混入チェック（二重の安全網） | ✅ | 2026年9月追加。`hooks/check-secrets.mjs --all`（`npm run check-secrets`）をCIでも実行し、リポジトリ全体を対象に再チェックする。ローカルのpre-commitフックは`--no-verify`でバイパスできる・`git config core.hooksPath hooks`を設定していない環境からのpushには効かないため、その穴を埋める目的 |
+| GitHub純正のシークレットスキャン・CodeQL（コードスキャン） | ⛔ | 2026年9月にGitHub APIで確認したところ、本リポジトリ（非公開・GitHub Freeプラン）では利用不可（`secret-scanning/alerts`→404、`code-scanning/alerts`→403。いずれもGitHub Advanced Security機能のため）。上記の自作チェックで代替している |
+| 依存パッケージのレジストリ署名検証 | ✅ | 2026年9月追加。CIで`npm audit signatures`を実行し、npmレジストリ上のパッケージ署名を検証する（サプライチェーン改ざん対策） |
 | 静的解析（SAST） | 🟡 | ESLintのセキュリティ関連プラグイン等は未導入（3章のLinter見送りと同じ理由）。`npm audit`（依存パッケージの既知脆弱性）は実施済みだが、自作コードそのものの静的解析は行っていない |
 | プライバシー・バイ・デザイン | ✅ | `ApplicantProfile`・`ClientRecord`（M7以前は`ClientLicenseRecord`）とも設計当初から「外部送信しない」ことを前提に設計済み（NFR-4、ADR-0004） |
+| GitHub Actionsワークフローの権限最小化 | ✅ | 2026年9月追加。`.github/workflows/test.yml`に`permissions: contents: read`を明記し、`GITHUB_TOKEN`の権限をデフォルトの広い権限ではなく必要最小限に絞った |
 
 ## 2. テスト・CI
 
 | 項目 | 状態 | 補足 |
 |---|---|---|
 | ユニットテスト | ✅ | `node --test`（Node.js標準機能）。200件全通過 |
-| CI（push/PR時の自動テスト） | ✅ | `.github/workflows/test.yml`。Node.js 20.x/22.x の2バージョンで実行 |
+| CI（push/PR時の自動テスト） | ✅ | `.github/workflows/test.yml`。Node.js 20.x/22.x × ubuntu-latest/windows-latest の計4通りで実行（2026年9月にWindows環境を追加。開発機がWindowsであり、過去に改行コード関連の問題が実際に発生した経緯を踏まえた対応） |
+| CIの実行効率・堅牢性 | ✅ | 2026年9月追加。`concurrency`設定で同一ブランチ・PRへの連続pushの古い実行を自動キャンセル、`timeout-minutes: 10`でハング時のActions利用時間浪費を防止、`fail-fast: false`でOS/Node.jsバージョンの組み合わせごとの結果を最後まで確認できるようにした |
+| CI実行結果のサマリー表示 | ✅ | 2026年9月追加。テスト件数・カバレッジ数値を`$GITHUB_STEP_SUMMARY`に出力し、ログを展開しなくてもActionsの実行画面で概要を確認できるようにした |
 | テストカバレッジ計測 | ✅ | `npm run test:coverage`（`--experimental-test-coverage`）。CIでは22.xのジョブでのみ表示（Node 20系に既知の不具合があるため）。現在ライン網羅率 約99.7%・分岐網羅率 約92%（2026年9月、法定要件判定ロジック・エラーレスポンス系ルートの分岐網羅を重点強化） |
 | カバレッジの閾値強制 | ⛔ | `--test-coverage-lines` 等で閾値未達を失敗にする設定は未導入。個人開発でカバレッジ数値そのものを目的化しないため、情報表示に留めている |
 | ブランチ保護ルール（必須レビュー等） | 🟡 | GitHub側のリポジトリ設定（Settings > Branches）で有効化可能。単独開発のためレビュー必須は現実的でないが、「CIが通るまでマージ不可」の設定は検討の余地あり。コードからは変更できないため、必要なら発注者（あなた）がGitHub UIで設定すること |
@@ -169,6 +175,30 @@ Googleのeng-practicesが挙げる12のレビュー観点（設計・機能性�
 - `eslint.config.js`（flat config。`js.configs.recommended` ベース）を追加し、
   `npm run lint` をCIに追加。ビルドステップは増やしていない
 - 導入時点で既存コードのlintエラーは0件だった
+
+### 第6回（2026年9月・CI強化）
+
+「CIを強化しようと考えています」という依頼を受け、GitHub APIで
+ブランチ保護・シークレットスキャン・コードスキャンの利用可否を確認した上で
+（いずれもGitHub Freeプランの非公開リポジトリでは利用不可と確認済み）、
+既存の仕組みを拡張する形で対応した。
+
+- `.github/workflows/test.yml` のマトリクスに`windows-latest`を追加
+  （ubuntu-latest/windows-latest × Node.js 20.x/22.xの計4通り）。開発機が
+  Windowsであり、過去に改行コード関連の問題（`.gitattributes`で対処済み）が
+  実際に発生した経緯を踏まえた対応。`fail-fast: false`も追加し、1つの
+  組み合わせが失敗しても他の結果を確認できるようにした
+- ワークフローに`permissions: contents: read`（`GITHUB_TOKEN`の権限最小化）、
+  `concurrency`（連続pushでの古い実行の自動キャンセル）、
+  `timeout-minutes: 10`（ハング時の利用時間浪費防止）を追加
+- `hooks/check-secrets.mjs`に`--all`オプション（HEAD時点の全ファイルを
+  対象にスキャン）を追加し、`npm run check-secrets`としてCIでも実行。
+  ローカルのpre-commitフックが`--no-verify`でバイパスされた場合や
+  `git config core.hooksPath hooks`未設定の環境からのpushにも対応する
+  二重の安全網とした
+- CIに`npm audit signatures`を追加（npmレジストリのパッケージ署名検証）
+- テスト件数・カバレッジ数値を`$GITHUB_STEP_SUMMARY`に出力し、Actionsの
+  実行画面でログを展開せずに概要を確認できるようにした
 
 ## 6. 次に検討する価値がある項目（優先度順の目安）
 

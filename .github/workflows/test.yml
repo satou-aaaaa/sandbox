@@ -5,11 +5,33 @@ on:
     branches: [master]
   pull_request:
 
+# GITHUB_TOKENの権限を必要最小限に絞る（サプライチェーン攻撃対策の基本）。
+# 本ワークフローはチェックアウトしてテストを実行するのみで、コンテンツの
+# 書き込みやIssue/PR操作は行わないため read のみで足りる。
+permissions:
+  contents: read
+
+# 同じブランチ・PRへの連続pushでは、古い実行中のジョブを自動キャンセルする
+# （Actions利用時間の節約）。
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   test:
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
+    # まれなハング状態でActions利用時間を無駄に消費するのを防ぐ。
+    timeout-minutes: 10
     strategy:
+      # 1つのOS/Node.jsバージョンで失敗しても、他の組み合わせの結果も
+      # 確認できるよう最後まで実行する（診断のしやすさを優先）。
+      fail-fast: false
       matrix:
+        # 開発機がWindowsであるため、Windows環境も対象に含める
+        # （改行コード・パス区切り文字関連のバグをubuntu限定のCIでは
+        # 見逃すリスクがあったため。過去に.gitattributesでの改行コード
+        # 対応が必要になった経緯を踏まえた対応）。
+        os: [ubuntu-latest, windows-latest]
         node-version: [20.x, 22.x]
     steps:
       - uses: actions/checkout@v7
@@ -22,8 +44,39 @@ jobs:
       - run: npm run lint
       - run: npm test
       # --experimental-test-coverage には Node 20 系で誤って例外を投げる既知の不具合があるため、
-      # 22.x のジョブでのみ情報表示として実行する（閾値による失敗判定はしない）。
-      - if: matrix.node-version == '22.x'
-        run: npm run test:coverage
+      # 22.x のジョブでのみ実行する。結果はOSに依存しないため ubuntu の1系統のみで足りる。
+      # テスト件数・カバレッジ数値をActionsのジョブサマリーにも出力し、ログを
+      # 開かなくても概要を確認できるようにする。
+      - name: テストカバレッジ計測とサマリー出力
+        if: matrix.os == 'ubuntu-latest' && matrix.node-version == '22.x'
+        shell: bash
+        run: |
+          set -o pipefail
+          npm run test:coverage 2>&1 | tee coverage-output.txt
+          # Node.jsのテストランナーはTTY接続時は"ℹ "、CI等の非TTY環境では"# "を
+          # 診断行の接頭辞に使う（reporterの自動切り替え）ため、両方にマッチさせる。
+          {
+            echo '## テストカバレッジサマリー'
+            echo
+            echo '```'
+            grep -E '^[ℹ#] (tests|pass|fail|cancelled|skipped|todo|all files)' coverage-output.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+      # シークレット混入チェック（hooks/check-secrets.mjs）をCI側でも実行する。
+      # ローカルのpre-commitフックは `git commit --no-verify` でバイパスできる・
+      # そもそも `git config core.hooksPath hooks` を設定していない環境からの
+      # pushには効かないため、CI側での二重の安全網として全ファイルを対象に
+      # 再チェックする。GitHub純正のシークレットスキャンは非公開リポジトリの
+      # 現プラン（GitHub Free）では利用できないため確認済み（2026年9月）。
+      # 結果はOSに依存しないため ubuntu の1系統のみで足りる。
+      - name: シークレット混入チェック（CI側の安全網）
+        if: matrix.os == 'ubuntu-latest' && matrix.node-version == '22.x'
+        run: npm run check-secrets
+      # 依存パッケージの既知脆弱性チェック。結果はOSに依存しないため ubuntu のみで実行する。
       - name: npm audit（高深刻度以上）
+        if: matrix.os == 'ubuntu-latest'
         run: npm audit --audit-level=high
+      # npmレジストリ上のパッケージ署名を検証する（サプライチェーン改ざん対策）。
+      - name: npmパッケージ署名の検証
+        if: matrix.os == 'ubuntu-latest'
+        run: npm audit signatures

@@ -13,6 +13,13 @@
  * できる（本当に問題ないと確信できる場合のみ使うこと）。
  *
  * 依存パッケージを追加しないため、`git` コマンドをそのまま呼び出す。
+ *
+ * `--all` を付けて実行すると、ステージ済みの差分ではなくリポジトリ全体
+ * （HEAD時点でgit管理下にある全ファイル）を対象にスキャンする。
+ * `--no-verify` でローカルのフックをバイパスされた場合や、そもそも
+ * `git config core.hooksPath hooks` を設定していない環境からのpushにも
+ * 対応できるよう、CI（`.github/workflows/test.yml`）側の二重の安全網として
+ * `npm run check-secrets` から呼び出す想定（`package.json`参照）。
  */
 import { execFileSync } from "node:child_process";
 
@@ -44,12 +51,30 @@ function getStagedContent(filePath) {
   }
 }
 
+/** HEAD時点でgit管理下にある全ファイルの一覧を返す（`--all`モード用）。 */
+function getAllTrackedFiles() {
+  const output = execFileSync("git", ["ls-files"], { encoding: "utf8" });
+  return output.split("\n").filter(Boolean);
+}
+
+/** 指定ファイルのHEAD時点での内容を返す（`--all`モード用）。 */
+function getContentAtHead(filePath) {
+  try {
+    return execFileSync("git", ["show", `HEAD:${filePath}`], { encoding: "utf8" });
+  } catch {
+    // バイナリファイル等、テキストとして読めない場合はスキップする。
+    return "";
+  }
+}
+
 function main() {
-  const files = getStagedFiles();
+  const scanAll = process.argv.includes("--all");
+  const files = scanAll ? getAllTrackedFiles() : getStagedFiles();
+  const getContent = scanAll ? getContentAtHead : getStagedContent;
   const findings = [];
 
   for (const file of files) {
-    const content = getStagedContent(file);
+    const content = getContent(file);
     if (!content) continue;
 
     for (const [pattern, label] of SECRET_PATTERNS) {
@@ -61,11 +86,18 @@ function main() {
   }
 
   if (findings.length > 0) {
-    console.error("⚠ コミットをブロックしました: シークレットらしき文字列が検出されました。\n");
+    console.error(
+      scanAll
+        ? "⚠ CIチェックを失敗させました: シークレットらしき文字列が検出されました。\n"
+        : "⚠ コミットをブロックしました: シークレットらしき文字列が検出されました。\n"
+    );
     console.error(findings.join("\n"));
     console.error(
-      "\n実データであれば直ちに取り消し・ローテーションしてください。" +
-        "\n誤検知の場合は `git commit --no-verify` でバイパスできます。"
+      scanAll
+        ? "\n実データであれば直ちに取り消し・ローテーションしてください。" +
+            "\n誤検知の場合はパターン（SECRET_PATTERNS）を見直すか、該当ファイルを除外してください。"
+        : "\n実データであれば直ちに取り消し・ローテーションしてください。" +
+            "\n誤検知の場合は `git commit --no-verify` でバイパスできます。"
     );
     process.exit(1);
   }
