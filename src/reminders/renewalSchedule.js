@@ -48,16 +48,21 @@ export function calcLicenseExpiry(grantDateIso) {
 /**
  * 更新申請の推奨提出期限（満了日の30日前）を計算する。
  * 実務上は余裕を持って60日前を「準備開始リマインド」とし、30日前を「最終締切リマインド」とする。
+ * また、業界標準（競合調査。`docs/PROPOSAL.md` M7参照）に合わせ、満了180日前を
+ * 「早期の準備検討リマインド」として算出する。60日前と同様、これはあくまで
+ * 実務上の目安（早めの声かけ用バッファ）であり、法令上の期限ではない
+ * （`hardDeadline`＝30日前のみが建設業法上の法定期限であり、この値は変更しない）。
  *
  * @param {string} grantDateIso
- * @returns {{ expiryDate: string, recommendedStartDate: string, hardDeadline: string }}
+ * @returns {{ expiryDate: string, earlyNoticeDate: string, recommendedStartDate: string, hardDeadline: string }}
  */
 export function calcRenewalSchedule(grantDateIso) {
   const expiryDate = calcLicenseExpiry(grantDateIso);
   const expiry = parseIsoDate(expiryDate);
   const hardDeadline = toIsoDate(new Date(expiry.getTime() - 30 * DAY_MS));
   const recommendedStartDate = toIsoDate(new Date(expiry.getTime() - 60 * DAY_MS));
-  return { expiryDate, recommendedStartDate, hardDeadline };
+  const earlyNoticeDate = toIsoDate(new Date(expiry.getTime() - 180 * DAY_MS));
+  return { expiryDate, earlyNoticeDate, recommendedStartDate, hardDeadline };
 }
 
 /**

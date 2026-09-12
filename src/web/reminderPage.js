@@ -10,15 +10,27 @@
  * 「今すぐ確認すべき」リマインドで連絡先メールアドレスが登録されているものは、
  * メール下書きを開くリンクを表示する。あくまで下書きを開くだけで、
  * 送信の実行・最終判断は常に本人が行う（NFR-4: 外部送信をしない設計を維持）。
+ *
+ * 【M7: 一覧フィルタリング】画面上部に「すべて／期限超過／1ヶ月以内／…」の
+ * 単純なリンク一覧を表示し、クリックで `/reminders?range=<key>` へ遷移する
+ * ことで表示内容を絞り込む（`src/web/server.js` 側でフィルタ処理を行う）。
+ * クライアント側JavaScriptは使わず、通常のGETリンクのみで実現している
+ * （表示専用という既存の設計判断（§5.11）を踏襲。状態を持つUI部品は追加しない）。
  */
 import { escapeHtml } from "./htmlUtils.js";
-import { buildReminderMailtoUrl } from "../reminders/reminderDigest.js";
+import { buildReminderMailtoUrl, REMINDER_RANGES } from "../reminders/reminderDigest.js";
 
 /**
- * @param {{ report: string, clientCount: number, actionableAlerts: import('../reminders/reminderDigest.js').ReminderAlert[] }} params
+ * @param {{
+ *   report: string,
+ *   clientCount: number,
+ *   actionableAlerts: import('../reminders/reminderDigest.js').ReminderAlert[],
+ *   activeRange?: string | null
+ * }} params
  * @returns {string}
  */
-export function renderReminderPage({ report, clientCount, actionableAlerts }) {
+export function renderReminderPage({ report, clientCount, actionableAlerts, activeRange = null }) {
+  const filterNav = renderFilterNav(activeRange);
   const mailtoItems = (actionableAlerts || [])
     .map((alert) => ({ alert, mailtoUrl: buildReminderMailtoUrl(alert) }))
     .filter((item) => item.mailtoUrl);
@@ -48,6 +60,7 @@ ${mailtoItems
 </head>
 <body>
 <h1>更新リマインド・ダイジェスト</h1>
+${filterNav}
 <p class="notice">
   登録クライアント数: ${clientCount}件。クライアントの登録・削除はCLI
   （<code>node scripts/add-client.js</code> / <code>node scripts/remove-client.js</code>）で行ってください。
@@ -61,9 +74,32 @@ ${mailtoSection}
 </html>`;
 }
 
+/**
+ * 「すべて／期限超過／1ヶ月以内／…」の絞り込みリンク一覧を組み立てる。
+ * 現在選択中の区分は `<strong>`（リンクなし）で表示し、それ以外は
+ * `/reminders?range=<key>` へのリンクにする。「すべて」はクエリパラメータ
+ * なしの `/reminders` へのリンク（`key: null`）。
+ *
+ * @param {string | null} activeRange
+ * @returns {string}
+ */
+function renderFilterNav(activeRange) {
+  const options = [{ key: null, label: "すべて" }, ...REMINDER_RANGES];
+  const items = options.map(({ key, label }) => {
+    const text = escapeHtml(label);
+    if (key === activeRange) {
+      return `<strong>${text}</strong>`;
+    }
+    const href = key ? `/reminders?range=${encodeURIComponent(key)}` : "/reminders";
+    return `<a href="${escapeHtml(href)}">${text}</a>`;
+  });
+  return `<p class="filter-nav">表示する期間で絞り込み: ${items.join(" / ")}</p>`;
+}
+
 const STYLE = `
   body { font-family: "Yu Gothic", sans-serif; max-width: 820px; margin: 0 auto; padding: 16px 20px 60px; line-height: 1.6; }
   .notice { background: #FFF4E5; border: 1px solid #E0A030; padding: 10px 14px; font-size: 0.9em; }
+  .filter-nav { font-size: 0.95em; }
   pre { white-space: pre-wrap; background: #f7f7f7; border: 1px solid #ddd; padding: 12px; border-radius: 6px; }
   code { background: #eee; padding: 1px 4px; border-radius: 3px; }
   ul { line-height: 1.9; }

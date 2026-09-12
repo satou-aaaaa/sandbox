@@ -5,22 +5,25 @@ import {
   filterDueAlerts,
   formatReminderDigest,
   buildReminderMailtoUrl,
+  bucketizeAlerts,
+  REMINDER_RANGES,
 } from "../src/reminders/reminderDigest.js";
 
-test("buildReminderDigest: 許可日から更新準備・最終締切の2件を計算する（決算変更届の指定なし）", () => {
+test("buildReminderDigest: 許可日から早期検討・更新準備・最終締切の3件を計算する（決算変更届の指定なし）", () => {
   const alerts = buildReminderDigest([{ clientName: "テスト建設", grantDateIso: "2024-04-01" }], "2026-09-01");
-  assert.equal(alerts.length, 2);
+  assert.equal(alerts.length, 3);
   assert.ok(alerts.every((a) => a.clientName === "テスト建設"));
+  assert.ok(alerts.some((a) => a.type === "renewal-early-notice" && a.dueDateIso === "2028-10-02"));
   assert.ok(alerts.some((a) => a.type === "renewal-prepare" && a.dueDateIso === "2029-01-30"));
   assert.ok(alerts.some((a) => a.type === "renewal-deadline" && a.dueDateIso === "2029-03-01"));
 });
 
-test("buildReminderDigest: fiscalYearEndIsoを指定すると決算変更届のリマインドも含まれる", () => {
+test("buildReminderDigest: fiscalYearEndIsoを指定すると決算変更届のリマインドも含まれる（計4件）", () => {
   const alerts = buildReminderDigest(
     [{ clientName: "テスト建設", grantDateIso: "2024-04-01", fiscalYearEndIso: "2026-03-31" }],
     "2026-09-01"
   );
-  assert.equal(alerts.length, 3);
+  assert.equal(alerts.length, 4);
   const kessan = alerts.find((a) => a.type === "kessan-henko");
   assert.equal(kessan.dueDateIso, "2026-07-31");
 });
@@ -107,4 +110,63 @@ test("buildReminderMailtoUrl: contactEmailがあればmailto:リンクを返す"
   const url = buildReminderMailtoUrl(alert);
   assert.match(url, /^mailto:info@example\.com\?subject=/);
   assert.match(decodeURIComponent(url), /テスト建設/);
+});
+
+/** @param {number} daysUntil @returns {import('../src/reminders/reminderDigest.js').ReminderAlert} */
+function makeTestAlert(daysUntil) {
+  return {
+    clientName: `テスト社(${daysUntil})`,
+    type: "renewal-prepare",
+    label: "l",
+    dueDateIso: "2026-09-01",
+    daysUntil,
+    isOverdue: daysUntil < 0,
+  };
+}
+
+test("bucketizeAlerts: REMINDER_RANGESの各キーに対応する配列を持つオブジェクトを返す", () => {
+  const buckets = bucketizeAlerts([]);
+  for (const { key } of REMINDER_RANGES) {
+    assert.ok(Array.isArray(buckets[key]), `${key} が配列でない`);
+  }
+});
+
+test("bucketizeAlerts: 期限超過（daysUntilが負）はoverdueに分類される", () => {
+  const buckets = bucketizeAlerts([makeTestAlert(-1), makeTestAlert(-100)]);
+  assert.equal(buckets["overdue"].length, 2);
+  assert.equal(buckets["within-1m"].length, 0);
+});
+
+test("bucketizeAlerts: daysUntil=0は期限超過ではなくwithin-1mに分類される", () => {
+  const buckets = bucketizeAlerts([makeTestAlert(0)]);
+  assert.equal(buckets["overdue"].length, 0);
+  assert.equal(buckets["within-1m"].length, 1);
+});
+
+test("bucketizeAlerts: 境界値ちょうど30日はwithin-1mに含まれる（1-3mではない）", () => {
+  const buckets = bucketizeAlerts([makeTestAlert(30)]);
+  assert.equal(buckets["within-1m"].length, 1);
+  assert.equal(buckets["1-3m"].length, 0);
+});
+
+test("bucketizeAlerts: 30日超91日未満は1-3mに分類される", () => {
+  const buckets = bucketizeAlerts([makeTestAlert(31), makeTestAlert(89)]);
+  assert.equal(buckets["1-3m"].length, 2);
+});
+
+test("bucketizeAlerts: 境界値ちょうど90日は1-3mに含まれる（3-6mではない）", () => {
+  const buckets = bucketizeAlerts([makeTestAlert(90)]);
+  assert.equal(buckets["1-3m"].length, 1);
+  assert.equal(buckets["3-6m"].length, 0);
+});
+
+test("bucketizeAlerts: 境界値ちょうど180日は3-6mに含まれる（6m-plusではない）", () => {
+  const buckets = bucketizeAlerts([makeTestAlert(180)]);
+  assert.equal(buckets["3-6m"].length, 1);
+  assert.equal(buckets["6m-plus"].length, 0);
+});
+
+test("bucketizeAlerts: 180日超は6m-plusに分類される", () => {
+  const buckets = bucketizeAlerts([makeTestAlert(181), makeTestAlert(1000)]);
+  assert.equal(buckets["6m-plus"].length, 2);
 });

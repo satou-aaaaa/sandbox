@@ -516,27 +516,57 @@ Webの `GET /clients.csv`（読み取り専用のダウンロードのみ。登�
 されない。案件が完了した下書きは `/drafts` の一覧から手動で削除する運用とする
 （自動削除にすると、まだ検討中の下書きを誤って消すリスクがあるため）。
 
-### 5.14 リマインドの3段階化・一覧フィルタリング（M7・設計）
+### 5.14 リマインドの3段階化・一覧フィルタリング（M7・実装済み）
 
 競合調査（`docs/PROPOSAL.md` M7）の結果、業界標準は満了6ヶ月前・3ヶ月前・
-1ヶ月前の3段階アラートとされている。対応方針は以下の通り（FR-3.6・FR-3.7）。
+1ヶ月前の3段階アラートとされている。対応内容は以下の通り（FR-3.6・FR-3.7）。
 
 - `calcRenewalSchedule`（§5.7）の戻り値に `earlyNoticeDate`（満了180日前）を
-  追加する。既存の `recommendedStartDate`（60日前・実務上の目安）と
-  `hardDeadline`（30日前・建設業法上の法定期限）は**変更しない**
+  追加した。既存の `recommendedStartDate`（60日前・実務上の目安）と
+  `hardDeadline`（30日前・建設業法上の法定期限）は**変更していない**
   （`hardDeadline` は法令に基づく値であり、業界標準に合わせて動かしてよい
   ものではない点に注意）。
-- `ReminderAlert.type` のユニオン型に `"renewal-early-notice"` を追加する
+- `ReminderAlert.type` のユニオン型に `"renewal-early-notice"` を追加した
   （既存の3種に対する非破壊的な追加。既存コードに `type` を網羅的に
   分岐する箇所はないため、影響範囲は `buildReminderDigest` 内の1箇所のみ）。
-- 一覧のフィルタリングは **`GET /reminders` ページのみ**に追加する
-  （CLI向けの `formatReminderDigest` の出力形式・既存テストは変更しない。
+  `buildReminderDigest` はクライアントごとに「早期検討（180日前）→
+  準備開始（60日前）→ 最終締切（30日前）」の順で3件（＋決算変更届が
+  あれば4件）のアラートを生成する。
+- 一覧のフィルタリングは **`GET /reminders` ページのみ**に追加した
+  （CLI向けの `formatReminderDigest` の出力形式・既存テストは変更していない。
   クリックでの絞り込みはブラウザUIでのみ価値があるため、CLIとWebで
-  役割を分ける）。`reminderDigest.js` に残日数バケット分類用の新規関数
-  （例: `bucketizeAlerts(alerts)`）を追加し、`/reminders?range=1-3m` のような
-  クエリパラメータでの絞り込みをサーバー側で行う（既存の「表示専用」という
-  設計判断（§5.11）を維持し、状態を持つUIコンポーネントは追加しない）。
-- バケット区分: 期限超過／1ヶ月以内／1〜3ヶ月／3〜6ヶ月／6ヶ月超。
+  役割を分けている）。`reminderDigest.js` に残日数バケット分類用の新規関数
+  `bucketizeAlerts(alerts)` を追加した。戻り値は
+  `{ overdue, "within-1m", "1-3m", "3-6m", "6m-plus" }` という5キーの
+  オブジェクト（各値は `ReminderAlert[]`）。バケットのキー一覧・日本語ラベル・
+  表示順は `REMINDER_RANGES`（`[{ key, label }, ...]`）としてあわせて
+  エクスポートしており、`reminderPage.js` のフィルタリンク生成もこれを
+  単一の情報源として使う。
+- バケット区分と境界値の扱い（`bucketizeAlerts` のJSDoc参照。境界日は
+  「以下」側に含める統一ルール）:
+  - `overdue`: `isOverdue === true`（期限超過。日数は問わない）
+  - `within-1m`: 期限超過ではなく `daysUntil <= 30`（0日＝本日期限を含む）
+  - `1-3m`: `30 < daysUntil <= 90`
+  - `3-6m`: `90 < daysUntil <= 180`
+  - `6m-plus`: `daysUntil > 180`
+- `GET /reminders` は `?range=<key>`（`key` は上記5種のいずれか。例:
+  `/reminders?range=1-3m`）というクエリパラメータを受け付ける。
+  サーバー側（`src/web/server.js`）で `bucketizeAlerts` の結果から該当
+  バケットのみを抜き出し、`formatReminderDigest` と `filterDueAlerts`
+  （メール下書きリンクの対象選定）の両方にその絞り込み後の配列を渡す。
+  クエリパラメータ未指定、または `REMINDER_RANGES` に存在しない値が
+  指定された場合は、従来どおり**全件**を対象にする（＝`activeRange: null`。
+  不正な値でもエラーにせずフォールバックする、§6のエラーハンドリング方針を
+  踏襲）。これにより `GET /reminders`（クエリなし）の既存の表示内容・
+  既存テスト（`test/web.test.js`）は変更していない。
+- `src/web/reminderPage.js` の `renderReminderPage` は新たに `activeRange`
+  （`string | null`）を受け取り、画面上部に「すべて／期限超過／1ヶ月以内／
+  1〜3ヶ月／3〜6ヶ月／6ヶ月超」のプレーンな `<a>` リンク一覧
+  （クライアント側JavaScriptなし、通常のGETリンクのみ）を表示する。現在
+  選択中の区分だけリンクにせず `<strong>` で表示することで、状態を持つ
+  UI部品を追加せずに「今どの絞り込みを見ているか」を示している
+  （既存の「表示専用」という設計判断（§5.11）を維持）。すべてのラベルは
+  `escapeHtml` を通す。
 
 ### 5.15 クライアントの複数許可対応（M7・設計・ADR-0008）
 

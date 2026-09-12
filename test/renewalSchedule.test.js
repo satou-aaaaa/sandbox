@@ -19,6 +19,19 @@ test("更新スケジュールは満了日・準備開始・最終締切を返�
   assert.equal(schedule.recommendedStartDate, "2029-01-30"); // 満了日の60日前
 });
 
+test("更新スケジュールは早期の準備検討日（満了180日前）も返す（M7）", () => {
+  const schedule = calcRenewalSchedule("2024-04-01");
+  assert.equal(schedule.expiryDate, "2029-03-31");
+  assert.equal(schedule.earlyNoticeDate, "2028-10-02"); // 満了日の180日前
+});
+
+test("早期の準備検討日（180日前）は月境界をまたぐ場合も正しく計算される（M7）", () => {
+  // 満了日が月初付近だと、180日引くと前年の月をまたぐ（うるう年の2月も含む）。
+  const schedule = calcRenewalSchedule("2021-03-01"); // 満了日: 2026-02-28（2026年は平年）
+  assert.equal(schedule.expiryDate, "2026-02-28");
+  assert.equal(schedule.earlyNoticeDate, "2025-09-01"); // 満了日の180日前
+});
+
 test("決算変更届は事業年度終了後4ヶ月以内", () => {
   assert.equal(calcKessanHenkoDeadline("2026-03-31"), "2026-07-31");
   assert.equal(calcKessanHenkoDeadline("2025-12-31"), "2026-04-30");

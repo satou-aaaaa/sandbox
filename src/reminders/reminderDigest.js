@@ -27,7 +27,7 @@ import { calcRenewalSchedule, calcKessanHenkoDeadline, daysUntil } from "./renew
 /**
  * @typedef {Object} ReminderAlert 1件のリマインド項目
  * @property {string} clientName
- * @property {"renewal-prepare" | "renewal-deadline" | "kessan-henko"} type
+ * @property {"renewal-early-notice" | "renewal-prepare" | "renewal-deadline" | "kessan-henko"} type
  * @property {string} label 人間可読なラベル
  * @property {string} dueDateIso 期限日（YYYY-MM-DD）
  * @property {number} daysUntil 基準日から期限日までの残り日数（負なら期限超過）
@@ -47,6 +47,15 @@ export function buildReminderDigest(records, todayIso) {
   const alerts = [];
   for (const record of records) {
     const schedule = calcRenewalSchedule(record.grantDateIso);
+    alerts.push(
+      makeAlert(
+        record,
+        "renewal-early-notice",
+        "更新準備の早期検討（満了180日前）",
+        schedule.earlyNoticeDate,
+        todayIso
+      )
+    );
     alerts.push(
       makeAlert(record, "renewal-prepare", "更新準備開始の推奨日（満了60日前）", schedule.recommendedStartDate, todayIso)
     );
@@ -90,6 +99,63 @@ function makeAlert(record, type, label, dueDateIso, todayIso) {
  */
 export function filterDueAlerts(alerts, { withinDays = 30 } = {}) {
   return alerts.filter((a) => a.daysUntil <= withinDays);
+}
+
+/**
+ * `GET /reminders`（Web画面）専用の残日数バケット区分。キーはそのまま
+ * `?range=<key>` のクエリパラメータ値として使う。配列の順序は画面上の
+ * フィルタリンクの表示順を兼ねる。
+ *
+ * 【注意】これはWeb画面の一覧フィルタリング用の区分であり、CLI向けの
+ * `formatReminderDigest`（期限超過／30日以内／それ以降の3区分。見出し文言も
+ * 固定）とは別物。既存のCLI出力・テストへの影響を避けるため、意図的に
+ * 別関数として分離している（`docs/DESIGN.md` §5.14参照）。
+ */
+export const REMINDER_RANGES = [
+  { key: "overdue", label: "期限超過" },
+  { key: "within-1m", label: "1ヶ月以内" },
+  { key: "1-3m", label: "1〜3ヶ月" },
+  { key: "3-6m", label: "3〜6ヶ月" },
+  { key: "6m-plus", label: "6ヶ月超" },
+];
+
+/**
+ * リマインド一覧を、期限までの残り日数に応じた5区分（バケット）に分類する。
+ * 区分の境界（`daysUntil` は残り日数。負の場合は期限超過＝`isOverdue: true`）:
+ *
+ * - `overdue`: `isOverdue === true`（期限を過ぎているもの。日数は問わない）
+ * - `within-1m`: 期限超過ではなく、かつ `daysUntil <= 30`（0日＝本日期限を含む）
+ * - `1-3m`: `30 < daysUntil <= 90`（ちょうど30日は上のwithin-1mに含まれる、
+ *   ちょうど90日はこちらに含まれる）
+ * - `3-6m`: `90 < daysUntil <= 180`（ちょうど180日はこちらに含まれる）
+ * - `6m-plus`: `daysUntil > 180`
+ *
+ * 各境界値は「以下（<=）」側に含める＝右側の区分は厳密不等号（<）で始まる、
+ * という統一ルールにしている（境界日の二重計上・抜け漏れを防ぐため）。
+ *
+ * @param {ReminderAlert[]} alerts
+ * @returns {Record<string, ReminderAlert[]>} `REMINDER_RANGES` の各 `key` を
+ *   プロパティ名とする、該当アラートの配列
+ */
+export function bucketizeAlerts(alerts) {
+  /** @type {Record<string, ReminderAlert[]>} */
+  const buckets = {};
+  for (const { key } of REMINDER_RANGES) buckets[key] = [];
+
+  for (const alert of alerts) {
+    if (alert.isOverdue) {
+      buckets["overdue"].push(alert);
+    } else if (alert.daysUntil <= 30) {
+      buckets["within-1m"].push(alert);
+    } else if (alert.daysUntil <= 90) {
+      buckets["1-3m"].push(alert);
+    } else if (alert.daysUntil <= 180) {
+      buckets["3-6m"].push(alert);
+    } else {
+      buckets["6m-plus"].push(alert);
+    }
+  }
+  return buckets;
 }
 
 /**

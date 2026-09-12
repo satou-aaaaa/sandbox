@@ -219,6 +219,85 @@ test("GET /reminders: 連絡先メールアドレス未登録の場合はメー�
   }
 });
 
+test("GET /reminders: クエリパラメータなしの場合は従来どおり全件を表示する（M7でも変更なし）", async () => {
+  const ctx = await startTestServer();
+  try {
+    // 満了間近（30日以内）のクライアントと、まだ十分先（6ヶ月超）のクライアントを混在させる。
+    await saveClients(
+      [
+        { clientName: "まもなく建設", grantDateIso: "2021-08-01" }, // 満了2026-07-31付近 → 期限超過寄り
+        { clientName: "余裕建設", grantDateIso: "2030-01-01" }, // 満了はずっと先
+      ],
+      ctx.clientsPath
+    );
+    const res = await fetch(`${ctx.baseUrl}/reminders`);
+    assert.equal(res.status, 200);
+    const html = await res.text();
+    assert.match(html, /登録クライアント数: 2件/);
+    assert.match(html, /まもなく建設/);
+    assert.match(html, /余裕建設/); // フィルタなしなので両方表示される
+    assert.match(html, /<strong>すべて<\/strong>/); // 「すべて」がアクティブ表示
+  } finally {
+    await ctx.close();
+  }
+});
+
+test("GET /reminders?range=overdue: 期限超過のクライアントのみ表示する", async () => {
+  const ctx = await startTestServer();
+  try {
+    await saveClients(
+      [
+        { clientName: "期限切れ建設", grantDateIso: "2015-04-01" }, // 満了はとっくに過ぎている
+        { clientName: "余裕建設", grantDateIso: "2030-01-01" }, // 満了はずっと先
+      ],
+      ctx.clientsPath
+    );
+    const res = await fetch(`${ctx.baseUrl}/reminders?range=overdue`);
+    assert.equal(res.status, 200);
+    const html = await res.text();
+    assert.match(html, /期限切れ建設/);
+    assert.doesNotMatch(html, /余裕建設/); // 期限超過ではないクライアントは表示されない
+    assert.match(html, /<strong>期限超過<\/strong>/); // 「期限超過」がアクティブ表示
+  } finally {
+    await ctx.close();
+  }
+});
+
+test("GET /reminders?range=6m-plus: 6ヶ月超のクライアントのみ表示する", async () => {
+  const ctx = await startTestServer();
+  try {
+    await saveClients(
+      [
+        { clientName: "期限切れ建設", grantDateIso: "2015-04-01" }, // 満了はとっくに過ぎている
+        { clientName: "余裕建設", grantDateIso: "2030-01-01" }, // 満了はずっと先
+      ],
+      ctx.clientsPath
+    );
+    const res = await fetch(`${ctx.baseUrl}/reminders?range=6m-plus`);
+    assert.equal(res.status, 200);
+    const html = await res.text();
+    assert.match(html, /余裕建設/);
+    assert.doesNotMatch(html, /期限切れ建設/);
+    assert.match(html, /<strong>6ヶ月超<\/strong>/);
+  } finally {
+    await ctx.close();
+  }
+});
+
+test("GET /reminders?range=不正な値: 不正な値はフォールバックして全件表示する", async () => {
+  const ctx = await startTestServer();
+  try {
+    await saveClients([{ clientName: "テスト建設", grantDateIso: "2020-04-01" }], ctx.clientsPath);
+    const res = await fetch(`${ctx.baseUrl}/reminders?range=not-a-real-range`);
+    assert.equal(res.status, 200);
+    const html = await res.text();
+    assert.match(html, /テスト建設/);
+    assert.match(html, /<strong>すべて<\/strong>/); // 不正な値は「すべて」扱いにフォールバック
+  } finally {
+    await ctx.close();
+  }
+});
+
 test("GET /clients.csv: 登録済みクライアントをCSVとして返す", async () => {
   const ctx = await startTestServer();
   try {

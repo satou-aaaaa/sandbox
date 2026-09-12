@@ -42,7 +42,12 @@ import { writeYoushiki7Docx } from "../documents/youshiki7.js";
 import { writeYoushiki8Docx } from "../documents/youshiki8.js";
 import { writeYoushiki20_2Docx } from "../documents/youshiki20-2.js";
 import { loadClients, DEFAULT_CLIENTS_PATH } from "../reminders/clientStore.js";
-import { buildReminderDigest, filterDueAlerts, formatReminderDigest } from "../reminders/reminderDigest.js";
+import {
+  buildReminderDigest,
+  filterDueAlerts,
+  formatReminderDigest,
+  bucketizeAlerts,
+} from "../reminders/reminderDigest.js";
 import { clientsToCsv } from "../reminders/clientCsv.js";
 import { loadDrafts, getDraft, upsertDraft, removeDraft, DEFAULT_DRAFTS_PATH } from "./draftStore.js";
 import { renderFormPage } from "./formPage.js";
@@ -173,14 +178,26 @@ export function createServer({
         return;
       }
 
-      if (req.method === "GET" && url === "/reminders") {
+      if (req.method === "GET" && (url === "/reminders" || url.startsWith("/reminders?"))) {
+        // `?range=<key>` で一覧を絞り込む（M7・FR-3.7）。クエリパラメータ未指定
+        // （＝`/reminders`）の場合は従来どおり全件を表示する。不正な値が
+        // 指定された場合も同様に全件表示にフォールバックする（エラーにしない）。
+        const requestedRange = new URL(url, "http://localhost").searchParams.get("range");
         const clients = await loadClients(clientsPath);
         const alerts = buildReminderDigest(clients);
-        const report = formatReminderDigest(alerts);
+        const buckets = bucketizeAlerts(alerts);
+        const activeRange = requestedRange && Object.hasOwn(buckets, requestedRange) ? requestedRange : null;
+        const displayedAlerts = activeRange ? buckets[activeRange] : alerts;
+        const report = formatReminderDigest(displayedAlerts);
         respondHtml(
           res,
           200,
-          renderReminderPage({ report, clientCount: clients.length, actionableAlerts: filterDueAlerts(alerts) })
+          renderReminderPage({
+            report,
+            clientCount: clients.length,
+            actionableAlerts: filterDueAlerts(displayedAlerts),
+            activeRange,
+          })
         );
         return;
       }
