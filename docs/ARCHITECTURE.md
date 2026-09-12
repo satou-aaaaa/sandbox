@@ -46,17 +46,18 @@ TypeScriptと同等に効く。
 - `src/eligibility/rules/*.js` — 法定5要件それぞれの判定ロジック（1要件=1ファイル）
 - `src/eligibility/engine.js` — 5要件（＋登録済みの都道府県固有要件）をまとめて判定し、総合結果とレポートを生成
 - `src/eligibility/prefectureRules.js` — 都道府県固有の追加要件を登録・合成する仕組み（M6の土台。具体的な要件は未登録）
+- `src/eligibility/consistencyChecks.js` — 入力内容のルールベース整合性チェック（M7。合否判定には影響しない付加情報。外部AI APIは使わない）
 - `src/documents/common.js` — 様式生成モジュール共通のdocxヘルパー（見出し・赤字注記・表・箇条書き・ファイル書き出し）
 - `src/documents/youshiki1.js` — 様式第一号（建設業許可申請書）のdocx自動生成
 - `src/documents/youshiki6.js` — 様式第六号（役員等の一覧表）のdocx自動生成
 - `src/documents/youshiki7.js` — 様式第七号（経営業務管理責任者証明書）のdocx自動生成
 - `src/documents/youshiki8.js` — 様式第八号（専任技術者証明書）のdocx自動生成
 - `src/documents/youshiki20-2.js` — 様式第二十号の二（誓約書）のdocx自動生成
-- `src/reminders/renewalSchedule.js` — 5年更新・決算変更届の期限計算
-- `src/reminders/reminderDigest.js` — 複数クライアントのリマインドを集計・整形、メール下書きURL生成（M4。実送信は行わない）
-- `src/reminders/clientStore.js` — クライアント情報を `data/clients.json` へ読み書きするローカル永続化層（DB不使用）
-- `src/reminders/clientCsv.js` — クライアント一覧とCSVの相互変換（バックアップ・一括登録用。外部パッケージ不使用）
-- `src/web/server.js` — インテイク用の簡易Webフォーム（M3）＋リマインド表示（`/reminders`）＋下書き保存（`/drafts`）＋CSVダウンロード（`/clients.csv`）。node:http のみで実装し、127.0.0.1のみで待受
+- `src/reminders/renewalSchedule.js` — 5年更新（早期検討180日前・準備開始60日前・法定期限30日前の3段階、M7）・決算変更届の期限計算
+- `src/reminders/reminderDigest.js` — 複数クライアント（1クライアントが複数許可を保有可能、`ClientRecord`/`LicenseEntry`、ADR-0008）のリマインドを集計・整形、残日数バケット分類、メール下書きURL生成（M4・M7。実送信は行わない）
+- `src/reminders/clientStore.js` — クライアント情報を `data/clients.json` へ読み書きするローカル永続化層（DB不使用。旧形式データの自動移行に対応、M7）
+- `src/reminders/clientCsv.js` — クライアント一覧とCSVの相互変換（1行＝1許可、M7。バックアップ・一括登録用。外部パッケージ不使用）
+- `src/web/server.js` — インテイク用の簡易Webフォーム（M3）＋リマインド表示・残日数フィルタ（`/reminders`、M7）＋下書き保存（`/drafts`）＋CSVダウンロード（`/clients.csv`）。node:http のみで実装し、127.0.0.1のみで待受
 - `src/web/draftStore.js` — インテイクフォームの入力途中データを `data/drafts.json` へ読み書きするローカル永続化層（DB不使用）
 - `test/` — `node --test` で実行するユニットテスト（外部テストランナー不要）
 - `scripts/` — 動作確認用のサンプル実行スクリプト（`sampleProfile.js` が全スクリプト共通のダミーデータ）
@@ -82,9 +83,6 @@ TypeScriptと同等に効く。
 - Webフォーム（M3）は単一プロセス・単一ユーザーのローカル利用を想定した最小構成。
   クライアント情報は単一JSONファイル（`data/clients.json`）で管理しており、
   本格的なデータベース・認証・複数ユーザー対応は範囲外
-- M7（競合調査に基づく機能拡張。リマインドの3段階化・クライアントの複数許可
-  対応・入力内容の整合性チェック）は設計完了・実装未着手。
-  `docs/DESIGN.md` §5.14〜5.16、`docs/adr/0008-multi-license-client-model.md` を参照
 
 ## 法的な前提（重要）
 

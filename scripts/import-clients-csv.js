@@ -5,8 +5,9 @@
  * 使い方:
  *   node scripts/import-clients-csv.js <CSVファイルパス>
  *
- * CSVの列: clientName,grantDateIso,fiscalYearEndIso,contactEmail
- * （export-clients-csv.js が出力する形式と同じ。列の並び順は自由）
+ * CSVの列: clientName,licenseId,licenseType,grantDateIso,fiscalYearEndIso,contactEmail
+ * （export-clients-csv.js が出力する形式と同じ。列の並び順は自由。1行＝1許可。
+ * licenseId列が無い旧形式CSVも読み込める。M7・ADR-0008）
  */
 import fs from "node:fs/promises";
 import { clientsFromCsv } from "../src/reminders/clientCsv.js";

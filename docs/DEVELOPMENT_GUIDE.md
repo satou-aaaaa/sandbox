@@ -30,7 +30,7 @@ git clone <リポジトリURL>
 cd kensetsu-kyoka-toolkit   # または実際のディレクトリ名
 npm install
 npm run typecheck           # JSDocの型チェック（tsc --noEmit。ビルドは行わない）
-npm test                    # 全テスト（現時点で82件）が成功することを確認
+npm test                    # 全テスト（現時点で119件）が成功することを確認
 npm run gen:eligibility     # 要件判定のサンプル実行
 npm run gen:youshiki1       # 様式第一号サマリーのdocx生成サンプル
 npm run web                 # インテイク用Webフォームを起動（任意）
@@ -144,7 +144,9 @@ Microsoft Word、LibreOffice Writer等で開いて内容を確認すること。
   ADR-0005）とJCIP公開情報の調査（ADR-0006）までは完了しているが、
   具体的な都道府県固有要件・自動連携コードは未着手。次のM5（試験運用）は
   行政書士登録の完了、M6の本体着手は対象都道府県の確定が、それぞれの
-  前提条件となる（`docs/PROPOSAL.md` 5章・7章参照）。
+  前提条件となる（`docs/PROPOSAL.md` 5章・7章参照）。M7（競合調査に基づく
+  機能拡張。リマインドの3段階化・クライアントの複数許可対応・入力内容の
+  整合性チェック）は完了（`docs/DESIGN.md` §5.14〜5.16、ADR-0008）。
 - 対象都道府県・対象様式の詳細（レイアウト・記載要領）が発注者側で未確定の場合、
   着手前に発注者へ確認すること（`docs/REQUIREMENTS.md` 8章の前提条件を参照）。
 - 実装方針で `docs/DESIGN.md` に明記されていない判断が必要になった場合

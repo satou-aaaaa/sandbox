@@ -10,9 +10,13 @@ import {
 } from "../src/reminders/reminderDigest.js";
 
 test("buildReminderDigest: 許可日から早期検討・更新準備・最終締切の3件を計算する（決算変更届の指定なし）", () => {
-  const alerts = buildReminderDigest([{ clientName: "テスト建設", grantDateIso: "2024-04-01" }], "2026-09-01");
+  const alerts = buildReminderDigest(
+    [{ clientName: "テスト建設", licenses: [{ licenseId: "既定", grantDateIso: "2024-04-01" }] }],
+    "2026-09-01"
+  );
   assert.equal(alerts.length, 3);
   assert.ok(alerts.every((a) => a.clientName === "テスト建設"));
+  assert.ok(alerts.every((a) => a.licenseId === "既定")); // 更新関連のアラートにはlicenseIdが付与される（FR-5.4）
   assert.ok(alerts.some((a) => a.type === "renewal-early-notice" && a.dueDateIso === "2028-10-02"));
   assert.ok(alerts.some((a) => a.type === "renewal-prepare" && a.dueDateIso === "2029-01-30"));
   assert.ok(alerts.some((a) => a.type === "renewal-deadline" && a.dueDateIso === "2029-03-01"));
@@ -20,16 +24,26 @@ test("buildReminderDigest: 許可日から早期検討・更新準備・最終�
 
 test("buildReminderDigest: fiscalYearEndIsoを指定すると決算変更届のリマインドも含まれる（計4件）", () => {
   const alerts = buildReminderDigest(
-    [{ clientName: "テスト建設", grantDateIso: "2024-04-01", fiscalYearEndIso: "2026-03-31" }],
+    [
+      {
+        clientName: "テスト建設",
+        fiscalYearEndIso: "2026-03-31",
+        licenses: [{ licenseId: "既定", grantDateIso: "2024-04-01" }],
+      },
+    ],
     "2026-09-01"
   );
   assert.equal(alerts.length, 4);
   const kessan = alerts.find((a) => a.type === "kessan-henko");
   assert.equal(kessan.dueDateIso, "2026-07-31");
+  assert.equal(kessan.licenseId, undefined); // 決算変更届は会社単位のためlicenseIdは付与されない
 });
 
 test("buildReminderDigest: 期限超過はisOverdue=trueかつdaysUntilが負になる", () => {
-  const alerts = buildReminderDigest([{ clientName: "テスト建設", grantDateIso: "2019-04-01" }], "2026-09-01");
+  const alerts = buildReminderDigest(
+    [{ clientName: "テスト建設", licenses: [{ licenseId: "既定", grantDateIso: "2019-04-01" }] }],
+    "2026-09-01"
+  );
   const deadline = alerts.find((a) => a.type === "renewal-deadline");
   assert.equal(deadline.isOverdue, true);
   assert.ok(deadline.daysUntil < 0);
@@ -38,8 +52,8 @@ test("buildReminderDigest: 期限超過はisOverdue=trueかつdaysUntilが負に
 test("buildReminderDigest: 複数クライアントを期限が近い順（daysUntil昇順）にソートする", () => {
   const alerts = buildReminderDigest(
     [
-      { clientName: "A社", grantDateIso: "2024-04-01" }, // 満了2029-03-31
-      { clientName: "B社", grantDateIso: "2020-04-01" }, // 満了2025-03-31（すでに期限超過）
+      { clientName: "A社", licenses: [{ licenseId: "既定", grantDateIso: "2024-04-01" }] }, // 満了2029-03-31
+      { clientName: "B社", licenses: [{ licenseId: "既定", grantDateIso: "2020-04-01" }] }, // 満了2025-03-31（すでに期限超過）
     ],
     "2026-09-01"
   );
@@ -47,6 +61,50 @@ test("buildReminderDigest: 複数クライアントを期限が近い順（daysU
     assert.ok(alerts[i - 1].daysUntil <= alerts[i].daysUntil);
   }
   assert.equal(alerts[0].clientName, "B社"); // 最も期限が近い（超過している）のが先頭
+});
+
+test("buildReminderDigest: 1クライアントが複数許可を持つ場合、許可ごとに個別のlicenseIdでアラートを生成する（FR-5.4）", () => {
+  const alerts = buildReminderDigest(
+    [
+      {
+        clientName: "複数許可建設",
+        licenses: [
+          { licenseId: "般-建築工事業", grantDateIso: "2024-04-01" },
+          { licenseId: "特-とび土工工事業", grantDateIso: "2020-04-01" },
+        ],
+      },
+    ],
+    "2026-09-01"
+  );
+  // 更新関連3種 × 許可2件 = 6件
+  assert.equal(alerts.length, 6);
+  const forLicenseA = alerts.filter((a) => a.licenseId === "般-建築工事業");
+  const forLicenseB = alerts.filter((a) => a.licenseId === "特-とび土工工事業");
+  assert.equal(forLicenseA.length, 3);
+  assert.equal(forLicenseB.length, 3);
+  // 許可日が異なるため、同じtypeでも期限日が異なるはず
+  const deadlineA = forLicenseA.find((a) => a.type === "renewal-deadline");
+  const deadlineB = forLicenseB.find((a) => a.type === "renewal-deadline");
+  assert.notEqual(deadlineA.dueDateIso, deadlineB.dueDateIso);
+});
+
+test("buildReminderDigest: 2許可を持つクライアントでも決算変更届のアラートは1件のみ生成する（重複防止・FR-5.3）", () => {
+  const alerts = buildReminderDigest(
+    [
+      {
+        clientName: "複数許可建設",
+        fiscalYearEndIso: "2026-03-31",
+        licenses: [
+          { licenseId: "般-建築工事業", grantDateIso: "2024-04-01" },
+          { licenseId: "特-とび土工工事業", grantDateIso: "2020-04-01" },
+        ],
+      },
+    ],
+    "2026-09-01"
+  );
+  const kessanAlerts = alerts.filter((a) => a.type === "kessan-henko");
+  assert.equal(kessanAlerts.length, 1); // 許可が2件あってもクライアントにつき1件のみ
+  assert.equal(kessanAlerts[0].clientName, "複数許可建設");
 });
 
 test("filterDueAlerts: デフォルト30日以内（期限超過含む）に絞り込む", () => {
@@ -76,9 +134,9 @@ test("formatReminderDigest: 空配列の場合はその旨のメッセージを�
 test("formatReminderDigest: 期限超過・30日以内・今後の予定の3区分に分けて出力する", () => {
   const alerts = buildReminderDigest(
     [
-      { clientName: "期限切れ社", grantDateIso: "2020-04-01" },
-      { clientName: "まもなく社", grantDateIso: "2026-10-15" },
-      { clientName: "余裕社", grantDateIso: "2030-01-01" },
+      { clientName: "期限切れ社", licenses: [{ licenseId: "既定", grantDateIso: "2020-04-01" }] },
+      { clientName: "まもなく社", licenses: [{ licenseId: "既定", grantDateIso: "2026-10-15" }] },
+      { clientName: "余裕社", licenses: [{ licenseId: "既定", grantDateIso: "2030-01-01" }] },
     ],
     "2026-09-01"
   );
@@ -89,27 +147,75 @@ test("formatReminderDigest: 期限超過・30日以内・今後の予定の3区�
   assert.match(report, /余裕社/);
 });
 
+test("formatReminderDigest: licenseIdが付与されたアラートは行にも許可IDを表示する（FR-5.4）", () => {
+  const alerts = buildReminderDigest(
+    [
+      {
+        clientName: "複数許可建設",
+        licenses: [
+          { licenseId: "般-建築工事業", grantDateIso: "2024-04-01" },
+          { licenseId: "特-とび土工工事業", grantDateIso: "2020-04-01" },
+        ],
+      },
+    ],
+    "2026-09-01"
+  );
+  const report = formatReminderDigest(alerts);
+  assert.match(report, /許可: 般-建築工事業/);
+  assert.match(report, /許可: 特-とび土工工事業/);
+});
+
 test("buildReminderDigest: contactEmailを指定するとアラートにも引き継がれる", () => {
   const alerts = buildReminderDigest(
-    [{ clientName: "テスト建設", grantDateIso: "2024-04-01", contactEmail: "info@example.com" }],
+    [
+      {
+        clientName: "テスト建設",
+        contactEmail: "info@example.com",
+        licenses: [{ licenseId: "既定", grantDateIso: "2024-04-01" }],
+      },
+    ],
     "2026-09-01"
   );
   assert.ok(alerts.every((a) => a.contactEmail === "info@example.com"));
 });
 
 test("buildReminderMailtoUrl: contactEmailが無ければnullを返す", () => {
-  const [alert] = buildReminderDigest([{ clientName: "テスト建設", grantDateIso: "2024-04-01" }], "2026-09-01");
+  const [alert] = buildReminderDigest(
+    [{ clientName: "テスト建設", licenses: [{ licenseId: "既定", grantDateIso: "2024-04-01" }] }],
+    "2026-09-01"
+  );
   assert.equal(buildReminderMailtoUrl(alert), null);
 });
 
 test("buildReminderMailtoUrl: contactEmailがあればmailto:リンクを返す", () => {
   const [alert] = buildReminderDigest(
-    [{ clientName: "テスト建設", grantDateIso: "2024-04-01", contactEmail: "info@example.com" }],
+    [
+      {
+        clientName: "テスト建設",
+        contactEmail: "info@example.com",
+        licenses: [{ licenseId: "既定", grantDateIso: "2024-04-01" }],
+      },
+    ],
     "2026-09-01"
   );
   const url = buildReminderMailtoUrl(alert);
   assert.match(url, /^mailto:info@example\.com\?subject=/);
   assert.match(decodeURIComponent(url), /テスト建設/);
+});
+
+test("buildReminderMailtoUrl: licenseIdがあれば本文に対象の許可を明記する（FR-5.4）", () => {
+  const [alert] = buildReminderDigest(
+    [
+      {
+        clientName: "テスト建設",
+        contactEmail: "info@example.com",
+        licenses: [{ licenseId: "般-建築工事業", grantDateIso: "2024-04-01" }],
+      },
+    ],
+    "2026-09-01"
+  );
+  const url = buildReminderMailtoUrl(alert);
+  assert.match(decodeURIComponent(url), /対象の許可: 般-建築工事業/);
 });
 
 /** @param {number} daysUntil @returns {import('../src/reminders/reminderDigest.js').ReminderAlert} */
