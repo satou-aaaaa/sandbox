@@ -41,6 +41,7 @@ import { writeYoushiki2Docx } from "../documents/youshiki2.js";
 import { writeYoushiki6Docx } from "../documents/youshiki6.js";
 import { writeYoushiki7Docx } from "../documents/youshiki7.js";
 import { writeYoushiki8Docx } from "../documents/youshiki8.js";
+import { writeYoushiki16Docx } from "../documents/youshiki16.js";
 import { writeYoushiki20_2Docx } from "../documents/youshiki20-2.js";
 import { loadClients, DEFAULT_CLIENTS_PATH } from "../reminders/clientStore.js";
 import {
@@ -67,6 +68,7 @@ const DOCUMENT_TARGETS = [
   { label: "様式第六号（役員等の一覧表）", filename: "youshiki6.docx", write: writeYoushiki6Docx },
   { label: "様式第七号（経営業務管理責任者証明書）", filename: "youshiki7.docx", write: writeYoushiki7Docx },
   { label: "様式第八号（専任技術者証明書）", filename: "youshiki8.docx", write: writeYoushiki8Docx },
+  { label: "様式第十六号の一部（完成工事原価報告書）", filename: "youshiki16.docx", write: writeYoushiki16Docx },
   { label: "様式第二十号の二（誓約書）", filename: "youshiki20-2.docx", write: writeYoushiki20_2Docx },
 ];
 

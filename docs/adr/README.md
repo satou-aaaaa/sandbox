@@ -35,3 +35,4 @@ Architecture Decision Record（ADR）を管理する。
 | [0007](0007-checkjs-type-checking.md) | `tsconfig.json` の `checkJs` によるビルドレスな型チェック導入 | Accepted |
 | [0008](0008-multi-license-client-model.md) | クライアントが複数の許可を保有できるデータモデルへ変更する | Accepted |
 | [0009](0009-keishin-scope-documents-only.md) | 経営事項審査（経審）対応は書類準備支援に限定し、点数計算は対象外とする | Accepted |
+| [0010](0010-financial-statements-scope-kansei-kouji-genka-only.md) | 財務諸表対応は完成工事原価報告書のみに限定する | Accepted |

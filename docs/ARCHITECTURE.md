@@ -50,7 +50,8 @@ TypeScriptと同等に効く。
 - `src/documents/common.js` — 様式生成モジュール共通のdocxヘルパー（見出し・赤字注記・表・箇条書き・ファイル書き出し）
 - `src/documents/youshiki1.js` — 様式第一号（建設業許可申請書）のdocx自動生成
 - `src/documents/youshiki2.js` — 様式第二号（工事経歴書）のdocx自動生成（M8。経審の評点計算は対象外。ADR-0009）
-- `src/documents/youshiki25-14.js` — 様式第二十五号の十四（経営規模等評価申請書・総合評定値請求書）の総括表のdocx自動生成（M9。別紙一〜三・評点計算は対象外。標準の6様式一括生成には含めずCLI個別生成のみ）
+- `src/documents/youshiki25-14.js` — 様式第二十五号の十四（経営規模等評価申請書・総合評定値請求書）の総括表のdocx自動生成（M9。別紙一〜三・評点計算は対象外。標準の一括生成には含めずCLI個別生成のみ）
+- `src/documents/youshiki16.js` — 様式第十六号の一部（完成工事原価報告書）のdocx自動生成（M10。貸借対照表・損益計算書本体等は対象外。ADR-0010）
 - `src/documents/youshiki6.js` — 様式第六号（役員等の一覧表）のdocx自動生成
 - `src/documents/youshiki7.js` — 様式第七号（経営業務管理責任者証明書）のdocx自動生成
 - `src/documents/youshiki8.js` — 様式第八号（専任技術者証明書）のdocx自動生成
