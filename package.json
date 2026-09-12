@@ -21,6 +21,7 @@
     "gen:youshiki7": "node scripts/generate-youshiki7-sample.js",
     "gen:youshiki8": "node scripts/generate-youshiki8-sample.js",
     "gen:youshiki20-2": "node scripts/generate-youshiki20-2-sample.js",
+    "gen:youshiki25-14": "node scripts/generate-youshiki25-14-sample.js",
     "gen:reminder-digest": "node scripts/generate-reminder-digest-sample.js",
     "client:add": "node scripts/add-client.js",
     "client:remove": "node scripts/remove-client.js",

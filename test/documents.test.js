@@ -10,6 +10,7 @@ import { resolveYoushiki6Rows, writeYoushiki6Docx } from "../src/documents/yoush
 import { resolveYoushiki7Fields, writeYoushiki7Docx } from "../src/documents/youshiki7.js";
 import { resolveYoushiki8Sections, writeYoushiki8Docx } from "../src/documents/youshiki8.js";
 import { resolveYoushiki20_2Fields, writeYoushiki20_2Docx } from "../src/documents/youshiki20-2.js";
+import { resolveYoushiki25_14Rows, writeYoushiki25_14Docx } from "../src/documents/youshiki25-14.js";
 import { buildSampleApplicantProfile } from "../scripts/sampleProfile.js";
 
 /** 生成された docx バッファが有効な zip（docxの実体）であることを確認する。 */
@@ -184,4 +185,55 @@ test("様式第二十号の二: 欠格事由に該当すれば不合格になる
 
 test("様式第二十号の二: docxファイルを生成できる", async () => {
   await assertWrittenDocx(writeYoushiki20_2Docx, buildSampleApplicantProfile());
+});
+
+test("様式第二十五号の十四: keishinRequestが未入力でも（未入力）で表示される", () => {
+  const profile = buildSampleApplicantProfile();
+  profile.keishinRequest = undefined;
+  const rows = resolveYoushiki25_14Rows(profile);
+  const map = Object.fromEntries(rows);
+  assert.equal(map["商号又は名称のフリガナ"], "（未入力）");
+  assert.equal(map["許可番号・許可年月日・許可行政庁"], "（未入力）");
+  assert.equal(map["経営状況分析を受けた機関名"], "（未入力）");
+});
+
+test("様式第二十五号の十四: 資本金の額はApplicantProfile本体（zaisanKiso）から取得する", () => {
+  const profile = buildSampleApplicantProfile();
+  profile.zaisanKiso.capitalAmount = 20_000_000;
+  const rows = resolveYoushiki25_14Rows(profile);
+  const map = Object.fromEntries(rows);
+  assert.equal(map["資本金の額"], "20,000,000円");
+});
+
+test("様式第二十五号の十四: 自己資本額は1期分がデフォルトで、2期平均は明示指定時のみ前期分を表示する", () => {
+  const profile = buildSampleApplicantProfile();
+  let rows = resolveYoushiki25_14Rows(profile);
+  let map = Object.fromEntries(rows);
+  assert.equal(map["自己資本額の算定方法"], "1期分（審査基準日の決算額）");
+  assert.equal(map["自己資本額（前回申請時の審査基準日）"], undefined);
+
+  profile.keishinRequest.useNetAssetsTwoYearAverage = true;
+  profile.keishinRequest.previousNetAssets = 5_000_000;
+  rows = resolveYoushiki25_14Rows(profile);
+  map = Object.fromEntries(rows);
+  assert.equal(map["自己資本額の算定方法"], "2期平均");
+  assert.equal(map["自己資本額（前回申請時の審査基準日）"], "5,000,000円");
+});
+
+test("様式第二十五号の十四: 技術職員数は専任技術者一覧の件数から算出する", () => {
+  const profile = buildSampleApplicantProfile();
+  profile.senninGijutsushaList.push({ ...profile.senninGijutsushaList[0], officeName: "支店" });
+  const rows = resolveYoushiki25_14Rows(profile);
+  const map = Object.fromEntries(rows);
+  assert.equal(map["技術職員数（専任技術者一覧からの参考値）"], "2名");
+});
+
+test("様式第二十五号の十四: docxファイルを生成できる", async () => {
+  await assertWrittenDocx(writeYoushiki25_14Docx, buildSampleApplicantProfile());
+});
+
+test("様式第二十五号の十四: keishinRequestが未入力でもdocxファイルを生成できる", async () => {
+  const profile = buildSampleApplicantProfile();
+  profile.keishinRequest = undefined;
+  await assertWrittenDocx(writeYoushiki25_14Docx, profile);
 });

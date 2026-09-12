@@ -80,6 +80,32 @@
  */
 
 /**
+ * @typedef {Object} KeishinRequestInput 経営規模等評価申請書・総合評定値請求書（様式第二十五号の十四）
+ *   総括表の様式固有項目（M9）。ApplicantProfile本体で表現済みの項目（商号=applicantName、
+ *   代表者=representativeName、所在地=address、資本金=zaisanKiso.capitalAmount、
+ *   自己資本額=zaisanKiso.netAssets、経審対象業種=constructionTypes）は重複させない。
+ *   コード表参照・機械的導出が必要な項目（市区町村コード、大臣/知事コード、技術職員名簿の
+ *   合計人数等）は専用フィールドを設けず、様式モジュール側で既定値の適用または注記で対応する
+ *   （docs/DESIGN.md §4.10・§5.18参照）。
+ * @property {string} [applicantNameKana] 商号又は名称のフリガナ（カタカナ）
+ * @property {string} [corporateNumber] 法人番号（法人のみ）
+ * @property {string} [phoneNumber] 電話番号
+ * @property {string} [licenseNumber] 許可番号（複数業種で許可を持つ場合は最も古いもの）
+ * @property {string} [licenseGrantDateIso] 許可年月日
+ * @property {"大臣" | "知事"} [licenseAuthorityType] 許可行政庁の区分
+ * @property {string} [previousLicenseNumber] 前回申請時の許可番号（今回と異なる場合のみ記載）
+ * @property {string} [reviewDateIso] 審査基準日（原則、直前の事業年度終了日＝決算日）
+ * @property {boolean} [useNetAssetsTwoYearAverage] 自己資本額を2期平均で算定するか（省略時は当期の決算額のみ）
+ * @property {number} [previousNetAssets] 前回申請時の審査基準日における自己資本額（2期平均選択時に使用）
+ * @property {number} [operatingProfit] 経営状況分析結果通知書に記載の営業利益（参考値）
+ * @property {number} [previousOperatingProfit] 前期分の営業利益（2期平均算定用）
+ * @property {number} [depreciationAmount] 経営状況分析結果通知書に記載の減価償却実施額（参考値）
+ * @property {number} [previousDepreciationAmount] 前期分の減価償却実施額（2期平均算定用）
+ * @property {string} [analysisOrganizationName] 経営状況分析を受けた登録経営状況分析機関の名称
+ * @property {string} [analysisOrganizationNumber] 分析機関番号
+ */
+
+/**
  * @typedef {Object} ApplicantProfile 申請者（会社・個人）の総合入力データ
  * @property {string} applicantName 申請者名（会社名 or 個人名）
  * @property {KeieiGyomuKanriInput} keieiGyomuKanri
@@ -94,6 +120,7 @@
  * @property {string[]} [constructionTypes] 許可を受けようとする建設業の種類（書類生成用・任意）
  * @property {OfficerInput[]} [officers] 役員等の一覧（様式第六号用・任意）
  * @property {WorkRecordInput[]} [constructionHistory] 工事経歴（様式第二号用・任意。M8）
+ * @property {KeishinRequestInput} [keishinRequest] 経営規模等評価申請書の様式固有項目（様式第二十五号の十四用・任意。M9）
  *
  * 全体の許可区分（一般/特定）は様式生成時、`zaisanKiso.licenseType` を正として用いる
  * （申請全体で1つの区分に定まるため、様式ごとに別フィールドへ二重定義しない）。

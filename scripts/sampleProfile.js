@@ -20,6 +20,20 @@ export function buildSampleApplicantProfile() {
       { name: "山田 太郎", title: "代表取締役", birthDate: "1975-04-01" },
       { name: "鈴木 花子", title: "取締役", birthDate: "1980-11-20" },
     ],
+    keishinRequest: {
+      applicantNameKana: "サンプルケンセツカブシキガイシャ",
+      corporateNumber: "1234567890123",
+      phoneNumber: "03-1234-5678",
+      licenseNumber: "東京都知事許可（般-01）第12345号",
+      licenseGrantDateIso: "2021-10-21",
+      licenseAuthorityType: "知事",
+      reviewDateIso: "2026-03-31",
+      useNetAssetsTwoYearAverage: false,
+      operatingProfit: 3_500_000,
+      depreciationAmount: 800_000,
+      analysisOrganizationName: "サンプル経営状況分析センター",
+      analysisOrganizationNumber: "0001",
+    },
     constructionHistory: [
       {
         constructionType: "建築工事業",
