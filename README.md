@@ -35,12 +35,14 @@
 - [`docs/DESIGN.md`](docs/DESIGN.md) — 技術設計書（モジュール詳細設計を含む）
 - [`docs/DEVELOPMENT_GUIDE.md`](docs/DEVELOPMENT_GUIDE.md) — 開発環境構築・コーディング規約・Git運用ガイド
 - [`docs/BEST_PRACTICES_AUDIT.md`](docs/BEST_PRACTICES_AUDIT.md) — セキュリティ・CI・リポジトリ運用の棚卸しと今後の推奨事項
+- [`docs/adr/`](docs/adr/) — アーキテクチャ決定記録（重要な設計判断の背景）
 - [`CHANGELOG.md`](CHANGELOG.md) — マイルストーン単位の変更履歴
 
 ## セットアップ
 
 ```bash
 npm install
+git config core.hooksPath hooks   # シークレット混入チェックのpre-commitフックを有効化（初回のみ）
 npm test                    # ユニットテストを実行
 npm run gen:eligibility     # 要件判定のサンプル実行
 npm run gen:youshiki1       # 様式第一号サマリーのdocx生成サンプル

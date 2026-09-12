@@ -39,6 +39,14 @@ npm run web                 # インテイク用Webフォームを起動（任�
 （v20未満だと `node --test` の挙動が異なる場合がある）。
 利用可能な全スクリプトは `README.md` の「セットアップ」節を参照。
 
+セットアップ後、以下を一度だけ実行してシークレット混入チェックの
+pre-commitフックを有効化すること（`hooks/` 参照。追加の依存パッケージは
+不要で、`git` コマンドのみで動作する）。
+
+```bash
+git config core.hooksPath hooks
+```
+
 ### 1.3 生成物の確認方法
 
 `scripts/generate-youshiki1-sample.js` を実行すると `out/` ディレクトリに
@@ -82,6 +90,15 @@ Microsoft Word、LibreOffice Writer等で開いて内容を確認すること。
 - 申請者データの型は `src/eligibility/types.js` を唯一の情報源とする。
   同じ意味のデータに対して別モジュールで別の型を新設しない。
   型を拡張する場合はこのファイルに追記する。
+
+### 2.6 重要な設計判断はADRとして記録する
+
+- 「変更してはならない前提」（`docs/DESIGN.md` 1章）に関わる決定や、
+  複数の選択肢を比較検討した上で採用したアーキテクチャ上の決定は、
+  `docs/adr/` にArchitecture Decision Record（ADR）として残す。
+  書き方・命名規則は `docs/adr/README.md` を参照。
+- 単純なバグ修正や、既存の設計原則に沿った機能追加ではADRは不要。
+  「なぜAではなくBを選んだか」を将来説明する必要がありそうな決定のみ対象とする。
 
 ## 3. Git運用ルール
 
@@ -128,11 +145,14 @@ Microsoft Word、LibreOffice Writer等で開いて内容を確認すること。
 
 1. 開発者が `npm test` を実行し、全テスト成功を確認する（GitHub Actionsでも
    自動実行されるため、PR画面のチェック結果でも確認できる）
-2. `docs/REQUIREMENTS.md` 7章の受け入れ基準（M2）を1項目ずつ自己チェックする
-3. 生成されたdocxサンプルを発注者に共有し、内容・注記表示を確認してもらう
-4. 発注者が `docs/ARCHITECTURE.md`（および必要なら `docs/DESIGN.md`）の
+2. PRテンプレート（`.github/pull_request_template.md`）のセルフレビュー観点
+   （Google eng-practicesの8項目: 設計・機能性・複雑性・テスト・命名・
+   コメント・スタイル・ドキュメント）を一通り確認する
+3. `docs/REQUIREMENTS.md` 7章の受け入れ基準（M2）を1項目ずつ自己チェックする
+4. 生成されたdocxサンプルを発注者に共有し、内容・注記表示を確認してもらう
+5. 発注者が `docs/ARCHITECTURE.md`（および必要なら `docs/DESIGN.md`）の
    記述が実装と一致しているかを確認する
-5. 問題なければ `main` にマージ（またはPRを承認）し、当該マイルストーンを完了とする
+6. 問題なければ `main` にマージ（またはPRを承認）し、当該マイルストーンを完了とする
 
 ## 6. セキュリティ・情報管理
 
@@ -141,6 +161,10 @@ Microsoft Word、LibreOffice Writer等で開いて内容を確認すること。
 - APIキー・トークン等の秘匿情報が将来的に必要になった場合（例: M6でのJCIP連携）、
   `.env` 等の環境変数で管理し、`.gitignore` で除外されていることを確認する
   （現状の `.gitignore` に `.env` / `.env.local` は追加済み）。
+- `hooks/check-secrets.mjs`（pre-commitフック。有効化は1.2節参照）が、
+  ステージ済みの変更にAPIキー・秘密鍵らしき文字列が含まれていないかを
+  コミット前に簡易チェックする。誤検知時は `git commit --no-verify` で
+  バイパスできるが、実データの混入を必ず確認してから使うこと。
 - 本プロジェクトは個人の副業運用であり、大規模な組織的セキュリティ体制は
   前提としていない。過剰な設計（大掛かりな認証基盤の導入等）は避け、
   シンプルな構成を維持すること。
@@ -156,4 +180,5 @@ Microsoft Word、LibreOffice Writer等で開いて内容を確認すること。
 | `docs/DESIGN.md` | 技術設計書（モジュール詳細設計を含む） |
 | `docs/DEVELOPMENT_GUIDE.md` | 本書 |
 | `docs/BEST_PRACTICES_AUDIT.md` | セキュリティ・CI・リポジトリ運用のベストプラクティス棚卸し |
+| `docs/adr/` | アーキテクチャ決定記録（ADR）。重要な設計判断の背景 |
 | `CHANGELOG.md` | マイルストーン単位の変更履歴 |
