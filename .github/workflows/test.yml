@@ -53,11 +53,13 @@ jobs:
         run: |
           set -o pipefail
           npm run test:coverage 2>&1 | tee coverage-output.txt
+          # Node.jsのテストランナーはTTY接続時は"ℹ "、CI等の非TTY環境では"# "を
+          # 診断行の接頭辞に使う（reporterの自動切り替え）ため、両方にマッチさせる。
           {
             echo '## テストカバレッジサマリー'
             echo
             echo '```'
-            grep -E '^ℹ (tests|pass|fail|cancelled|skipped|todo|all files)' coverage-output.txt
+            grep -E '^[ℹ#] (tests|pass|fail|cancelled|skipped|todo|all files)' coverage-output.txt
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
       # シークレット混入チェック（hooks/check-secrets.mjs）をCI側でも実行する。
