@@ -3,6 +3,7 @@ import { checkSenninGijutsusha } from "./rules/senninGijutsusha.js";
 import { checkZaisanKiso } from "./rules/zaisanKiso.js";
 import { checkKekkaku } from "./rules/kekkaku.js";
 import { checkSeijitsusei } from "./rules/seijitsusei.js";
+import { getPrefectureRules } from "./prefectureRules.js";
 
 /**
  * 建設業許可の法定5要件をまとめて判定する。
@@ -10,6 +11,11 @@ import { checkSeijitsusei } from "./rules/seijitsusei.js";
  * 判定結果はあくまで「申請前のセルフチェック・要件充足の一次スクリーニング」であり、
  * 最終的な適格性の判断と申請書類への責任は、登録行政書士本人が負う。
  * ここで eligible=true が出ても、それは「自動的に許可される」ことを意味しない。
+ *
+ * `profile.prefecture` に対応する都道府県固有ルールが
+ * `prefectureRules.js` に登録されている場合（M6）、共通5要件に加えて
+ * その追加要件も合成して判定する。未登録の場合は従来どおり共通5要件のみで
+ * 判定するため、既存の挙動（M1〜M4）には影響しない。
  *
  * @param {import('./types.js').ApplicantProfile} profile
  * @returns {import('./types.js').EligibilityResult}
@@ -22,6 +28,11 @@ export function evaluateEligibility(profile) {
     checkKekkaku(profile.kekkaku),
     checkSeijitsusei(profile.seijitsusei),
   ];
+
+  const prefectureCheckFn = getPrefectureRules(profile.prefecture);
+  if (prefectureCheckFn) {
+    checks.push(...prefectureCheckFn(profile));
+  }
 
   const eligible = checks.every((c) => c.passed);
   const blockingIssues = checks
