@@ -42,13 +42,13 @@ Martin Fowler・OWASP・Google Cloud DORAチーム等の公開資料を出典と
 | 依存パッケージ数の最小化 | ✅ | 本番依存は `docx` 1件のみ |
 | コミット前のシークレット混入防止 | ✅ | `hooks/check-secrets.mjs`（pre-commitフック）。AWSキー・Google APIキー・Slackトークン・秘密鍵・汎用的な`api_key=`等のパターンを検知する簡易チェック。導入コストを抑えるため外部ツール（gitleaks等）は使わず、`git`コマンドのみで実装 |
 | 静的解析（SAST） | 🟡 | ESLintのセキュリティ関連プラグイン等は未導入（3章のLinter見送りと同じ理由）。`npm audit`（依存パッケージの既知脆弱性）は実施済みだが、自作コードそのものの静的解析は行っていない |
-| プライバシー・バイ・デザイン | ✅ | `ApplicantProfile`・`ClientLicenseRecord`とも設計当初から「外部送信しない」ことを前提に設計済み（NFR-4、ADR-0004） |
+| プライバシー・バイ・デザイン | ✅ | `ApplicantProfile`・`ClientRecord`（M7以前は`ClientLicenseRecord`）とも設計当初から「外部送信しない」ことを前提に設計済み（NFR-4、ADR-0004） |
 
 ## 2. テスト・CI
 
 | 項目 | 状態 | 補足 |
 |---|---|---|
-| ユニットテスト | ✅ | `node --test`（Node.js標準機能）。82件全通過 |
+| ユニットテスト | ✅ | `node --test`（Node.js標準機能）。119件全通過 |
 | CI（push/PR時の自動テスト） | ✅ | `.github/workflows/test.yml`。Node.js 20.x/22.x の2バージョンで実行 |
 | テストカバレッジ計測 | ✅ | `npm run test:coverage`（`--experimental-test-coverage`）。CIでは22.xのジョブでのみ表示（Node 20系に既知の不具合があるため）。現在ライン網羅率 約98% |
 | カバレッジの閾値強制 | ⛔ | `--test-coverage-lines` 等で閾値未達を失敗にする設定は未導入。個人開発でカバレッジ数値そのものを目的化しないため、情報表示に留めている |

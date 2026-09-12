@@ -429,15 +429,19 @@ ApplicantProfileを入力→要件判定→書類サマリー生成までを一�
 本格的なデータベースではなく単一のJSONファイル（`data/clients.json`）による
 最小限の永続化を別途導入している（§5.11参照）。
 
-### 5.11 `src/reminders/reminderDigest.js` — リマインド・ダイジェスト（M4の土台）
+### 5.11 `src/reminders/reminderDigest.js` — リマインド・ダイジェスト（M4の土台、M7で複数許可対応）
 
-複数クライアントの許可情報（`ClientLicenseRecord[]`）から、更新準備・
-更新申請の最終締切・決算変更届の3種のリマインドをまとめて計算し、
-期限が近い順（期限超過を含む）に並べる。日付計算そのものは新規実装せず、
+複数クライアントの許可情報（`ClientRecord[]`。M7で `ClientLicenseRecord`
+から `ClientRecord`/`LicenseEntry` の2階層モデルへ変更済み。§4.8・§5.15・
+ADR-0008参照）から、更新準備（早期検討・準備開始）・更新申請の最終締切・
+決算変更届の4種のリマインドをまとめて計算し、期限が近い順（期限超過を
+含む）に並べる。更新関連の3種は「クライアント→保有する各許可」の
+二重ループで許可ごとに個別生成し、決算変更届はクライアント単位で
+1回のみ生成する（重複防止。§5.15参照）。日付計算そのものは新規実装せず、
 既存の `calcRenewalSchedule` / `calcKessanHenkoDeadline` / `daysUntil`
 （§5.7）をそのまま再利用している。
 
-**`buildReminderMailtoUrl(alert)`**: `ClientLicenseRecord.contactEmail` が
+**`buildReminderMailtoUrl(alert)`**: `ClientRecord.contactEmail`（会社単位）が
 登録されている場合、その連絡先宛の `mailto:` URL（件名・本文つき）を生成する。
 クリックすると既定のメールソフトで下書きが開くだけであり、**このツール自体が
 メールを送信することはない**。件名・本文には「これは下書きである」旨を明記し、
@@ -454,12 +458,15 @@ ApplicantProfileを入力→要件判定→書類サマリー生成までを一�
 送信チャネル（SMTP・SendGrid等のAPI）のモジュールに渡す構成を推奨する
 （既存の判定・計算ロジックへの影響を局所化するため）。
 
-**`src/reminders/clientStore.js`（永続化層）**: `ClientLicenseRecord[]` を
+**`src/reminders/clientStore.js`（永続化層）**: `ClientRecord[]` を
 単一のJSONファイル（既定: `data/clients.json`）へ読み書きする。
-`loadClients` はファイル未存在時に空配列を返す（初回利用時にエラーにしない
-ため）。`data/` は `.gitignore` で除外しており、実クライアントデータを
-リポジトリにコミットしないこと（NFR-5）。クライアントの登録・削除は
-`scripts/add-client.js` / `scripts/remove-client.js` のCLIで行う想定。
+`loadClients` はファイル未存在時に空配列を返し（初回利用時にエラーにしない
+ため）、旧形式（1クライアント＝1許可）のデータは読み込み時に自動変換する
+（lazy migration。§5.15参照）。`data/` は `.gitignore` で除外しており、
+実クライアントデータをリポジトリにコミットしないこと（NFR-5）。
+クライアントの登録・削除は `scripts/add-client.js`（`upsertClientLicense`
+を使用。既存クライアントへの許可追加にも対応） / `scripts/remove-client.js`
+のCLIで行う想定。
 
 **Webフォームとの連携**: `src/web/server.js` の `GET /reminders`
 （`src/web/reminderPage.js`）が `data/clients.json` を読み込み、
@@ -474,7 +481,9 @@ ApplicantProfileを入力→要件判定→書類サマリー生成までを一�
 
 `data/clients.json` の内容を表計算ソフト（Excel等）でバックアップ・一括確認
 できるようにするためのCSVエンコード/デコード。RFC4180準拠の最小限の実装を
-自前で用意しており、外部パッケージには依存しない（NFR-1）。
+自前で用意しており、外部パッケージには依存しない（NFR-1）。M7で「1行＝1許可」
+の非正規化形式へ変更済み（`licenseId` 列を追加。会社単位の列は同一クライアント
+の全行で値を繰り返す。§5.15・ADR-0008参照）。
 
 - `clientsToCsv(clients)`: カンマ・ダブルクォート・改行を含む値は
   ダブルクォートで囲みエスケープする
@@ -736,7 +745,7 @@ Webの `GET /clients.csv`（読み取り専用のダウンロードのみ。登�
   仕様書本文の精査、をすべて満たすまでは自動連携コードを実装しない
   （登録前に有償の提出代理を自動化することは設計原則1・法的前提と
   相容れないため）。
-- **M7 競合調査に基づく機能拡張**: 設計のみ完了、未着手。
+- **M7 競合調査に基づく機能拡張**: 完了。
   (a) リマインドの3段階化・一覧フィルタリング（§5.14）、
   (b) クライアントの複数許可対応（§5.15・ADR-0008）、
   (c) 入力内容の整合性チェック（§5.16）の3件。詳細は `docs/PROPOSAL.md` M7、

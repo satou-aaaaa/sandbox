@@ -6,6 +6,30 @@
 日付単位のリリースではなく `docs/PROPOSAL.md` のマイルストーン（M1〜）を
 単位として記録する。
 
+## M7: 競合調査に基づく機能拡張（完了）
+
+構成・許認可更新期限管理ツール・AI活用事例等の競合調査（2026年9月実施）を
+踏まえた3件の機能拡張。詳細は `docs/DESIGN.md` §5.14〜5.16、
+`docs/adr/0008-multi-license-client-model.md` を参照。
+
+- **リマインドの3段階化・一覧フィルタリング**: `calcRenewalSchedule` に
+  満了180日前（早期検討）を追加（60日前・30日前の法定期限は変更なし）。
+  `GET /reminders` に残日数（期限超過／1ヶ月以内／1〜3ヶ月／3〜6ヶ月／
+  6ヶ月超）でのフィルタ表示を追加。CLI向け `formatReminderDigest` の
+  出力形式は変更していない
+- **クライアントの複数許可対応**: `ClientLicenseRecord`（1クライアント＝
+  1許可）を `ClientRecord`/`LicenseEntry`（1クライアントが複数許可を保有
+  可能）へ変更（`docs/adr/0008-multi-license-client-model.md`）。既存の
+  `data/clients.json` は読み込み時に自動移行（lazy migration）。CSVは
+  「1行＝1許可」形式に変更。決算変更届のリマインドはクライアントごとに
+  1件のみ生成（重複防止）。`scripts/add-client.js` は既存クライアントへの
+  許可追加に対応
+- **入力内容の整合性チェック**: `src/eligibility/consistencyChecks.js` を
+  新設。代表者氏名と経営業務管理責任者氏名の不一致、実務経験年数等の
+  非現実的な値、専任技術者の複数営業所重複登録を検出し、`EligibilityResult`
+  に `consistencyWarnings` として追加。合否判定（`eligible`）には一切
+  影響しない。外部AI APIは使わずルールベースで実現（NFR-4）
+
 ## M6: 拡張（土台のみ・対象都道府県未確定のため保留中）
 
 - **都道府県固有ルールの合成の仕組み**: `src/eligibility/prefectureRules.js`
