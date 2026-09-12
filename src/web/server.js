@@ -32,7 +32,7 @@ import { writeYoushiki7Docx } from "../documents/youshiki7.js";
 import { writeYoushiki8Docx } from "../documents/youshiki8.js";
 import { writeYoushiki20_2Docx } from "../documents/youshiki20-2.js";
 import { loadClients, DEFAULT_CLIENTS_PATH } from "../reminders/clientStore.js";
-import { buildReminderDigest, formatReminderDigest } from "../reminders/reminderDigest.js";
+import { buildReminderDigest, filterDueAlerts, formatReminderDigest } from "../reminders/reminderDigest.js";
 import { renderFormPage } from "./formPage.js";
 import { renderResultPage } from "./resultPage.js";
 import { renderReminderPage } from "./reminderPage.js";
@@ -139,8 +139,13 @@ export function createServer({ outDir = DEFAULT_OUT_DIR, clientsPath = DEFAULT_C
 
       if (req.method === "GET" && req.url === "/reminders") {
         const clients = await loadClients(clientsPath);
-        const report = formatReminderDigest(buildReminderDigest(clients));
-        respondHtml(res, 200, renderReminderPage({ report, clientCount: clients.length }));
+        const alerts = buildReminderDigest(clients);
+        const report = formatReminderDigest(alerts);
+        respondHtml(
+          res,
+          200,
+          renderReminderPage({ report, clientCount: clients.length, actionableAlerts: filterDueAlerts(alerts) })
+        );
         return;
       }
 

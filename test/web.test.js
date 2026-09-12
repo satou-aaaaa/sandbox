@@ -187,3 +187,31 @@ test("GET /reminders: data/clients.json相当のファイルに登録済みの�
     await ctx.close();
   }
 });
+
+test("GET /reminders: 連絡先メールアドレス登録済みのクライアントはメール下書きリンクが表示される", async () => {
+  const ctx = await startTestServer();
+  try {
+    await saveClients(
+      [{ clientName: "テスト建設", grantDateIso: "2020-04-01", contactEmail: "info@example.com" }],
+      ctx.clientsPath
+    );
+    const res = await fetch(`${ctx.baseUrl}/reminders`);
+    const html = await res.text();
+    assert.match(html, /連絡が必要な件（メール下書きを開く）/);
+    assert.match(html, /href="mailto:info@example\.com\?subject=/);
+  } finally {
+    await ctx.close();
+  }
+});
+
+test("GET /reminders: 連絡先メールアドレス未登録の場合はメール下書きセクションを表示しない", async () => {
+  const ctx = await startTestServer();
+  try {
+    await saveClients([{ clientName: "テスト建設", grantDateIso: "2020-04-01" }], ctx.clientsPath);
+    const res = await fetch(`${ctx.baseUrl}/reminders`);
+    const html = await res.text();
+    assert.doesNotMatch(html, /連絡が必要な件（メール下書きを開く）/);
+  } finally {
+    await ctx.close();
+  }
+});

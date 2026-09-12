@@ -19,6 +19,9 @@ import { calcRenewalSchedule, calcKessanHenkoDeadline, daysUntil } from "./renew
  * @property {string} grantDateIso 許可年月日（YYYY-MM-DD）
  * @property {string} [fiscalYearEndIso] 直近の事業年度終了日（YYYY-MM-DD、任意。
  *   指定した場合のみ決算変更届のリマインドを計算する）
+ * @property {string} [contactEmail] 連絡先メールアドレス（任意。指定した場合のみ
+ *   buildReminderMailtoUrl でメール下書きのURLを生成できる。本モジュールは
+ *   このアドレスへメールを送信すること自体は行わない）
  */
 
 /**
@@ -29,6 +32,7 @@ import { calcRenewalSchedule, calcKessanHenkoDeadline, daysUntil } from "./renew
  * @property {string} dueDateIso 期限日（YYYY-MM-DD）
  * @property {number} daysUntil 基準日から期限日までの残り日数（負なら期限超過）
  * @property {boolean} isOverdue 期限を過ぎているか
+ * @property {string} [contactEmail] クライアントの連絡先メールアドレス（登録があれば）
  */
 
 /**
@@ -44,23 +48,34 @@ export function buildReminderDigest(records, todayIso) {
   for (const record of records) {
     const schedule = calcRenewalSchedule(record.grantDateIso);
     alerts.push(
-      makeAlert(record.clientName, "renewal-prepare", "更新準備開始の推奨日（満了60日前）", schedule.recommendedStartDate, todayIso)
+      makeAlert(record, "renewal-prepare", "更新準備開始の推奨日（満了60日前）", schedule.recommendedStartDate, todayIso)
     );
     alerts.push(
-      makeAlert(record.clientName, "renewal-deadline", "更新申請の最終締切（満了30日前）", schedule.hardDeadline, todayIso)
+      makeAlert(record, "renewal-deadline", "更新申請の最終締切（満了30日前）", schedule.hardDeadline, todayIso)
     );
     if (record.fiscalYearEndIso) {
       const kessanDeadline = calcKessanHenkoDeadline(record.fiscalYearEndIso);
-      alerts.push(makeAlert(record.clientName, "kessan-henko", "決算変更届の提出期限", kessanDeadline, todayIso));
+      alerts.push(makeAlert(record, "kessan-henko", "決算変更届の提出期限", kessanDeadline, todayIso));
     }
   }
   return alerts.sort((a, b) => a.daysUntil - b.daysUntil);
 }
 
-/** @returns {ReminderAlert} */
-function makeAlert(clientName, type, label, dueDateIso, todayIso) {
+/**
+ * @param {ClientLicenseRecord} record
+ * @returns {ReminderAlert}
+ */
+function makeAlert(record, type, label, dueDateIso, todayIso) {
   const days = daysUntil(dueDateIso, todayIso);
-  return { clientName, type, label, dueDateIso, daysUntil: days, isOverdue: days < 0 };
+  return {
+    clientName: record.clientName,
+    type,
+    label,
+    dueDateIso,
+    daysUntil: days,
+    isOverdue: days < 0,
+    contactEmail: record.contactEmail,
+  };
 }
 
 /**
@@ -114,4 +129,31 @@ export function formatReminderDigest(alerts) {
 function formatLine(alert) {
   const daysLabel = alert.isOverdue ? `${Math.abs(alert.daysUntil)}日超過` : `残り${alert.daysUntil}日`;
   return `- [${alert.clientName}] ${alert.label}: ${alert.dueDateIso}（${daysLabel}）`;
+}
+
+/**
+ * リマインド1件について、連絡用メールの下書きを開くための mailto: URL を生成する。
+ *
+ * 【重要】これはメールクライアント（Outlook/Gmail等）で下書きを開くだけであり、
+ * このツール自体がメールを送信することはない（NFR-4: 外部送信をしない設計を
+ * 維持するため）。実際に送信するかどうかの最終判断・操作は必ず本人が行う。
+ *
+ * @param {ReminderAlert} alert
+ * @returns {string | null} 連絡先メールアドレスが未登録の場合は null
+ */
+export function buildReminderMailtoUrl(alert) {
+  if (!alert.contactEmail) return null;
+
+  const subject = `【${alert.clientName}様】${alert.label}のご案内（下書き）`;
+  const body = [
+    `${alert.clientName} 様`,
+    "",
+    "建設業許可に関するご連絡です。",
+    `${alert.label}: ${alert.dueDateIso}`,
+    "",
+    "※ このメールは kensetsu-kyoka-toolkit が生成した下書きです。",
+    "　内容をご確認・修正のうえ、送信前に必ず内容をチェックしてください。",
+  ].join("\n");
+
+  return `mailto:${alert.contactEmail}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
 }

@@ -50,13 +50,16 @@ npm run gen:reminder-digest # 複数クライアントのリマインド・ダ�
 ### 実クライアントのリマインドを管理する
 
 ```bash
-npm run client:add "サンプル建設株式会社" 2021-10-21 2026-08-31   # 登録・更新（許可日、任意で事業年度終了日）
-npm run client:remove "サンプル建設株式会社"                       # 削除
-npm run reminders                                                  # 登録済みクライアントのダイジェストを表示
+npm run client:add "サンプル建設株式会社" 2021-10-21 2026-08-31 info@example.com  # 登録・更新
+npm run client:remove "サンプル建設株式会社"                                       # 削除
+npm run reminders                                                                   # ダイジェストを表示
 ```
 
 データは `data/clients.json`（コミット対象外）にローカル保存される。外部への送信は行わない。
 `npm run web` 起動中はブラウザの `/reminders` からも同じ内容を確認できる（表示専用）。
+連絡先メールアドレスを登録したクライアントについては、期限が近いリマインドに
+「メール下書きを開く」リンクが表示される（クリックすると既定のメールソフトで
+下書きが開くだけで、このツール自体がメールを送信することはない）。
 
 生成された `.docx` は `out/`（コミット対象外）に出力される。Microsoft Word や
 LibreOffice Writer 等で開いて内容を確認すること。
