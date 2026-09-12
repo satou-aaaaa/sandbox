@@ -49,7 +49,9 @@ TypeScriptと同等に効く。プロジェクトが育ってきたら `tsconfig
 - `src/reminders/renewalSchedule.js` — 5年更新・決算変更届の期限計算
 - `src/reminders/reminderDigest.js` — 複数クライアントのリマインドを集計・整形、メール下書きURL生成（M4。実送信は行わない）
 - `src/reminders/clientStore.js` — クライアント情報を `data/clients.json` へ読み書きするローカル永続化層（DB不使用）
-- `src/web/server.js` — インテイク用の簡易Webフォーム（M3）＋リマインド表示（`/reminders`）。node:http のみで実装し、127.0.0.1のみで待受
+- `src/reminders/clientCsv.js` — クライアント一覧とCSVの相互変換（バックアップ・一括登録用。外部パッケージ不使用）
+- `src/web/server.js` — インテイク用の簡易Webフォーム（M3）＋リマインド表示（`/reminders`）＋下書き保存（`/drafts`）＋CSVダウンロード（`/clients.csv`）。node:http のみで実装し、127.0.0.1のみで待受
+- `src/web/draftStore.js` — インテイクフォームの入力途中データを `data/drafts.json` へ読み書きするローカル永続化層（DB不使用）
 - `test/` — `node --test` で実行するユニットテスト（外部テストランナー不要）
 - `scripts/` — 動作確認用のサンプル実行スクリプト（`sampleProfile.js` が全スクリプト共通のダミーデータ）
 

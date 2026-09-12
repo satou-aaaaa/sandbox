@@ -7,19 +7,22 @@ import fs from "node:fs/promises";
 import { createServer } from "../src/web/server.js";
 import { buildSampleApplicantProfile } from "../scripts/sampleProfile.js";
 import { saveClients } from "../src/reminders/clientStore.js";
+import { upsertDraft, loadDrafts } from "../src/web/draftStore.js";
 
 /** テスト用にランダムポートでサーバーを起動し、baseURLを返す。 */
 async function startTestServer() {
   const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "kensetsu-kyoka-toolkit-web-test-"));
   const outDir = path.join(tmpDir, "out");
   const clientsPath = path.join(tmpDir, "clients.json");
-  const server = createServer({ outDir, clientsPath });
+  const draftsPath = path.join(tmpDir, "drafts.json");
+  const server = createServer({ outDir, clientsPath, draftsPath });
   await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
   const { port } = server.address();
   return {
     baseUrl: `http://127.0.0.1:${port}`,
     outDir,
     clientsPath,
+    draftsPath,
     async close() {
       await new Promise((resolve) => server.close(resolve));
       await fs.rm(tmpDir, { recursive: true, force: true });
@@ -211,6 +214,120 @@ test("GET /reminders: 連絡先メールアドレス未登録の場合はメー�
     const res = await fetch(`${ctx.baseUrl}/reminders`);
     const html = await res.text();
     assert.doesNotMatch(html, /連絡が必要な件（メール下書きを開く）/);
+  } finally {
+    await ctx.close();
+  }
+});
+
+test("GET /clients.csv: 登録済みクライアントをCSVとして返す", async () => {
+  const ctx = await startTestServer();
+  try {
+    await saveClients([{ clientName: "テスト建設", grantDateIso: "2024-04-01" }], ctx.clientsPath);
+    const res = await fetch(`${ctx.baseUrl}/clients.csv`);
+    assert.equal(res.status, 200);
+    assert.match(res.headers.get("content-type"), /text\/csv/);
+    const text = await res.text();
+    assert.match(text, /^clientName,grantDateIso,fiscalYearEndIso,contactEmail/);
+    assert.match(text, /テスト建設,2024-04-01/);
+  } finally {
+    await ctx.close();
+  }
+});
+
+test("GET /drafts: 下書きが無い場合はその旨を表示する", async () => {
+  const ctx = await startTestServer();
+  try {
+    const res = await fetch(`${ctx.baseUrl}/drafts`);
+    assert.equal(res.status, 200);
+    const html = await res.text();
+    assert.match(html, /保存済みの下書きはありません/);
+  } finally {
+    await ctx.close();
+  }
+});
+
+test("POST /drafts: 下書きを新規保存し、保存済み通知と共にフォームを再表示する", async () => {
+  const ctx = await startTestServer();
+  try {
+    const profile = buildSampleApplicantProfile();
+    const body = new URLSearchParams({ profileJson: JSON.stringify(profile), draftId: "" });
+    const res = await fetch(`${ctx.baseUrl}/drafts`, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: body.toString(),
+    });
+    assert.equal(res.status, 200);
+    const html = await res.text();
+    assert.match(html, /下書きを保存しました/);
+    // フォームの初期値は INITIAL_PROFILE として埋め込まれ、ブラウザ側JSで
+    // 各inputへ反映される（SSRではvalue属性として出力しない設計のため、
+    // 埋め込みJSONに正しい値が含まれることを確認する）。
+    assert.match(html, /"applicantName":"サンプル建設株式会社"/);
+
+    const drafts = await loadDrafts(ctx.draftsPath);
+    assert.equal(drafts.length, 1);
+    assert.equal(drafts[0].profile.applicantName, "サンプル建設株式会社");
+  } finally {
+    await ctx.close();
+  }
+});
+
+test("POST /drafts: 既存のdraftIdを指定すると新規作成せず上書き更新する", async () => {
+  const ctx = await startTestServer();
+  try {
+    const first = await upsertDraft(buildSampleApplicantProfile(), undefined, ctx.draftsPath);
+    const updatedProfile = { ...buildSampleApplicantProfile(), applicantName: "更新後の名前" };
+    const body = new URLSearchParams({ profileJson: JSON.stringify(updatedProfile), draftId: first.id });
+    await fetch(`${ctx.baseUrl}/drafts`, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: body.toString(),
+    });
+
+    const drafts = await loadDrafts(ctx.draftsPath);
+    assert.equal(drafts.length, 1);
+    assert.equal(drafts[0].profile.applicantName, "更新後の名前");
+  } finally {
+    await ctx.close();
+  }
+});
+
+test("GET /drafts/<id>: 下書きの内容でフォームを事前入力する", async () => {
+  const ctx = await startTestServer();
+  try {
+    const record = await upsertDraft(buildSampleApplicantProfile(), undefined, ctx.draftsPath);
+    const res = await fetch(`${ctx.baseUrl}/drafts/${record.id}`);
+    assert.equal(res.status, 200);
+    const html = await res.text();
+    assert.match(html, /"applicantName":"サンプル建設株式会社"/);
+    assert.match(html, new RegExp(`id="draftId" value="${record.id}"`));
+  } finally {
+    await ctx.close();
+  }
+});
+
+test("GET /drafts/<id>: 存在しない下書きは404を返す", async () => {
+  const ctx = await startTestServer();
+  try {
+    const res = await fetch(`${ctx.baseUrl}/drafts/no-such-id`);
+    assert.equal(res.status, 404);
+  } finally {
+    await ctx.close();
+  }
+});
+
+test("POST /drafts/<id>/delete: 指定した下書きのみ削除する", async () => {
+  const ctx = await startTestServer();
+  try {
+    const a = await upsertDraft(buildSampleApplicantProfile(), undefined, ctx.draftsPath);
+    await upsertDraft({ ...buildSampleApplicantProfile(), applicantName: "B社" }, undefined, ctx.draftsPath);
+
+    const res = await fetch(`${ctx.baseUrl}/drafts/${a.id}/delete`, { method: "POST" });
+    assert.equal(res.status, 200);
+
+    const drafts = await loadDrafts(ctx.draftsPath);
+    assert.equal(drafts.length, 1);
+    assert.equal(drafts[0].profile.applicantName, "B社");
   } finally {
     await ctx.close();
   }

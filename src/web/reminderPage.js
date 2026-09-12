@@ -53,6 +53,7 @@ ${mailtoItems
   （<code>node scripts/add-client.js</code> / <code>node scripts/remove-client.js</code>）で行ってください。
   この画面は表示専用です。
 </p>
+<p><a href="/clients.csv">→ クライアント一覧をCSVでダウンロード</a></p>
 <pre>${escapeHtml(report)}</pre>
 ${mailtoSection}
 <p><a href="/">← 申請者情報インテイクに戻る</a></p>

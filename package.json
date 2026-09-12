@@ -21,6 +21,8 @@
     "gen:reminder-digest": "node scripts/generate-reminder-digest-sample.js",
     "client:add": "node scripts/add-client.js",
     "client:remove": "node scripts/remove-client.js",
+    "client:export": "node scripts/export-clients-csv.js",
+    "client:import": "node scripts/import-clients-csv.js",
     "reminders": "node scripts/reminder-digest.js",
     "web": "node src/web/server.js"
   },

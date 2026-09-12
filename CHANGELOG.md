@@ -6,6 +6,19 @@
 日付単位のリリースではなく `docs/PROPOSAL.md` のマイルストーン（M1〜）を
 単位として記録する。
 
+## インテイクフォームの使い勝手改善（M3拡張）
+
+- **下書き保存・再開**: 入力途中の `ApplicantProfile` を `data/drafts.json`
+  へ保存し、後から続きを入力できる `src/web/draftStore.js` を追加。
+  Webフォームに「下書きとして保存」ボタンと `/drafts`（一覧・削除）を追加
+- **未入力項目の事前チェック表示**: 送信前にフォーム上で未入力の項目
+  （代表者氏名・役員氏名・専任技術者氏名等）を一覧表示するようにした
+  （送信自体はブロックしない、気づきのための表示）
+- **クライアント一覧のCSVエクスポート/インポート**: `src/reminders/clientCsv.js`
+  でRFC4180準拠のCSV変換を実装。CLI（`scripts/export-clients-csv.js` /
+  `import-clients-csv.js`）と、Webの読み取り専用ダウンロード（`/clients.csv`）
+  から利用できる。一括登録はCLI限定（`/reminders` の「表示専用」方針と一貫）
+
 ## M4: 通知連携（一部完了）
 
 - クライアントの許可情報をローカルJSONファイル（`data/clients.json`）に

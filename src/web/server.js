@@ -16,6 +16,12 @@
  *   このサーバー自体にクライアント登録用のフォームは持たせていない
  *   （許可日が確定するのは申請intakeより後の工程であり、ライフサイクルが
  *   異なるため、意図的にワークフローを混在させていない）。
+ * - `/clients.csv` は登録済みクライアントのCSVダウンロード（読み取り専用。
+ *   /reminders と同じくCLIでの登録・削除運用を変えるものではない）。
+ * - `/drafts` はインテイクフォームの入力途中データ（下書き。
+ *   src/web/draftStore.js）の一覧・保存・再開・削除を扱う。長い入力を
+ *   中断しても後で続きから入力できるようにするための機能で、/submit
+ *   （最終的な書類生成）とは独立した別データとして保存する。
  * - 最小限のアクセスログ（メソッド・パス・ステータス・所要時間）を
  *   console.log に出力する（NFR-4に沿い、外部ログ収集サービスへは送信しない）。
  *   申請者情報（POSTボディ）は氏名・財務情報等を含みうるため、意図的に
@@ -37,9 +43,12 @@ import { writeYoushiki8Docx } from "../documents/youshiki8.js";
 import { writeYoushiki20_2Docx } from "../documents/youshiki20-2.js";
 import { loadClients, DEFAULT_CLIENTS_PATH } from "../reminders/clientStore.js";
 import { buildReminderDigest, filterDueAlerts, formatReminderDigest } from "../reminders/reminderDigest.js";
+import { clientsToCsv } from "../reminders/clientCsv.js";
+import { loadDrafts, getDraft, upsertDraft, removeDraft, DEFAULT_DRAFTS_PATH } from "./draftStore.js";
 import { renderFormPage } from "./formPage.js";
 import { renderResultPage } from "./resultPage.js";
 import { renderReminderPage } from "./reminderPage.js";
+import { renderDraftsPage } from "./draftsPage.js";
 import { escapeHtml } from "./htmlUtils.js";
 
 export const DEFAULT_OUT_DIR = "out/web";
@@ -130,10 +139,14 @@ async function serveDownload(req, res, outDir) {
  * インテイクフォームのHTTPサーバー（未起動）を作成する。
  * テストから `outDir` を差し替えられるよう、起動処理とは分離している。
  *
- * @param {{ outDir?: string, clientsPath?: string }} [options]
+ * @param {{ outDir?: string, clientsPath?: string, draftsPath?: string }} [options]
  * @returns {import('node:http').Server}
  */
-export function createServer({ outDir = DEFAULT_OUT_DIR, clientsPath = DEFAULT_CLIENTS_PATH } = {}) {
+export function createServer({
+  outDir = DEFAULT_OUT_DIR,
+  clientsPath = DEFAULT_CLIENTS_PATH,
+  draftsPath = DEFAULT_DRAFTS_PATH,
+} = {}) {
   return http.createServer(async (req, res) => {
     const startedAt = Date.now();
     res.on("finish", () => {
@@ -158,6 +171,55 @@ export function createServer({ outDir = DEFAULT_OUT_DIR, clientsPath = DEFAULT_C
           200,
           renderReminderPage({ report, clientCount: clients.length, actionableAlerts: filterDueAlerts(alerts) })
         );
+        return;
+      }
+
+      if (req.method === "GET" && req.url === "/clients.csv") {
+        const clients = await loadClients(clientsPath);
+        res.writeHead(200, {
+          "Content-Type": "text/csv; charset=utf-8",
+          "Content-Disposition": 'attachment; filename="clients.csv"',
+        });
+        res.end(clientsToCsv(clients));
+        return;
+      }
+
+      if (req.method === "GET" && req.url === "/drafts") {
+        const drafts = await loadDrafts(draftsPath);
+        respondHtml(res, 200, renderDraftsPage({ drafts }));
+        return;
+      }
+
+      if (req.method === "POST" && req.url === "/drafts") {
+        const bodyText = await readRequestBody(req);
+        const params = new URLSearchParams(bodyText);
+        const profileJson = params.get("profileJson");
+        const draftId = params.get("draftId") || undefined;
+        if (!profileJson) {
+          throw new Error("profileJson が送信されていません（フォームのJavaScriptが動作していない可能性があります）");
+        }
+        const profile = JSON.parse(profileJson);
+        const record = await upsertDraft(profile, draftId, draftsPath);
+        respondHtml(res, 200, renderFormPage({ profile: record.profile, draftId: record.id, savedNotice: true }));
+        return;
+      }
+
+      if (req.method === "POST" && req.url.startsWith("/drafts/") && req.url.endsWith("/delete")) {
+        const id = decodeURIComponent(req.url.slice("/drafts/".length, req.url.length - "/delete".length));
+        await removeDraft(id, draftsPath);
+        const drafts = await loadDrafts(draftsPath);
+        respondHtml(res, 200, renderDraftsPage({ drafts }));
+        return;
+      }
+
+      if (req.method === "GET" && req.url.startsWith("/drafts/")) {
+        const id = decodeURIComponent(req.url.slice("/drafts/".length));
+        const draft = await getDraft(id, draftsPath);
+        if (!draft) {
+          respondHtml(res, 404, "<h1>Not Found</h1><p>指定の下書きが見つかりません。</p>");
+          return;
+        }
+        respondHtml(res, 200, renderFormPage({ profile: draft.profile, draftId: draft.id }));
         return;
       }
 
@@ -196,11 +258,11 @@ export function createServer({ outDir = DEFAULT_OUT_DIR, clientsPath = DEFAULT_C
 
 /**
  * サーバーを起動し、ローカルホストで待ち受ける。
- * @param {{ port?: number, outDir?: string, clientsPath?: string }} [options]
+ * @param {{ port?: number, outDir?: string, clientsPath?: string, draftsPath?: string }} [options]
  * @returns {import('node:http').Server}
  */
-export function startServer({ port = 3000, outDir, clientsPath } = {}) {
-  const server = createServer({ outDir, clientsPath });
+export function startServer({ port = 3000, outDir, clientsPath, draftsPath } = {}) {
+  const server = createServer({ outDir, clientsPath, draftsPath });
   server.listen(port, "127.0.0.1", () => {
     console.log(`kensetsu-kyoka-toolkit インテイクフォームを起動しました: http://127.0.0.1:${port}`);
     console.log("（ローカルホストのみで待受しています。外部ネットワークには公開されません）");

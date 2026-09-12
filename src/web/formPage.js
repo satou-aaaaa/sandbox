@@ -11,18 +11,29 @@
  *   構造のJSONに組み立て、hiddenフィールド経由で通常のPOSTとして送信する
  *   （fetch/XHRやAPIエンドポイントの多重定義を避け、サーバー側の受け口を単純化するため）。
  * - 通信は常にローカルホスト内で完結する（NFR-4: 外部送信をしない）。
+ * - 下書き保存（/drafts）は同じフォーム・同じprofileJsonの仕組みを再利用する。
+ *   保存後にサーバーが払い出す draftId をhiddenフィールドで保持することで、
+ *   2回目以降の保存は新規作成ではなく上書き更新になる。
+ * - 未入力項目のチェックはブラウザ側JavaScriptで完結する「警告表示」であり、
+ *   送信そのものをブロックしない（DESIGN.md 6章の「エラーで止めずwarningで
+ *   継続する」方針を踏襲。あくまで入力者への気づきを与えるための補助表示）。
  */
 import { escapeHtml } from "./htmlUtils.js";
 
 /**
  * インテイクフォームのHTMLページを返す。
- * @param {{ error?: string }} [options]
+ * @param {{ error?: string, profile?: import('../eligibility/types.js').ApplicantProfile, draftId?: string, savedNotice?: boolean }} [options]
  * @returns {string}
  */
 export function renderFormPage(options = {}) {
   const errorBlock = options.error
     ? `<div class="error">入力内容の処理中にエラーが発生しました: ${escapeHtml(options.error)}</div>`
     : "";
+  const savedNoticeBlock = options.savedNotice ? `<div class="saved-notice">下書きを保存しました。</div>` : "";
+
+  // ブラウザ側JSへ渡す初期値。JSON.stringify後に "</script" が出現すると
+  // <script> タグを早期に閉じてしまう既知の問題があるため、"<" をエスケープする。
+  const initialProfileJson = JSON.stringify(options.profile ?? null).replace(/</g, "\\u003c");
 
   return `<!doctype html>
 <html lang="ja">
@@ -39,11 +50,16 @@ export function renderFormPage(options = {}) {
     最終的な適格性の判断・書類の内容確認・提出は必ず登録行政書士本人が行ってください。
     実在の顧客情報を入力する場合、このツールはローカルでのみ動作し外部へは送信しません。
   </p>
-  <p><a href="/reminders">→ 更新リマインド・ダイジェストを見る</a></p>
+  <p>
+    <a href="/reminders">→ 更新リマインド・ダイジェストを見る</a>
+    ・ <a href="/drafts">→ 保存済みの下書き一覧を見る</a>
+  </p>
 </header>
 ${errorBlock}
+${savedNoticeBlock}
 <form id="applicantForm" method="POST" action="/submit">
   <input type="hidden" name="profileJson" id="profileJson">
+  <input type="hidden" name="draftId" id="draftId" value="${escapeHtml(options.draftId ?? "")}">
 
   <section>
     <h2>1. 基本情報</h2>
@@ -116,7 +132,12 @@ ${errorBlock}
     <label>申告メモ（任意） <textarea id="seijitsuseiNotes" rows="2"></textarea></label>
   </section>
 
-  <button type="submit" class="primary">要件判定＋書類サマリーを生成する</button>
+  <div id="missingFieldsPanel" class="missing-panel" hidden></div>
+
+  <div class="actions">
+    <button type="submit" class="primary">要件判定＋書類サマリーを生成する</button>
+    <button type="submit" formaction="/drafts" formnovalidate class="secondary">下書きとして保存</button>
+  </div>
 </form>
 
 <template id="officerRowTemplate">
@@ -156,7 +177,10 @@ ${errorBlock}
   </fieldset>
 </template>
 
-<script>${CLIENT_SCRIPT}</script>
+<script>
+  const INITIAL_PROFILE = ${initialProfileJson};
+  ${CLIENT_SCRIPT}
+</script>
 </body>
 </html>`;
 }
@@ -167,6 +191,7 @@ const STYLE = `
   header h1 { margin-bottom: 4px; }
   .notice { background: #FFF4E5; border: 1px solid #E0A030; padding: 10px 14px; font-size: 0.9em; }
   .error { background: #FDECEC; border: 1px solid #C0392B; color: #7A1F1F; padding: 10px 14px; margin: 12px 0; }
+  .saved-notice { background: #E7F6EC; border: 1px solid #1E7A34; color: #1E7A34; padding: 10px 14px; margin: 12px 0; }
   section { border: 1px solid #ddd; border-radius: 6px; padding: 12px 16px; margin: 16px 0; }
   section h2 { margin-top: 0; font-size: 1.05em; }
   label { display: block; margin: 8px 0; }
@@ -176,8 +201,12 @@ const STYLE = `
   fieldset.row { display: block; }
   fieldset.row label { display: inline-block; margin-right: 12px; }
   button { cursor: pointer; }
-  button.primary { font-size: 1.05em; padding: 10px 20px; margin-top: 8px; }
+  .actions { display: flex; gap: 10px; align-items: center; margin-top: 8px; }
+  button.primary { font-size: 1.05em; padding: 10px 20px; }
+  button.secondary { font-size: 0.95em; padding: 10px 16px; background: #fff; border: 1px solid #888; border-radius: 4px; }
   .removeRowBtn { color: #a33; }
+  .missing-panel { background: #FFF9E6; border: 1px solid #D9B33B; border-radius: 6px; padding: 10px 14px; margin: 16px 0; font-size: 0.9em; }
+  .missing-panel ul { margin: 6px 0 0; padding-left: 20px; }
 `;
 
 const CLIENT_SCRIPT = `
@@ -187,16 +216,109 @@ function addRow(containerId, templateId) {
   const node = template.content.cloneNode(true);
   node.querySelector(".removeRowBtn").addEventListener("click", (e) => {
     e.target.closest(".row").remove();
+    refreshMissingFieldsPanel();
   });
   container.appendChild(node);
 }
 
-document.getElementById("addOfficerBtn").addEventListener("click", () => addRow("officersContainer", "officerRowTemplate"));
-document.getElementById("addOfficeBtn").addEventListener("click", () => addRow("officesContainer", "officeRowTemplate"));
+document.getElementById("addOfficerBtn").addEventListener("click", () => {
+  addRow("officersContainer", "officerRowTemplate");
+  refreshMissingFieldsPanel();
+});
+document.getElementById("addOfficeBtn").addEventListener("click", () => {
+  addRow("officesContainer", "officeRowTemplate");
+  refreshMissingFieldsPanel();
+});
 
-// 初期状態で役員・営業所を1件ずつ用意しておく（0件からのスタートは分かりにくいため）。
-addRow("officersContainer", "officerRowTemplate");
-addRow("officesContainer", "officeRowTemplate");
+function fillOfficerRow(row, officer) {
+  row.querySelector(".officer-name").value = officer.name || "";
+  row.querySelector(".officer-title").value = officer.title || "";
+  row.querySelector(".officer-birthDate").value = officer.birthDate || "";
+}
+
+function fillOfficeRow(row, office) {
+  row.querySelector(".office-officeName").value = office.officeName || "";
+  row.querySelector(".office-personName").value = office.personName || "";
+  row.querySelector(".office-licenseType").value = office.licenseType || "一般";
+  row.querySelector(".office-hasNationalLicense").checked = !!office.hasNationalLicense;
+  row.querySelector(".office-isDesignatedCourseGraduate").checked = !!office.isDesignatedCourseGraduate;
+  row.querySelector(".office-educationLevel").value = office.educationLevel || "";
+  row.querySelector(".office-yearsOfPracticalExperience").value = office.yearsOfPracticalExperience ?? 0;
+  row.querySelector(".office-yearsOfGeneralExperience").value = office.yearsOfGeneralExperience ?? 0;
+  row.querySelector(".office-yearsOfSupervisoryExperience").value = office.yearsOfSupervisoryExperience ?? 0;
+}
+
+// 役員・営業所の行を用意する。下書きから復元する場合はその件数分、
+// 通常の新規入力時は分かりやすさのため1件だけ空の行を用意する。
+const officers = (INITIAL_PROFILE && INITIAL_PROFILE.officers) || [];
+if (officers.length > 0) {
+  officers.forEach((officer) => {
+    addRow("officersContainer", "officerRowTemplate");
+    const rows = document.querySelectorAll("#officersContainer .officer-row");
+    fillOfficerRow(rows[rows.length - 1], officer);
+  });
+} else {
+  addRow("officersContainer", "officerRowTemplate");
+}
+
+const offices = (INITIAL_PROFILE && INITIAL_PROFILE.senninGijutsushaList) || [];
+if (offices.length > 0) {
+  offices.forEach((office) => {
+    addRow("officesContainer", "officeRowTemplate");
+    const rows = document.querySelectorAll("#officesContainer .office-row");
+    fillOfficeRow(rows[rows.length - 1], office);
+  });
+} else {
+  addRow("officesContainer", "officeRowTemplate");
+}
+
+// 下書きからの基本情報・各要件セクションの復元。
+if (INITIAL_PROFILE) {
+  const setVal = (id, value) => { document.getElementById(id).value = value ?? ""; };
+  const setChecked = (id, value) => { document.getElementById(id).checked = !!value; };
+  const p = INITIAL_PROFILE;
+  const k = p.keieiGyomuKanri || {};
+  const z = p.zaisanKiso || {};
+  const kk = p.kekkaku || {};
+  const s = p.seijitsusei || {};
+
+  setVal("applicantName", p.applicantName);
+  setVal("representativeName", p.representativeName);
+  setVal("address", p.address);
+  setVal("prefecture", p.prefecture);
+  setVal("applicationDate", p.applicationDate);
+  setVal("constructionTypes", (p.constructionTypes || []).join("、"));
+
+  setVal("yearsAsResponsibleOfficer", k.yearsAsResponsibleOfficer ?? 0);
+  setVal("yearsAsQuasiResponsibleOfficer", k.yearsAsQuasiResponsibleOfficer ?? 0);
+  setVal("yearsAsAssistant", k.yearsAsAssistant ?? 0);
+  setChecked("isOfficerFor2Years", k.isOfficerFor2Years);
+  const support = k.assistantSupportYears || {};
+  setVal("assistantSupportYearsFinance", support.finance ?? 0);
+  setVal("assistantSupportYearsLabor", support.labor ?? 0);
+  setVal("assistantSupportYearsOperations", support.operations ?? 0);
+  setChecked("hasSocialInsurance", k.hasSocialInsurance);
+  setVal("responsibleName", k.responsibleName);
+  setVal("responsibleTitle", k.responsibleTitle);
+
+  setVal("zaisanLicenseType", z.licenseType || "一般");
+  setVal("netAssets", z.netAssets ?? 0);
+  setVal("fundingCapacity", z.fundingCapacity ?? 0);
+  setChecked("hasFiveYearsContinuousOperation", z.hasFiveYearsContinuousOperation);
+  setVal("capitalAmount", z.capitalAmount ?? 0);
+  setVal("deficitRatio", z.deficitRatio ?? 0);
+  setVal("currentRatio", z.currentRatio ?? 0);
+
+  setChecked("isUndischargedBankrupt", kk.isUndischargedBankrupt);
+  setChecked("hadLicenseRevokedWithin5Years", kk.hadLicenseRevokedWithin5Years);
+  setChecked("hasCriminalRecordWithin5Years", kk.hasCriminalRecordWithin5Years);
+  setChecked("isBoryokudanMemberOrWithin5Years", kk.isBoryokudanMemberOrWithin5Years);
+  setChecked("hasMentalImpairmentAffectingDuties", kk.hasMentalImpairmentAffectingDuties);
+  setChecked("hasFalseOrOmittedStatement", kk.hasFalseOrOmittedStatement);
+
+  setChecked("hasNoDishonestActRisk", s.hasNoDishonestActRisk);
+  setVal("seijitsuseiNotes", s.notes);
+}
 
 function collectOfficers() {
   return Array.from(document.querySelectorAll("#officersContainer .officer-row")).map((row) => ({
@@ -276,6 +398,48 @@ function buildProfile() {
     },
   };
 }
+
+// 未入力チェック（送信をブロックしない、気づきのための表示のみ）。
+function computeMissingFieldLabels() {
+  const missing = [];
+  const isBlank = (id) => !document.getElementById(id).value.trim();
+
+  if (isBlank("representativeName")) missing.push("代表者氏名");
+  if (isBlank("address")) missing.push("主たる営業所の所在地");
+  if (isBlank("prefecture")) missing.push("許可行政庁（都道府県）");
+  if (isBlank("applicationDate")) missing.push("申請年月日");
+  if (isBlank("constructionTypes")) missing.push("許可を受けようとする建設業の種類");
+  if (isBlank("responsibleName")) missing.push("経営業務管理体制: 証明を受ける者の氏名");
+
+  document.querySelectorAll("#officersContainer .officer-row").forEach((row, i) => {
+    if (!row.querySelector(".officer-name").value.trim()) missing.push("役員 " + (i + 1) + " の氏名");
+    if (!row.querySelector(".officer-title").value.trim()) missing.push("役員 " + (i + 1) + " の役名");
+  });
+  document.querySelectorAll("#officesContainer .office-row").forEach((row, i) => {
+    const label = row.querySelector(".office-officeName").value.trim() || "営業所 " + (i + 1);
+    if (!row.querySelector(".office-officeName").value.trim()) missing.push("営業所 " + (i + 1) + " の営業所名");
+    if (!row.querySelector(".office-personName").value.trim()) missing.push(label + " の専任技術者の氏名");
+  });
+
+  return missing;
+}
+
+function refreshMissingFieldsPanel() {
+  const panel = document.getElementById("missingFieldsPanel");
+  const missing = computeMissingFieldLabels();
+  if (missing.length === 0) {
+    panel.hidden = true;
+    panel.innerHTML = "";
+    return;
+  }
+  panel.hidden = false;
+  panel.innerHTML =
+    "以下の項目が未入力です（生成後は「（未入力）」と表示されます。送信は妨げません）:" +
+    "<ul>" + missing.map((m) => "<li>" + m.replace(/</g, "&lt;") + "</li>").join("") + "</ul>";
+}
+
+document.getElementById("applicantForm").addEventListener("input", refreshMissingFieldsPanel);
+refreshMissingFieldsPanel();
 
 document.getElementById("applicantForm").addEventListener("submit", () => {
   document.getElementById("profileJson").value = JSON.stringify(buildProfile());
