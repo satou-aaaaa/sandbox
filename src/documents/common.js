@@ -124,6 +124,53 @@ export function buildLabeledTable(rows) {
 }
 
 /**
+ * ヘッダー行付きの複数列表を組み立てる（工事経歴書等、ラベル・値の2列に
+ * 収まらない一覧データ用。M8）。値はすでに表示用文字列に解決済みであること。
+ * `buildLabeledTable` とは別に用意しているのは、後者が「ラベル・値」固定の
+ * 2列専用であるのに対し、こちらは列数・列見出しが様式によって変わる
+ * 一覧表向けのため（工事経歴書、将来の財務諸表等での再利用を想定）。
+ * @param {string[]} headers 列見出し
+ * @param {string[][]} rows 各行のセル値（headersと同じ列数であること）
+ * @param {{ columnWidths?: number[] }} [options] 列幅（DXA、合計9638目安）。省略時は均等割り
+ */
+export function buildHeaderedTable(headers, rows, options = {}) {
+  const widths = options.columnWidths ?? headers.map(() => Math.floor(9638 / headers.length));
+
+  const headerRow = new TableRow({
+    tableHeader: true,
+    children: headers.map(
+      (text, i) =>
+        new TableCell({
+          width: { size: widths[i], type: WidthType.DXA },
+          shading: { type: ShadingType.CLEAR, color: "auto", fill: "D9D9D9" },
+          margins: { top: 80, bottom: 80, left: 100, right: 100 },
+          children: [new Paragraph({ children: [new TextRun({ text, font: FONT, size: 18, bold: true })] })],
+        })
+    ),
+  });
+
+  const dataRows = rows.map(
+    (row) =>
+      new TableRow({
+        children: row.map(
+          (text, i) =>
+            new TableCell({
+              width: { size: widths[i], type: WidthType.DXA },
+              margins: { top: 60, bottom: 60, left: 100, right: 100 },
+              children: [new Paragraph({ children: [new TextRun({ text, font: FONT, size: 18 })] })],
+            })
+        ),
+      })
+  );
+
+  return new Table({
+    width: { size: 9638, type: WidthType.DXA },
+    columnWidths: widths,
+    rows: [headerRow, ...dataRows],
+  });
+}
+
+/**
  * 判定理由・警告の一覧を箇条書き段落として組み立てる。
  * @param {string} heading
  * @param {string[]} items

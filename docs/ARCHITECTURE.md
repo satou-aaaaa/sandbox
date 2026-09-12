@@ -49,6 +49,7 @@ TypeScriptと同等に効く。
 - `src/eligibility/consistencyChecks.js` — 入力内容のルールベース整合性チェック（M7。合否判定には影響しない付加情報。外部AI APIは使わない）
 - `src/documents/common.js` — 様式生成モジュール共通のdocxヘルパー（見出し・赤字注記・表・箇条書き・ファイル書き出し）
 - `src/documents/youshiki1.js` — 様式第一号（建設業許可申請書）のdocx自動生成
+- `src/documents/youshiki2.js` — 様式第二号（工事経歴書）のdocx自動生成（M8。経審の評点計算は対象外。ADR-0009）
 - `src/documents/youshiki6.js` — 様式第六号（役員等の一覧表）のdocx自動生成
 - `src/documents/youshiki7.js` — 様式第七号（経営業務管理責任者証明書）のdocx自動生成
 - `src/documents/youshiki8.js` — 様式第八号（専任技術者証明書）のdocx自動生成

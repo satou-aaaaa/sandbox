@@ -66,6 +66,20 @@
  */
 
 /**
+ * @typedef {Object} WorkRecordInput 工事1件分の経歴（様式第二号・工事経歴書用。M8）
+ * @property {string} constructionType 建設工事の種類（業種区分。例: "建築工事業"）
+ * @property {boolean} isSubcontract 元請（false）／下請（true）の別
+ * @property {string} orderer 注文者（個人名の場合は特定されない書き方を行政書士が確認する前提）
+ * @property {string} projectName 工事名（場所・内容を含む）
+ * @property {number} contractAmount 請負代金の額（円）。税込・税抜の別は入力者の責任とし、
+ *   本ツールは換算しない（経審提出時は税抜金額が必須。ADR-0009参照）
+ * @property {string} completionDateIso 工期（完成年月。YYYY-MM形式を想定）
+ * @property {string} [startDateIso] 工期（着手年月、任意）
+ * @property {string} [assignedEngineerName] 配置技術者の氏名（任意）
+ * @property {"主任技術者" | "監理技術者"} [engineerRole] 配置技術者の別（任意）
+ */
+
+/**
  * @typedef {Object} ApplicantProfile 申請者（会社・個人）の総合入力データ
  * @property {string} applicantName 申請者名（会社名 or 個人名）
  * @property {KeieiGyomuKanriInput} keieiGyomuKanri
@@ -79,6 +93,7 @@
  * @property {string} [applicationDate] 申請年月日（YYYY-MM-DD、書類生成用・任意）
  * @property {string[]} [constructionTypes] 許可を受けようとする建設業の種類（書類生成用・任意）
  * @property {OfficerInput[]} [officers] 役員等の一覧（様式第六号用・任意）
+ * @property {WorkRecordInput[]} [constructionHistory] 工事経歴（様式第二号用・任意。M8）
  *
  * 全体の許可区分（一般/特定）は様式生成時、`zaisanKiso.licenseType` を正として用いる
  * （申請全体で1つの区分に定まるため、様式ごとに別フィールドへ二重定義しない）。

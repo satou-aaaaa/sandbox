@@ -5,6 +5,7 @@ import path from "node:path";
 import fs from "node:fs/promises";
 
 import { resolveYoushiki1Rows, writeYoushiki1Docx } from "../src/documents/youshiki1.js";
+import { resolveYoushiki2Rows, writeYoushiki2Docx } from "../src/documents/youshiki2.js";
 import { resolveYoushiki6Rows, writeYoushiki6Docx } from "../src/documents/youshiki6.js";
 import { resolveYoushiki7Fields, writeYoushiki7Docx } from "../src/documents/youshiki7.js";
 import { resolveYoushiki8Sections, writeYoushiki8Docx } from "../src/documents/youshiki8.js";
@@ -37,6 +38,54 @@ test("様式第一号: 必須項目が未入力なら（未入力）と表示さ
 
 test("様式第一号: docxファイルを生成できる", async () => {
   await assertWrittenDocx(writeYoushiki1Docx, buildSampleApplicantProfile());
+});
+
+test("様式第二号: 工事経歴が未入力なら空配列を返す", () => {
+  const profile = buildSampleApplicantProfile();
+  profile.constructionHistory = [];
+  const rows = resolveYoushiki2Rows(profile);
+  assert.equal(rows.length, 0);
+});
+
+test("様式第二号: 元請を先に、請負代金の額の大きい順に並べる", () => {
+  const profile = buildSampleApplicantProfile();
+  profile.constructionHistory = [
+    { constructionType: "建築工事業", isSubcontract: false, orderer: "A社", projectName: "工事A", contractAmount: 1_000_000, completionDateIso: "2025-01" },
+    { constructionType: "建築工事業", isSubcontract: true, orderer: "B社", projectName: "工事B", contractAmount: 9_000_000, completionDateIso: "2025-02" },
+    { constructionType: "建築工事業", isSubcontract: false, orderer: "C社", projectName: "工事C", contractAmount: 5_000_000, completionDateIso: "2025-03" },
+  ];
+  const rows = resolveYoushiki2Rows(profile);
+  // 元請2件（C社→A社、金額降順）が先、下請1件（B社）が最後になるはず。
+  assert.deepEqual(rows.map((r) => r[2]), ["C社", "A社", "B社"]);
+  assert.deepEqual(rows.map((r) => r[1]), ["元請", "元請", "下請"]);
+});
+
+test("様式第二号: 請負代金の額は3桁区切りで表示される", () => {
+  const profile = buildSampleApplicantProfile();
+  profile.constructionHistory = [
+    { constructionType: "建築工事業", isSubcontract: false, orderer: "A社", projectName: "工事A", contractAmount: 12_345_678, completionDateIso: "2025-01" },
+  ];
+  const rows = resolveYoushiki2Rows(profile);
+  assert.equal(rows[0][4], "12,345,678円");
+});
+
+test("様式第二号: 着手年月が未入力でも完成年月のみで工期を表示する", () => {
+  const profile = buildSampleApplicantProfile();
+  profile.constructionHistory = [
+    { constructionType: "建築工事業", isSubcontract: false, orderer: "A社", projectName: "工事A", contractAmount: 1_000_000, completionDateIso: "2025-01" },
+  ];
+  const rows = resolveYoushiki2Rows(profile);
+  assert.match(rows[0][5], /2025-01/);
+});
+
+test("様式第二号: docxファイルを生成できる", async () => {
+  await assertWrittenDocx(writeYoushiki2Docx, buildSampleApplicantProfile());
+});
+
+test("様式第二号: 工事経歴が未入力でもdocxファイルを生成できる", async () => {
+  const profile = buildSampleApplicantProfile();
+  profile.constructionHistory = [];
+  await assertWrittenDocx(writeYoushiki2Docx, profile);
 });
 
 test("様式第六号: 役員が未入力なら未入力である旨の行を返す", () => {

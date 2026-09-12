@@ -15,6 +15,7 @@
     "typecheck": "tsc --noEmit",
     "gen:eligibility": "node scripts/generate-eligibility-sample.js",
     "gen:youshiki1": "node scripts/generate-youshiki1-sample.js",
+    "gen:youshiki2": "node scripts/generate-youshiki2-sample.js",
     "gen:youshiki6": "node scripts/generate-youshiki6-sample.js",
     "gen:youshiki7": "node scripts/generate-youshiki7-sample.js",
     "gen:youshiki8": "node scripts/generate-youshiki8-sample.js",
@@ -36,9 +37,5 @@
   },
   "engines": {
     "node": ">=20"
-  },
-  "devDependencies": {
-    "@types/node": "^22.20.2",
-    "typescript": "^7.0.2"
   }
 }
