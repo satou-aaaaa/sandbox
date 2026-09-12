@@ -48,7 +48,7 @@ Martin Fowler・OWASP・Google Cloud DORAチーム等の公開資料を出典と
 
 | 項目 | 状態 | 補足 |
 |---|---|---|
-| ユニットテスト | ✅ | `node --test`（Node.js標準機能）。125件全通過 |
+| ユニットテスト | ✅ | `node --test`（Node.js標準機能）。131件全通過 |
 | CI（push/PR時の自動テスト） | ✅ | `.github/workflows/test.yml`。Node.js 20.x/22.x の2バージョンで実行 |
 | テストカバレッジ計測 | ✅ | `npm run test:coverage`（`--experimental-test-coverage`）。CIでは22.xのジョブでのみ表示（Node 20系に既知の不具合があるため）。現在ライン網羅率 約98% |
 | カバレッジの閾値強制 | ⛔ | `--test-coverage-lines` 等で閾値未達を失敗にする設定は未導入。個人開発でカバレッジ数値そのものを目的化しないため、情報表示に留めている |
