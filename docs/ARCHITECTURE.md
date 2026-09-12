@@ -37,18 +37,25 @@ TypeScriptと同等に効く。プロジェクトが育ってきたら `tsconfig
 
 ## モジュール構成
 
-- `src/eligibility/types.js` — 申請者データのJSDoc型定義（要件判定の入出力の唯一の情報源）
+- `src/eligibility/types.js` — 申請者データのJSDoc型定義（要件判定・書類生成の入出力の唯一の情報源）
 - `src/eligibility/rules/*.js` — 法定5要件それぞれの判定ロジック（1要件=1ファイル）
 - `src/eligibility/engine.js` — 5要件をまとめて判定し、総合結果とレポートを生成
-- `src/documents/*.js` — 各種様式のdocx自動生成（現状は様式第一号のサマリーのみ。今後拡張）
+- `src/documents/common.js` — 様式生成モジュール共通のdocxヘルパー（見出し・赤字注記・表・箇条書き・ファイル書き出し）
+- `src/documents/youshiki1.js` — 様式第一号（建設業許可申請書）のdocx自動生成
+- `src/documents/youshiki6.js` — 様式第六号（役員等の一覧表）のdocx自動生成
+- `src/documents/youshiki7.js` — 様式第七号（経営業務管理責任者証明書）のdocx自動生成
+- `src/documents/youshiki8.js` — 様式第八号（専任技術者証明書）のdocx自動生成
+- `src/documents/youshiki20-2.js` — 様式第二十号の二（誓約書）のdocx自動生成
 - `src/reminders/renewalSchedule.js` — 5年更新・決算変更届の期限計算
 - `test/` — `node --test` で実行するユニットテスト（外部テストランナー不要）
-- `scripts/` — 動作確認用のサンプル実行スクリプト
+- `scripts/` — 動作確認用のサンプル実行スクリプト（`sampleProfile.js` が全スクリプト共通のダミーデータ）
 
 ## 既知の未実装・今後の拡張ポイント
 
 - 正式な様式（国交省・都道府県指定のレイアウト）への完全準拠したPDF/docx出力
   （現状は内容確認用のサマリー表のみ）
+- 様式第二十号の二（誓約書）は本ツールが判定に用いる欠格要件6項目のみを確認しており、
+  建設業法第8条の全14号への完全対応はしていない
 - JCIP外部インターフェイス仕様書に沿ったデータ連携（電子申請の自動化）
 - Webフォームによるインテイク画面（現状はJSオブジェクトを直接組み立てる想定）
 - 都道府県ごとの提出書類・様式差異の吸収（本ツールはまず自都道府県分から着手する想定）

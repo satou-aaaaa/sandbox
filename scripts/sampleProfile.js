@@ -1,0 +1,65 @@
+/**
+ * 書類生成サンプルスクリプト共通のダミー申請者データ。
+ *
+ * 実在の顧客データは絶対に使用しない（NFR-5）。すべてダミー値。
+ * 各 generate-*-sample.js はこの関数を呼び出して同じ申請者データから
+ * それぞれの様式サマリーを生成する（様式ごとにダミーデータを個別に
+ * 定義しない。ApplicantProfile が唯一のデータソースであることの実例にもなる）。
+ *
+ * @returns {import('../src/eligibility/types.js').ApplicantProfile}
+ */
+export function buildSampleApplicantProfile() {
+  return {
+    applicantName: "サンプル建設株式会社",
+    representativeName: "山田 太郎",
+    address: "東京都千代田区霞が関1-1-1",
+    prefecture: "東京都",
+    applicationDate: "2026-09-11",
+    constructionTypes: ["建築工事業", "電気工事業"],
+    officers: [
+      { name: "山田 太郎", title: "代表取締役", birthDate: "1975-04-01" },
+      { name: "鈴木 花子", title: "取締役", birthDate: "1980-11-20" },
+    ],
+    keieiGyomuKanri: {
+      yearsAsResponsibleOfficer: 6,
+      yearsAsQuasiResponsibleOfficer: 0,
+      yearsAsAssistant: 0,
+      isOfficerFor2Years: false,
+      assistantSupportYears: { finance: 0, labor: 0, operations: 0 },
+      hasSocialInsurance: true,
+      responsibleName: "山田 太郎",
+      responsibleTitle: "代表取締役",
+    },
+    senninGijutsushaList: [
+      {
+        officeName: "本店",
+        personName: "佐藤 一郎",
+        licenseType: "一般",
+        hasNationalLicense: true,
+        isDesignatedCourseGraduate: false,
+        educationLevel: null,
+        yearsOfPracticalExperience: 0,
+        yearsOfGeneralExperience: 0,
+        yearsOfSupervisoryExperience: 0,
+      },
+    ],
+    zaisanKiso: {
+      licenseType: "一般",
+      netAssets: 6_000_000,
+      fundingCapacity: 0,
+      hasFiveYearsContinuousOperation: false,
+      capitalAmount: 0,
+      deficitRatio: 0,
+      currentRatio: 0,
+    },
+    kekkaku: {
+      isUndischargedBankrupt: false,
+      hadLicenseRevokedWithin5Years: false,
+      hasCriminalRecordWithin5Years: false,
+      isBoryokudanMemberOrWithin5Years: false,
+      hasMentalImpairmentAffectingDuties: false,
+      hasFalseOrOmittedStatement: false,
+    },
+    seijitsusei: { hasNoDishonestActRisk: true },
+  };
+}

@@ -15,7 +15,8 @@
 
 - **要件判定エンジン**: 建設業許可の法定5要件（経営業務管理体制・専任技術者・財産的基礎・
   欠格要件・誠実性）を入力データから機械的にチェックし、不足点を洗い出す
-- **書類生成（試作）**: 様式第一号の申請内容サマリーをdocxとして自動生成
+- **書類生成**: 新規許可申請の優先様式（様式第一号・第六号・第七号・第八号・第二十号の二）の
+  申請内容サマリーをdocxとして自動生成（すべて内容確認・下書き用。正式提出様式ではない）
 - **更新リマインド計算**: 許可の有効期間満了日（5年）、決算変更届の提出期限（事業年度終了後4ヶ月）を自動計算
 
 詳細な設計方針は [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) を参照。
@@ -31,17 +32,24 @@
 
 ```bash
 npm install
-npm test                          # ユニットテストを実行
-node scripts/generate-eligibility-sample.js   # 要件判定のサンプル実行
-node scripts/generate-youshiki1-sample.js     # 様式第一号サマリーのdocx生成サンプル
+npm test                    # ユニットテストを実行
+npm run gen:eligibility     # 要件判定のサンプル実行
+npm run gen:youshiki1       # 様式第一号サマリーのdocx生成サンプル
+npm run gen:youshiki6       # 様式第六号サマリーのdocx生成サンプル
+npm run gen:youshiki7       # 様式第七号サマリーのdocx生成サンプル
+npm run gen:youshiki8       # 様式第八号サマリーのdocx生成サンプル
+npm run gen:youshiki20-2    # 様式第二十号の二サマリーのdocx生成サンプル
 ```
+
+生成された `.docx` は `out/`（コミット対象外）に出力される。Microsoft Word や
+LibreOffice Writer 等で開いて内容を確認すること。
 
 ## ディレクトリ構成
 
 ```
 src/
   eligibility/   要件判定エンジン（法定5要件）
-  documents/     書類自動生成
+  documents/     書類自動生成（様式第一号・六号・七号・八号・二十号の二 + 共通ヘルパー）
   reminders/     更新・提出期限のリマインド計算
 test/            node --test で実行するユニットテスト
 scripts/         動作確認用サンプルスクリプト
@@ -51,6 +59,6 @@ docs/            設計方針・アーキテクチャドキュメント
 ## 次のステップ
 
 - [ ] 実際に活動する都道府県のJCIP対応状況・gBizID要件を確認
-- [ ] 正式様式に準拠した書類出力への拡張
-- [ ] インテイク用のWebフォーム設計
-- [ ] 更新リマインドの通知チャネル（メール等）連携
+- [ ] 対象都道府県の正式様式レイアウト・記載要領を入手し、正式様式に準拠した出力への拡張を検討（M6）
+- [ ] インテイク用のWebフォーム設計（M3）
+- [ ] 更新リマインドの通知チャネル（メール等）連携（M4）
