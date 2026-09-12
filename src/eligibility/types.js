@@ -98,6 +98,14 @@
  * @property {boolean} eligible 5要件すべてを満たすか
  * @property {RequirementCheckResult[]} checks 要件ごとの判定結果一覧
  * @property {string[]} blockingIssues 許可取得の妨げになっている理由の一覧（eligible=falseのとき）
+ * @property {ConsistencyWarning[]} consistencyWarnings 入力内容の整合性チェック（M7・FR-6.1〜6.3）の注記一覧。
+ *   合否判定（eligible/checks/blockingIssues）には一切影響しない「気づき」情報（FR-6.4）
+ */
+
+/**
+ * @typedef {Object} ConsistencyWarning 入力内容の整合性チェック（ルールベース、M7）で検出した注記1件
+ * @property {string} key 注記の種別キー（例: "representativeNameMismatch"）
+ * @property {string} message 行政書士・申請者への確認を促すメッセージ（合否には影響しないことが分かる文言にする）
  */
 
 export {};
