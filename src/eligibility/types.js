@@ -14,6 +14,8 @@
  * @property {{finance: number, labor: number, operations: number}} assistantSupportYears
  *   財務管理・労務管理・業務運営の各業務について、5年以上補佐した者を配置している場合の年数
  * @property {boolean} hasSocialInsurance 健康保険・厚生年金保険・雇用保険に適切に加入しているか
+ * @property {string} [responsibleName] 経営業務管理責任者（該当ルートの証明を受ける者）の氏名（様式第七号用・任意）
+ * @property {string} [responsibleTitle] 当該者の地位・役名（様式第七号用・任意）
  */
 
 /**
@@ -26,6 +28,7 @@
  * @property {number} yearsOfPracticalExperience 指定学科卒業者としての実務経験年数（高卒5年/大卒3年の判定に使用）
  * @property {number} yearsOfGeneralExperience 指定学科によらない実務経験年数（10年要件の判定に使用）
  * @property {number} yearsOfSupervisoryExperience 4,500万円以上の工事における指導監督的実務経験年数（特定建設業用）
+ * @property {string} [personName] 当該営業所の専任技術者の氏名（様式第八号用・任意）
  */
 
 /**
@@ -56,6 +59,13 @@
  */
 
 /**
+ * @typedef {Object} OfficerInput 役員等の一覧表（様式第六号）に記載する役員1名分の情報
+ * @property {string} name 氏名
+ * @property {string} title 役名（例: 代表取締役、取締役）
+ * @property {string} [birthDate] 生年月日（YYYY-MM-DD、任意）
+ */
+
+/**
  * @typedef {Object} ApplicantProfile 申請者（会社・個人）の総合入力データ
  * @property {string} applicantName 申請者名（会社名 or 個人名）
  * @property {KeieiGyomuKanriInput} keieiGyomuKanri
@@ -63,6 +73,15 @@
  * @property {ZaisanKisoInput} zaisanKiso
  * @property {KekkakuInput} kekkaku
  * @property {SeijitsuseiInput} seijitsusei
+ * @property {string} [representativeName] 代表者氏名（書類生成用・任意）
+ * @property {string} [address] 主たる営業所の所在地（書類生成用・任意）
+ * @property {string} [prefecture] 許可行政庁となる都道府県名（書類生成用・任意）
+ * @property {string} [applicationDate] 申請年月日（YYYY-MM-DD、書類生成用・任意）
+ * @property {string[]} [constructionTypes] 許可を受けようとする建設業の種類（書類生成用・任意）
+ * @property {OfficerInput[]} [officers] 役員等の一覧（様式第六号用・任意）
+ *
+ * 全体の許可区分（一般/特定）は様式生成時、`zaisanKiso.licenseType` を正として用いる
+ * （申請全体で1つの区分に定まるため、様式ごとに別フィールドへ二重定義しない）。
  */
 
 /**

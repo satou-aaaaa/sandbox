@@ -1,0 +1,138 @@
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import os from "node:os";
+import path from "node:path";
+import fs from "node:fs/promises";
+
+import { resolveYoushiki1Rows, writeYoushiki1Docx } from "../src/documents/youshiki1.js";
+import { resolveYoushiki6Rows, writeYoushiki6Docx } from "../src/documents/youshiki6.js";
+import { resolveYoushiki7Fields, writeYoushiki7Docx } from "../src/documents/youshiki7.js";
+import { resolveYoushiki8Sections, writeYoushiki8Docx } from "../src/documents/youshiki8.js";
+import { resolveYoushiki20_2Fields, writeYoushiki20_2Docx } from "../src/documents/youshiki20-2.js";
+import { buildSampleApplicantProfile } from "../scripts/sampleProfile.js";
+
+/** 生成された docx バッファが有効な zip（docxの実体）であることを確認する。 */
+async function assertWrittenDocx(writeFn, profile) {
+  const outPath = path.join(os.tmpdir(), `kensetsu-kyoka-toolkit-test-${Date.now()}-${Math.random()}.docx`);
+  try {
+    await writeFn(profile, outPath);
+    const buffer = await fs.readFile(outPath);
+    // docx（.docx）は zip 形式であり、先頭2バイトは "PK" (0x50, 0x4B)。
+    assert.equal(buffer[0], 0x50);
+    assert.equal(buffer[1], 0x4b);
+  } finally {
+    await fs.rm(outPath, { force: true });
+  }
+}
+
+test("様式第一号: 必須項目が未入力なら（未入力）と表示される", () => {
+  const profile = buildSampleApplicantProfile();
+  profile.representativeName = "";
+  profile.address = undefined;
+  const rows = resolveYoushiki1Rows(profile);
+  const map = Object.fromEntries(rows);
+  assert.equal(map["代表者氏名"], "（未入力）");
+  assert.equal(map["主たる営業所の所在地"], "（未入力）");
+});
+
+test("様式第一号: docxファイルを生成できる", async () => {
+  await assertWrittenDocx(writeYoushiki1Docx, buildSampleApplicantProfile());
+});
+
+test("様式第六号: 役員が未入力なら未入力である旨の行を返す", () => {
+  const profile = buildSampleApplicantProfile();
+  profile.officers = [];
+  const rows = resolveYoushiki6Rows(profile);
+  assert.equal(rows.length, 1);
+  assert.match(rows[0][1], /未入力/);
+});
+
+test("様式第六号: 役員1名分の氏名・役名・生年月日が未入力なら（未入力）になる", () => {
+  const profile = buildSampleApplicantProfile();
+  profile.officers = [{ name: "", title: "", birthDate: "" }];
+  const rows = resolveYoushiki6Rows(profile);
+  const map = Object.fromEntries(rows);
+  assert.equal(map["役員 1 — 氏名"], "（未入力）");
+  assert.equal(map["役員 1 — 役名"], "（未入力）");
+  assert.equal(map["役員 1 — 生年月日"], "（未入力）");
+});
+
+test("様式第六号: docxファイルを生成できる", async () => {
+  await assertWrittenDocx(writeYoushiki6Docx, buildSampleApplicantProfile());
+});
+
+test("様式第七号: 証明を受ける者の氏名が未入力なら（未入力）になる", () => {
+  const profile = buildSampleApplicantProfile();
+  profile.keieiGyomuKanri.responsibleName = undefined;
+  const { rows } = resolveYoushiki7Fields(profile);
+  const map = Object.fromEntries(rows);
+  assert.equal(map["証明を受ける者の氏名"], "（未入力）");
+});
+
+test("様式第七号: 判定結果は要件判定エンジンと同じロジック（checkKeieiGyomuKanri）を使う", () => {
+  const profile = buildSampleApplicantProfile();
+  profile.keieiGyomuKanri.hasSocialInsurance = false; // 社会保険未加入 → 不合格になるはず
+  const { check } = resolveYoushiki7Fields(profile);
+  assert.equal(check.passed, false);
+});
+
+test("様式第七号: docxファイルを生成できる", async () => {
+  await assertWrittenDocx(writeYoushiki7Docx, buildSampleApplicantProfile());
+});
+
+test("様式第八号: 営業所が未入力なら空配列を返す", () => {
+  const profile = buildSampleApplicantProfile();
+  profile.senninGijutsushaList = [];
+  const sections = resolveYoushiki8Sections(profile);
+  assert.equal(sections.length, 0);
+});
+
+test("様式第八号: 専任技術者の氏名が未入力なら（未入力）になる", () => {
+  const profile = buildSampleApplicantProfile();
+  profile.senninGijutsushaList[0].personName = undefined;
+  const sections = resolveYoushiki8Sections(profile);
+  const map = Object.fromEntries(sections[0].rows);
+  assert.equal(map["専任技術者の氏名"], "（未入力）");
+});
+
+test("様式第八号: 特定建設業で指導監督的実務経験が不足していれば不合格になる", () => {
+  const profile = buildSampleApplicantProfile();
+  profile.senninGijutsushaList = [
+    {
+      officeName: "本店",
+      personName: "佐藤 一郎",
+      licenseType: "特定",
+      hasNationalLicense: false,
+      isDesignatedCourseGraduate: false,
+      educationLevel: null,
+      yearsOfPracticalExperience: 0,
+      yearsOfGeneralExperience: 10,
+      yearsOfSupervisoryExperience: 1,
+    },
+  ];
+  const sections = resolveYoushiki8Sections(profile);
+  assert.equal(sections[0].check.passed, false);
+});
+
+test("様式第八号: docxファイルを生成できる", async () => {
+  await assertWrittenDocx(writeYoushiki8Docx, buildSampleApplicantProfile());
+});
+
+test("様式第二十号の二: 代表者氏名が未入力なら（未入力）になる", () => {
+  const profile = buildSampleApplicantProfile();
+  profile.representativeName = undefined;
+  const { rows } = resolveYoushiki20_2Fields(profile);
+  const map = Object.fromEntries(rows);
+  assert.equal(map["代表者氏名"], "（未入力）");
+});
+
+test("様式第二十号の二: 欠格事由に該当すれば不合格になる", () => {
+  const profile = buildSampleApplicantProfile();
+  profile.kekkaku.isBoryokudanMemberOrWithin5Years = true;
+  const { check } = resolveYoushiki20_2Fields(profile);
+  assert.equal(check.passed, false);
+});
+
+test("様式第二十号の二: docxファイルを生成できる", async () => {
+  await assertWrittenDocx(writeYoushiki20_2Docx, buildSampleApplicantProfile());
+});

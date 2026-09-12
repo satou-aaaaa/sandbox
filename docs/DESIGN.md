@@ -51,16 +51,26 @@ src/
       kekkaku.js             要件4: 欠格要件
       seijitsusei.js         要件5: 誠実性
   documents/
-    youshiki1.js        様式第一号のdocx生成（実装済み・他様式のテンプレート）
-    （M2で youshiki6.js, youshiki7.js, youshiki8.js, youshiki20-2.js 等を追加）
+    common.js           様式生成モジュール共通のdocxヘルパー（見出し・注記・表・箇条書き）
+    youshiki1.js        様式第一号のdocx生成
+    youshiki6.js        様式第六号（役員等の一覧表）のdocx生成
+    youshiki7.js        様式第七号（経営業務管理責任者証明書）のdocx生成
+    youshiki8.js        様式第八号（専任技術者証明書）のdocx生成（営業所ごとにセクション分け）
+    youshiki20-2.js     様式第二十号の二（誓約書）のdocx生成
   reminders/
     renewalSchedule.js  5年更新・決算変更届の期限計算
 test/
   eligibility.test.js    要件判定エンジンのユニットテスト
   renewalSchedule.test.js 期限計算のユニットテスト
+  documents.test.js      書類生成モジュール（様式第一号・六号・七号・八号・二十号の二）のユニットテスト
 scripts/
+  sampleProfile.js                書類生成サンプル共通のダミー ApplicantProfile
   generate-eligibility-sample.js  要件判定のサンプル実行
   generate-youshiki1-sample.js    様式第一号サマリーのdocx生成サンプル
+  generate-youshiki6-sample.js    様式第六号サマリーのdocx生成サンプル
+  generate-youshiki7-sample.js    様式第七号サマリーのdocx生成サンプル
+  generate-youshiki8-sample.js    様式第八号サマリーのdocx生成サンプル
+  generate-youshiki20-2-sample.js 様式第二十号の二サマリーのdocx生成サンプル
 docs/
   ARCHITECTURE.md   アーキテクチャ方針の要約（本書のダイジェスト版）
   PROPOSAL.md       ビジネス背景・ロードマップ
@@ -86,6 +96,20 @@ docs/
 | zaisanKiso | ZaisanKisoInput | 財産的基礎の入力 |
 | kekkaku | KekkakuInput | 欠格要件の入力 |
 | seijitsusei | SeijitsuseiInput | 誠実性の入力 |
+| representativeName | string（任意） | 代表者氏名（M2で書類生成用に追加） |
+| address | string（任意） | 主たる営業所の所在地（M2で書類生成用に追加） |
+| prefecture | string（任意） | 許可行政庁となる都道府県名（M2で書類生成用に追加） |
+| applicationDate | string（任意） | 申請年月日（YYYY-MM-DD。M2で書類生成用に追加） |
+| constructionTypes | string[]（任意） | 許可を受けようとする建設業の種類（M2で書類生成用に追加） |
+| officers | OfficerInput[]（任意） | 役員等の一覧（M2・様式第六号用に追加） |
+
+全体の許可区分（一般/特定）は様式生成時、`zaisanKiso.licenseType` を正として用いる
+（申請全体で1つの区分に定まるため、様式ごとに別フィールドへ二重定義しない）。
+
+`keieiGyomuKanri` には様式第七号用に `responsibleName`（証明を受ける者の氏名）・
+`responsibleTitle`（地位又は役名）を、`senninGijutsushaList` の各要素には
+様式第八号用に `personName`（当該営業所の専任技術者氏名）を、それぞれ
+オプションフィールドとして追加している（既存フィールドの意味は変更していない）。
 
 ### 4.2 KeieiGyomuKanriInput
 
@@ -243,42 +267,43 @@ docs/
 （例: `new Date("2026-01-01")` をブラウザのローカルタイムとして解釈させる等）
 に変更しないこと。
 
-### 5.8 `src/documents/youshiki1.js` — 様式第一号（実装済み・テンプレート）
+### 5.8 `src/documents/common.js` — 様式生成モジュール共通ヘルパー（M2で追加）
 
 `docx` ライブラリを使い、A4サイズの `Document` を組み立てて `.docx` として
-書き出す。現状のスコープは「正式様式のレイアウト再現」ではなく、
-「申請内容サマリー（下書き・確認用の表形式）」であることが明記されている
-（ファイル冒頭のコメントおよび生成される文書内の赤字注記の両方）。
+書き出す処理・見た目（グレー見出しの2列表、赤字の注記、警告付き箇条書き等）を
+共通化したモジュール。すべての様式生成モジュールはここから
+`buildTitleHeading` / `buildDisclaimerParagraph` / `buildLabeledTable` /
+`buildBulletList` / `orNotEntered` / `writeDocxFile` 等を再利用し、
+同じ見た目・同じ「未入力」判定ロジックのコードを様式ごとにコピーしない。
 
-`buildYoushiki1Document(data)` がdocxの `Document` オブジェクトを構築し、
-`writeYoushiki1Docx(data, outPath)` がファイル書き出しまで行う。
-この2関数分離パターン（構築とI/Oの分離）は、テストのしやすさ・
-将来的な出力形式の追加（PDF化等）のために他の様式モジュールでも踏襲すること。
+`writeDocxFile` は出力先ディレクトリ（`out/` 等）が存在しない場合に
+自動作成してから書き込む。
 
-#### 5.8.1 M2で追加する様式モジュールの実装方針
+### 5.9 様式生成モジュール（`src/documents/youshiki*.js`）
 
-`youshiki1.js` と同じ構造・命名規則で以下を追加する。
+`docx` の `Document` を組み立てて `.docx` として書き出す。現状のスコープは
+「正式様式のレイアウト再現」ではなく、「申請内容サマリー（下書き・確認用の
+表形式）」であることが明記されている（ファイル冒頭のコメントおよび
+生成される文書内の赤字注記の両方、`common.js` の `buildDisclaimerParagraph` により統一）。
 
-```
-src/documents/youshiki6.js      様式第六号（役員等の一覧表）
-src/documents/youshiki7.js      様式第七号（経営業務管理責任者証明書）
-src/documents/youshiki8.js      様式第八号（専任技術者証明書）
-src/documents/youshiki20-2.js   様式第二十号の二（誓約書）
-```
+各モジュールは `build<様式名>Document(profile)` と
+`write<様式名>Docx(profile, outPath)` の2関数構成に統一している
+（構築とI/Oの分離により、テストのしやすさ・将来的な出力形式の追加
+（PDF化等）に対応しやすくしている）。入力はすべて要件判定エンジンと同じ
+`ApplicantProfile` 型（FR-2.7 対応。§4.1参照）。
 
-各モジュールの実装ルール:
+| モジュール | 対応様式 | 実装のポイント |
+|---|---|---|
+| `youshiki1.js` | 様式第一号（建設業許可申請書） | 基本情報の2列表のみ。`resolveYoushiki1Rows(profile)` で表示行を解決する純粋関数を分離しテスト容易性を確保 |
+| `youshiki6.js` | 様式第六号（役員等の一覧表） | `profile.officers[]` を1名につき氏名・役名・生年月日の3行に展開。0件の場合はその旨の1行を返す |
+| `youshiki7.js` | 様式第七号（経営業務管理責任者証明書） | `checkKeieiGyomuKanri` を再利用し、判定結果（`RequirementCheckResult`）の reasons/warnings をそのまま箇条書き表示。判定ロジックを再実装しない |
+| `youshiki8.js` | 様式第八号（専任技術者証明書） | `senninGijutsushaList` の営業所ごとに `checkSenninGijutsushaForOffice` を呼び、見出し＋表＋根拠のセクションを繰り返す。正式提出は営業所ごとに分割する必要がある旨をコメントで明記 |
+| `youshiki20-2.js` | 様式第二十号の二（誓約書） | `checkKekkaku` を再利用。本ツールが確認するのは欠格要件6項目のみで、建設業法第8条全14号の確認は行政書士本人が行う旨を警告として明示 |
 
-- 入力データ型は `ApplicantProfile`（またはそのサブセット）を再利用し、
-  様式固有の独自型を新設しない。様式固有の追加項目がどうしても必要な場合は
-  `types.js` に当該様式向けの補助型を追加し、`ApplicantProfile` のオプション
-  フィールドとして生やす（既存フィールドの意味を変えない）
-- `build<様式名>Document(data)` と `write<様式名>Docx(data, outPath)` の
-  2関数構成に統一する
-- 生成文書には必ず「これは正式提出様式ではなく、内容確認・下書き用の
-  サマリーです」の旨の注記を赤字等で含める（`youshiki1.js` の実装を踏襲）
-- 対応する `scripts/generate-<様式名>-sample.js` をダミーデータ付きで用意する
-- 対応するユニットテストを `test/` に追加する（少なくとも、必須項目が
-  欠けている場合に「（未入力）」等で分かる形になることを確認するテスト）
+いずれのモジュールも、判定ロジック（合否・reasons・warnings）は
+`src/eligibility/rules/*.js` の既存関数をそのまま呼び出しており、
+様式サマリー側で再実装していない。これにより要件判定エンジンと
+様式サマリーの判定結果が食い違うことを防いでいる。
 
 ## 6. エラーハンドリング方針
 
@@ -295,7 +320,9 @@ src/documents/youshiki20-2.js   様式第二十号の二（誓約書）
 
 - テストランナーは `node --test`（Node.js標準機能）。外部テストフレームワークを
   導入しない（NFR-1のビルドレス方針と整合させるため）。
-- 既存テスト: `test/eligibility.test.js`（8件）、`test/renewalSchedule.test.js`（4件）
+- 既存テスト: `test/eligibility.test.js`（8件）、`test/renewalSchedule.test.js`（4件）、
+  `test/documents.test.js`（15件。様式生成モジュールの「未入力」フォールバック・
+  判定ロジック再利用・docx出力の3観点をカバー）
 - 新規モジュールを追加する場合、最低限次のケースをカバーすること
   - 正常系（すべての条件を満たすケース）
   - 境界値（年数・金額等の基準値ちょうど、基準値-1）
