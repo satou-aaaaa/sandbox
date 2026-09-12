@@ -11,6 +11,7 @@ import { resolveYoushiki7Fields, writeYoushiki7Docx } from "../src/documents/you
 import { resolveYoushiki8Sections, writeYoushiki8Docx } from "../src/documents/youshiki8.js";
 import { resolveYoushiki20_2Fields, writeYoushiki20_2Docx } from "../src/documents/youshiki20-2.js";
 import { resolveYoushiki25_14Rows, writeYoushiki25_14Docx } from "../src/documents/youshiki25-14.js";
+import { resolveYoushiki16Rows, writeYoushiki16Docx } from "../src/documents/youshiki16.js";
 import { buildSampleApplicantProfile } from "../scripts/sampleProfile.js";
 
 /** 生成された docx バッファが有効な zip（docxの実体）であることを確認する。 */
@@ -236,4 +237,56 @@ test("様式第二十五号の十四: keishinRequestが未入力でもdocxファ
   const profile = buildSampleApplicantProfile();
   profile.keishinRequest = undefined;
   await assertWrittenDocx(writeYoushiki25_14Docx, profile);
+});
+
+test("様式第十六号の一部: completedConstructionCostが未入力なら空配列を返す", () => {
+  const profile = buildSampleApplicantProfile();
+  profile.completedConstructionCost = undefined;
+  const rows = resolveYoushiki16Rows(profile);
+  assert.equal(rows.length, 0);
+});
+
+test("様式第十六号の一部: 材料費・労務費・外注費・経費の合計を完成工事原価として表示する", () => {
+  const profile = buildSampleApplicantProfile();
+  profile.completedConstructionCost = {
+    materialCost: 1_000_000,
+    laborCost: 2_000_000,
+    subcontractCost: 3_000_000,
+    expenses: 4_000_000,
+  };
+  const rows = resolveYoushiki16Rows(profile);
+  const map = Object.fromEntries(rows);
+  assert.equal(map["完成工事原価（合計）"], "10,000,000円");
+});
+
+test("様式第十六号の一部: 労務外注費・人件費の内訳が未入力なら行を省略する", () => {
+  const profile = buildSampleApplicantProfile();
+  profile.completedConstructionCost = {
+    materialCost: 1_000_000,
+    laborCost: 2_000_000,
+    subcontractCost: 3_000_000,
+    expenses: 4_000_000,
+  };
+  const rows = resolveYoushiki16Rows(profile);
+  const map = Object.fromEntries(rows);
+  assert.equal(map["（うち）労務外注費"], undefined);
+  assert.equal(map["（うち）人件費"], undefined);
+});
+
+test("様式第十六号の一部: 労務外注費・人件費の内訳が入力されていれば表示する", () => {
+  const profile = buildSampleApplicantProfile();
+  const rows = resolveYoushiki16Rows(profile);
+  const map = Object.fromEntries(rows);
+  assert.equal(map["（うち）労務外注費"], "2,000,000円");
+  assert.equal(map["（うち）人件費"], "1,200,000円");
+});
+
+test("様式第十六号の一部: docxファイルを生成できる", async () => {
+  await assertWrittenDocx(writeYoushiki16Docx, buildSampleApplicantProfile());
+});
+
+test("様式第十六号の一部: completedConstructionCostが未入力でもdocxファイルを生成できる", async () => {
+  const profile = buildSampleApplicantProfile();
+  profile.completedConstructionCost = undefined;
+  await assertWrittenDocx(writeYoushiki16Docx, profile);
 });

@@ -123,7 +123,18 @@ ${savedNoticeBlock}
   </section>
 
   <section>
-    <h2>7. 欠格要件（該当するものにチェック）</h2>
+    <h2>7. 完成工事原価報告書（様式第十六号の一部・任意）</h2>
+    <p class="notice">材料費・労務費・外注費・経費の4区分・6項目のみです（勘定科目の追加は認められていません）。</p>
+    <label>材料費（円） <input type="number" id="ccMaterialCost" value="0" min="0"></label>
+    <label>労務費（円） <input type="number" id="ccLaborCost" value="0" min="0"></label>
+    <label>（うち）労務外注費（円・任意） <input type="number" id="ccSubcontractedLaborCost" min="0"></label>
+    <label>外注費（円） <input type="number" id="ccSubcontractCost" value="0" min="0"></label>
+    <label>経費（円） <input type="number" id="ccExpenses" value="0" min="0"></label>
+    <label>（うち）人件費（円・任意） <input type="number" id="ccPersonnelExpenses" min="0"></label>
+  </section>
+
+  <section>
+    <h2>8. 欠格要件（該当するものにチェック）</h2>
     <label><input type="checkbox" id="isUndischargedBankrupt"> 破産者で復権を得ていない</label>
     <label><input type="checkbox" id="hadLicenseRevokedWithin5Years"> 5年以内に建設業許可を取り消された経験がある</label>
     <label><input type="checkbox" id="hasCriminalRecordWithin5Years"> 禁錮以上の刑、または関連法令違反による罰金刑から5年を経過していない</label>
@@ -133,7 +144,7 @@ ${savedNoticeBlock}
   </section>
 
   <section>
-    <h2>8. 誠実性</h2>
+    <h2>9. 誠実性</h2>
     <label><input type="checkbox" id="hasNoDishonestActRisk" checked> 請負契約に関して不正・不誠実な行為をするおそれが明らかでない</label>
     <label>申告メモ（任意） <textarea id="seijitsuseiNotes" rows="2"></textarea></label>
   </section>
@@ -376,6 +387,17 @@ if (INITIAL_PROFILE) {
 
   setChecked("hasNoDishonestActRisk", s.hasNoDishonestActRisk);
   setVal("seijitsuseiNotes", s.notes);
+
+  // 完成工事原価報告書（任意項目）。労務外注費・人件費の内訳は未入力状態を
+  // 「0」ではなく空欄のまま保つ（他の必須項目は0を既定値とするが、
+  // これらは「内訳を申告しない」ことと「0円」を区別するため）。
+  const cc = p.completedConstructionCost || {};
+  setVal("ccMaterialCost", cc.materialCost ?? 0);
+  setVal("ccLaborCost", cc.laborCost ?? 0);
+  setVal("ccSubcontractedLaborCost", cc.subcontractedLaborCost);
+  setVal("ccSubcontractCost", cc.subcontractCost ?? 0);
+  setVal("ccExpenses", cc.expenses ?? 0);
+  setVal("ccPersonnelExpenses", cc.personnelExpenses);
 }
 
 function collectOfficers() {
@@ -422,6 +444,10 @@ function collectConstructionHistory() {
 
 function buildProfile() {
   const num = (id) => Number(document.getElementById(id).value) || 0;
+  const optionalNum = (id) => {
+    const raw = document.getElementById(id).value;
+    return raw === "" ? undefined : Number(raw);
+  };
   const str = (id) => document.getElementById(id).value || undefined;
   const checked = (id) => document.getElementById(id).checked;
 
@@ -439,6 +465,14 @@ function buildProfile() {
     constructionTypes,
     officers: collectOfficers(),
     constructionHistory: collectConstructionHistory(),
+    completedConstructionCost: {
+      materialCost: num("ccMaterialCost"),
+      laborCost: num("ccLaborCost"),
+      subcontractedLaborCost: optionalNum("ccSubcontractedLaborCost"),
+      subcontractCost: num("ccSubcontractCost"),
+      expenses: num("ccExpenses"),
+      personnelExpenses: optionalNum("ccPersonnelExpenses"),
+    },
     keieiGyomuKanri: {
       yearsAsResponsibleOfficer: num("yearsAsResponsibleOfficer"),
       yearsAsQuasiResponsibleOfficer: num("yearsAsQuasiResponsibleOfficer"),

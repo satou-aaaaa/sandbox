@@ -106,6 +106,18 @@
  */
 
 /**
+ * @typedef {Object} CompletedConstructionCostInput 完成工事原価報告書（様式第十六号の一部）の内訳（M10）
+ *   材料費・労務費・外注費・経費の4区分・6項目に固定されており、勘定科目の追加は
+ *   認められていない（docs/adr/0010-financial-statements-scope-kansei-kouji-genka-only.md参照）。
+ * @property {number} materialCost 材料費
+ * @property {number} laborCost 労務費
+ * @property {number} [subcontractedLaborCost] 労務外注費（労務費の内訳のうち）
+ * @property {number} subcontractCost 外注費
+ * @property {number} expenses 経費
+ * @property {number} [personnelExpenses] 人件費（経費の内訳のうち）
+ */
+
+/**
  * @typedef {Object} ApplicantProfile 申請者（会社・個人）の総合入力データ
  * @property {string} applicantName 申請者名（会社名 or 個人名）
  * @property {KeieiGyomuKanriInput} keieiGyomuKanri
@@ -121,6 +133,7 @@
  * @property {OfficerInput[]} [officers] 役員等の一覧（様式第六号用・任意）
  * @property {WorkRecordInput[]} [constructionHistory] 工事経歴（様式第二号用・任意。M8）
  * @property {KeishinRequestInput} [keishinRequest] 経営規模等評価申請書の様式固有項目（様式第二十五号の十四用・任意。M9）
+ * @property {CompletedConstructionCostInput} [completedConstructionCost] 完成工事原価報告書の内訳（様式第十六号の一部用・任意。M10）
  *
  * 全体の許可区分（一般/特定）は様式生成時、`zaisanKiso.licenseType` を正として用いる
  * （申請全体で1つの区分に定まるため、様式ごとに別フィールドへ二重定義しない）。

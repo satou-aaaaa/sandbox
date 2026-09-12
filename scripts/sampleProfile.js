@@ -34,6 +34,14 @@ export function buildSampleApplicantProfile() {
       analysisOrganizationName: "サンプル経営状況分析センター",
       analysisOrganizationNumber: "0001",
     },
+    completedConstructionCost: {
+      materialCost: 12_000_000,
+      laborCost: 8_000_000,
+      subcontractedLaborCost: 2_000_000,
+      subcontractCost: 15_000_000,
+      expenses: 3_000_000,
+      personnelExpenses: 1_200_000,
+    },
     constructionHistory: [
       {
         constructionType: "建築工事業",
