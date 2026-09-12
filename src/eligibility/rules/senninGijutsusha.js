@@ -12,7 +12,9 @@
  * @returns {{ officeName: string, passed: boolean, reasons: string[], warnings: string[] }}
  */
 export function checkSenninGijutsushaForOffice(input) {
+  /** @type {string[]} */
   const reasons = [];
+  /** @type {string[]} */
   const warnings = [];
 
   if (input.hasNationalLicense) {
@@ -60,6 +62,12 @@ export function checkSenninGijutsushaForOffice(input) {
   return finish(input, passed, reasons, warnings);
 }
 
+/**
+ * @param {import('../types.js').SenninGijutsushaInput} input
+ * @param {boolean} passed
+ * @param {string[]} reasons
+ * @param {string[]} warnings
+ */
 function finish(input, passed, reasons, warnings) {
   if (passed) {
     warnings.push(`${input.officeName}: 資格者証・卒業証明書・実務経験証明書など裏付け書類の準備を忘れずに`);

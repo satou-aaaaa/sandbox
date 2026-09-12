@@ -29,6 +29,7 @@ Git運用・進め方を統一するためのガイド。`docs/REQUIREMENTS.md`�
 git clone <リポジトリURL>
 cd kensetsu-kyoka-toolkit   # または実際のディレクトリ名
 npm install
+npm run typecheck           # JSDocの型チェック（tsc --noEmit。ビルドは行わない）
 npm test                    # 全テスト（現時点で82件）が成功することを確認
 npm run gen:eligibility     # 要件判定のサンプル実行
 npm run gen:youshiki1       # 様式第一号サマリーのdocx生成サンプル
@@ -57,12 +58,16 @@ Microsoft Word、LibreOffice Writer等で開いて内容を確認すること。
 
 ### 2.1 言語・構文
 
-- **TypeScriptを導入しない**。プレーンJavaScript（ESM, `"type": "module"`）＋
-  JSDocコメントで型を表現する（`docs/DESIGN.md` 1章の設計原則を参照）。
-  `tsconfig.json` を追加してビルドステップを導入する変更は行わないこと。
+- **TypeScriptのコンパイル・ビルドステップは導入しない**。プレーンJavaScript
+  （ESM, `"type": "module"`）＋JSDocコメントで型を表現する
+  （`docs/DESIGN.md` 1章の設計原則を参照）。`.js`ファイルを`.ts`に置き換える、
+  または`tsc`でのトランスパイルを実行フローに挟む変更は行わないこと。
+  なお `tsconfig.json`（`checkJs: true` / `noEmit: true`）による**型チェックのみ**は
+  ADR-0007で導入済みで、これはビルドステップではない（`npm run typecheck`）。
 - 新しい公開関数・型には必ずJSDocコメントを付与する
   （`@param` / `@returns` / 型定義の `@typedef` を含む）。既存ファイル
   （`src/eligibility/rules/*.js` 等）のコメントスタイルを参考にすること。
+  `npm run typecheck` がCIで実行されるため、型注釈が不正確だとCIが失敗する。
 - import/exportは常にESM構文（`import`/`export`）を使う。`require` は使わない
   （`src/documents/youshiki1.js` の `writeYoushiki1Docx` 内のように、
   Node組み込みモジュールを動的import `await import("node:fs/promises")`
@@ -149,11 +154,12 @@ Microsoft Word、LibreOffice Writer等で開いて内容を確認すること。
 
 ## 5. 受け入れ・検収の進め方
 
-1. 開発者が `npm test` を実行し、全テスト成功を確認する（GitHub Actionsでも
-   自動実行されるため、PR画面のチェック結果でも確認できる）
+1. 開発者が `npm run typecheck` と `npm test` を実行し、型チェック・全テストが
+   成功することを確認する（GitHub Actionsでも自動実行されるため、PR画面の
+   チェック結果でも確認できる）
 2. PRテンプレート（`.github/pull_request_template.md`）のセルフレビュー観点
-   （Google eng-practicesの8項目: 設計・機能性・複雑性・テスト・命名・
-   コメント・スタイル・ドキュメント）を一通り確認する
+   （Google eng-practicesの12項目: 設計・機能性・複雑性・テスト・命名・
+   コメント・スタイル・一貫性・ドキュメント・全行・文脈・良い点）を一通り確認する
 3. `docs/REQUIREMENTS.md` 7章の受け入れ基準（M2）を1項目ずつ自己チェックする
 4. 生成されたdocxサンプルを発注者に共有し、内容・注記表示を確認してもらう
 5. 発注者が `docs/ARCHITECTURE.md`（および必要なら `docs/DESIGN.md`）の

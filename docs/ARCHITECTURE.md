@@ -32,8 +32,13 @@
 副業として平日夜間・週末にメンテナンスすることを想定し、ビルドステップ
 （tsc等のコンパイル）を挟まずに `node` コマンドで直接実行できる構成にしている。
 JSDocの型注釈により、VS Code等のエディタでは型補完・型チェックがほぼ
-TypeScriptと同等に効く。プロジェクトが育ってきたら `tsconfig.json` の
-`checkJs: true` を追加して型チェックをCIに組み込むことも検討する。
+TypeScriptと同等に効く。
+
+プロジェクトの規模が育ってきたため、`tsconfig.json`（`checkJs: true` /
+`noEmit: true`）による型チェックをCIに導入済み（`npm run typecheck`）。
+これは「コンパイル・ビルドステップを増やさずに型チェックだけ行う」もので、
+`.js`ファイルを`.ts`に置き換えるものではない。詳細は
+[ADR-0007](adr/0007-checkjs-type-checking.md) を参照。
 
 ## モジュール構成
 

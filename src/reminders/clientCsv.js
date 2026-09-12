@@ -6,7 +6,10 @@
  * 外部パッケージには依存しない（NFR-1のビルドレス方針・依存最小化を踏襲）。
  */
 
-/** CSVの列順（エクスポート・インポート双方で共通）。 */
+/**
+ * CSVの列順（エクスポート・インポート双方で共通）。
+ * @type {(keyof import('./reminderDigest.js').ClientLicenseRecord)[]}
+ */
 const COLUMNS = ["clientName", "grantDateIso", "fiscalYearEndIso", "contactEmail"];
 
 /**
@@ -107,6 +110,7 @@ export function clientsFromCsv(text) {
   if (rows.length === 0) return [];
 
   const [header, ...dataRows] = rows;
+  /** @type {import('./reminderDigest.js').ClientLicenseRecord[]} */
   const records = [];
 
   for (const row of dataRows) {
@@ -117,7 +121,7 @@ export function clientsFromCsv(text) {
       if (value) record[key] = value;
     });
     if (record.clientName && record.grantDateIso) {
-      records.push(record);
+      records.push(/** @type {import('./reminderDigest.js').ClientLicenseRecord} */ (record));
     }
   }
 

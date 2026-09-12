@@ -18,6 +18,7 @@ jobs:
           node-version: ${{ matrix.node-version }}
           cache: npm
       - run: npm ci
+      - run: npm run typecheck
       - run: npm test
       # --experimental-test-coverage には Node 20 系で誤って例外を投げる既知の不具合があるため、
       # 22.x のジョブでのみ情報表示として実行する（閾値による失敗判定はしない）。

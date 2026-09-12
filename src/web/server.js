@@ -86,6 +86,7 @@ async function generateAllDocuments(profile, sessionDir) {
 function readRequestBody(req) {
   return new Promise((resolve, reject) => {
     let size = 0;
+    /** @type {Buffer[]} */
     const chunks = [];
     req.on("data", (chunk) => {
       size += chunk.length;
@@ -101,6 +102,11 @@ function readRequestBody(req) {
   });
 }
 
+/**
+ * @param {import('node:http').ServerResponse} res
+ * @param {number} statusCode
+ * @param {string} html
+ */
 function respondHtml(res, statusCode, html) {
   res.writeHead(statusCode, { "Content-Type": "text/html; charset=utf-8" });
   res.end(html);
@@ -109,9 +115,12 @@ function respondHtml(res, statusCode, html) {
 /**
  * out/web/<sessionId>/<filename> 形式のダウンロードリクエストを処理する。
  * パストラバーサル対策として、解決後のパスが outDir 配下にあることを必ず確認する。
+ * @param {import('node:http').IncomingMessage} req
+ * @param {import('node:http').ServerResponse} res
+ * @param {string} outDir
  */
 async function serveDownload(req, res, outDir) {
-  const relPath = decodeURIComponent(req.url.slice("/download/".length));
+  const relPath = decodeURIComponent((req.url ?? "").slice("/download/".length));
   const outDirResolved = path.resolve(outDir);
   const resolved = path.resolve(outDirResolved, relPath);
 
@@ -156,13 +165,15 @@ export function createServer({
       console.log(`${req.method} ${req.url} -> ${res.statusCode} (${Date.now() - startedAt}ms)`);
     });
 
+    const url = req.url ?? "/";
+
     try {
-      if (req.method === "GET" && (req.url === "/" || req.url === "/index.html")) {
+      if (req.method === "GET" && (url === "/" || url === "/index.html")) {
         respondHtml(res, 200, renderFormPage());
         return;
       }
 
-      if (req.method === "GET" && req.url === "/reminders") {
+      if (req.method === "GET" && url === "/reminders") {
         const clients = await loadClients(clientsPath);
         const alerts = buildReminderDigest(clients);
         const report = formatReminderDigest(alerts);
@@ -174,7 +185,7 @@ export function createServer({
         return;
       }
 
-      if (req.method === "GET" && req.url === "/clients.csv") {
+      if (req.method === "GET" && url === "/clients.csv") {
         const clients = await loadClients(clientsPath);
         res.writeHead(200, {
           "Content-Type": "text/csv; charset=utf-8",
@@ -184,13 +195,13 @@ export function createServer({
         return;
       }
 
-      if (req.method === "GET" && req.url === "/drafts") {
+      if (req.method === "GET" && url === "/drafts") {
         const drafts = await loadDrafts(draftsPath);
         respondHtml(res, 200, renderDraftsPage({ drafts }));
         return;
       }
 
-      if (req.method === "POST" && req.url === "/drafts") {
+      if (req.method === "POST" && url === "/drafts") {
         const bodyText = await readRequestBody(req);
         const params = new URLSearchParams(bodyText);
         const profileJson = params.get("profileJson");
@@ -204,16 +215,16 @@ export function createServer({
         return;
       }
 
-      if (req.method === "POST" && req.url.startsWith("/drafts/") && req.url.endsWith("/delete")) {
-        const id = decodeURIComponent(req.url.slice("/drafts/".length, req.url.length - "/delete".length));
+      if (req.method === "POST" && url.startsWith("/drafts/") && url.endsWith("/delete")) {
+        const id = decodeURIComponent(url.slice("/drafts/".length, url.length - "/delete".length));
         await removeDraft(id, draftsPath);
         const drafts = await loadDrafts(draftsPath);
         respondHtml(res, 200, renderDraftsPage({ drafts }));
         return;
       }
 
-      if (req.method === "GET" && req.url.startsWith("/drafts/")) {
-        const id = decodeURIComponent(req.url.slice("/drafts/".length));
+      if (req.method === "GET" && url.startsWith("/drafts/")) {
+        const id = decodeURIComponent(url.slice("/drafts/".length));
         const draft = await getDraft(id, draftsPath);
         if (!draft) {
           respondHtml(res, 404, "<h1>Not Found</h1><p>指定の下書きが見つかりません。</p>");
@@ -223,7 +234,7 @@ export function createServer({
         return;
       }
 
-      if (req.method === "POST" && req.url === "/submit") {
+      if (req.method === "POST" && url === "/submit") {
         const bodyText = await readRequestBody(req);
         const params = new URLSearchParams(bodyText);
         const profileJson = params.get("profileJson");
@@ -244,14 +255,15 @@ export function createServer({
         return;
       }
 
-      if (req.method === "GET" && req.url.startsWith("/download/")) {
+      if (req.method === "GET" && url.startsWith("/download/")) {
         await serveDownload(req, res, outDir);
         return;
       }
 
       respondHtml(res, 404, "<h1>Not Found</h1>");
     } catch (err) {
-      respondHtml(res, 400, `<h1>エラー</h1><pre>${escapeHtml(err && err.message ? err.message : String(err))}</pre>`);
+      const message = err instanceof Error ? err.message : String(err);
+      respondHtml(res, 400, `<h1>エラー</h1><pre>${escapeHtml(message)}</pre>`);
     }
   });
 }
