@@ -17,7 +17,8 @@ Git運用・進め方を統一するためのガイド。`docs/REQUIREMENTS.md`�
 
 ### 1.1 必要なもの
 
-- Node.js v20以上（`engines` に指定。`node -v` で確認）
+- Node.js v20以上（`engines` に指定。`node -v` で確認。`.nvmrc` があるので
+  nvm利用者は `nvm use` で揃えられる）
 - npm（Node.jsに同梱）
 - Git
 - エディタ（VS Code推奨。JSDocの型補完・型チェックがそのまま効く）
@@ -28,13 +29,15 @@ Git運用・進め方を統一するためのガイド。`docs/REQUIREMENTS.md`�
 git clone <リポジトリURL>
 cd kensetsu-kyoka-toolkit   # または実際のディレクトリ名
 npm install
-npm test                    # 既存12件のテストがすべて成功することを確認
-node scripts/generate-eligibility-sample.js   # 要件判定のサンプル実行
-node scripts/generate-youshiki1-sample.js     # 様式第一号サマリーのdocx生成サンプル
+npm test                    # 全テスト（現時点で56件）が成功することを確認
+npm run gen:eligibility     # 要件判定のサンプル実行
+npm run gen:youshiki1       # 様式第一号サマリーのdocx生成サンプル
+npm run web                 # インテイク用Webフォームを起動（任意）
 ```
 
 `npm test` が失敗する場合、まずNode.jsのバージョンを確認すること
 （v20未満だと `node --test` の挙動が異なる場合がある）。
+利用可能な全スクリプトは `README.md` の「セットアップ」節を参照。
 
 ### 1.3 生成物の確認方法
 
@@ -152,3 +155,5 @@ Microsoft Word、LibreOffice Writer等で開いて内容を確認すること。
 | `docs/REQUIREMENTS.md` | 要件定義書 |
 | `docs/DESIGN.md` | 技術設計書（モジュール詳細設計を含む） |
 | `docs/DEVELOPMENT_GUIDE.md` | 本書 |
+| `docs/BEST_PRACTICES_AUDIT.md` | セキュリティ・CI・リポジトリ運用のベストプラクティス棚卸し |
+| `CHANGELOG.md` | マイルストーン単位の変更履歴 |

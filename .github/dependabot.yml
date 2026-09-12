@@ -1,0 +1,16 @@
+version: 2
+updates:
+  # npm依存パッケージ（docx等）のセキュリティ更新・バージョン更新を検知する。
+  # 副業運用で手動チェックの頻度が上がらないことを見込み、
+  # 週次で自動的にPRが作成されるようにする。
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+
+  # GitHub Actions（.github/workflows/*.yml）自体のバージョン更新も対象にする。
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
