@@ -16,6 +16,10 @@
  *   このサーバー自体にクライアント登録用のフォームは持たせていない
  *   （許可日が確定するのは申請intakeより後の工程であり、ライフサイクルが
  *   異なるため、意図的にワークフローを混在させていない）。
+ * - 最小限のアクセスログ（メソッド・パス・ステータス・所要時間）を
+ *   console.log に出力する（NFR-4に沿い、外部ログ収集サービスへは送信しない）。
+ *   申請者情報（POSTボディ）は氏名・財務情報等を含みうるため、意図的に
+ *   ログへ出力しない。
  *
  * 起動: `node src/web/server.js`（または `npm run web`）
  */
@@ -131,6 +135,14 @@ async function serveDownload(req, res, outDir) {
  */
 export function createServer({ outDir = DEFAULT_OUT_DIR, clientsPath = DEFAULT_CLIENTS_PATH } = {}) {
   return http.createServer(async (req, res) => {
+    const startedAt = Date.now();
+    res.on("finish", () => {
+      // メソッド・パス・ステータス・所要時間のみ記録する。
+      // POSTボディ（申請者情報）には顧客の氏名・財務情報等が含まれうるため、
+      // ここでは意図的に出力しない。
+      console.log(`${req.method} ${req.url} -> ${res.statusCode} (${Date.now() - startedAt}ms)`);
+    });
+
     try {
       if (req.method === "GET" && (req.url === "/" || req.url === "/index.html")) {
         respondHtml(res, 200, renderFormPage());
