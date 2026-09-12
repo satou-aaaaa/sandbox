@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { evaluateEligibility } from "../src/eligibility/engine.js";
+import { evaluateEligibility, formatEligibilityReport } from "../src/eligibility/engine.js";
 
 /** @returns {import('../src/eligibility/types.js').ApplicantProfile} */
 function baseProfile() {
@@ -452,4 +452,34 @@ test("欠格要件: 虚偽記載・重要事実の記載漏れがある場合は
   const check = result.checks.find((c) => c.key === "kekkaku");
   assert.equal(check.passed, false);
   assert.ok(check.reasons.some((r) => r.includes("虚偽の記載")));
+});
+
+test("formatEligibilityReport: 全要件充足なら総合判定が○になる", () => {
+  const profile = baseProfile();
+  const result = evaluateEligibility(profile);
+  const report = formatEligibilityReport(profile, result);
+  assert.match(report, /総合判定: ○/);
+  assert.ok(!report.includes("未充足の要因まとめ"));
+});
+
+test("formatEligibilityReport: 不合格の要件があれば総合判定が×になり、未充足の要因まとめが出力される", () => {
+  const profile = baseProfile();
+  profile.kekkaku.isBoryokudanMemberOrWithin5Years = true;
+  const result = evaluateEligibility(profile);
+  const report = formatEligibilityReport(profile, result);
+  assert.match(report, /総合判定: ×/);
+  assert.match(report, /未充足の要因まとめ/);
+  assert.match(report, /暴力団/);
+});
+
+test("formatEligibilityReport: 入力内容の整合性チェックで警告があれば確認事項として出力される（合否には影響しない）", () => {
+  const profile = baseProfile();
+  profile.representativeName = "山田 太郎";
+  profile.keieiGyomuKanri.responsibleName = "鈴木 次郎"; // 代表者氏名と不一致（FR-6.1）
+  const result = evaluateEligibility(profile);
+  const report = formatEligibilityReport(profile, result);
+  assert.equal(result.eligible, true); // 整合性チェックの警告は合否に影響しない
+  assert.match(report, /総合判定: ○/);
+  assert.match(report, /入力内容の確認事項/);
+  assert.match(report, /山田 太郎/);
 });

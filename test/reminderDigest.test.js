@@ -147,6 +147,18 @@ test("formatReminderDigest: 期限超過・30日以内・今後の予定の3区�
   assert.match(report, /余裕社/);
 });
 
+test("formatReminderDigest: 30日以内に期限が到来する区分の見出しも出力する", () => {
+  // 最終締切（満了30日前）が基準日の10日後に来るよう許可日を設定し、
+  // 「30日以内に期限が到来」区分（期限超過でも31日以降でもない中間区分）を確実に踏む。
+  const alerts = buildReminderDigest(
+    [{ clientName: "まもなく社", licenses: [{ licenseId: "既定", grantDateIso: "2021-10-12" }] }],
+    "2026-09-01"
+  );
+  const report = formatReminderDigest(alerts);
+  assert.match(report, /30日以内に期限が到来/);
+  assert.match(report, /まもなく社/);
+});
+
 test("formatReminderDigest: licenseIdが付与されたアラートは行にも許可IDを表示する（FR-5.4）", () => {
   const alerts = buildReminderDigest(
     [

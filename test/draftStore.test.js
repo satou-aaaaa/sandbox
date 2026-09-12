@@ -70,6 +70,17 @@ test("getDraft: 指定idの下書きを返す。存在しなければundefined",
   }
 });
 
+test("loadDrafts: 配列でないJSONの場合はエラーを投げる", async () => {
+  const { filePath, dir } = await tempDraftsPath();
+  try {
+    await fs.mkdir(path.dirname(filePath), { recursive: true });
+    await fs.writeFile(filePath, JSON.stringify({ not: "an array" }), "utf8");
+    await assert.rejects(() => loadDrafts(filePath));
+  } finally {
+    await fs.rm(dir, { recursive: true, force: true });
+  }
+});
+
 test("removeDraft: 指定idの下書きのみ削除する", async () => {
   const { filePath, dir } = await tempDraftsPath();
   try {
