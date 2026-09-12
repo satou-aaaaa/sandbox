@@ -60,15 +60,18 @@ src/
   reminders/
     renewalSchedule.js  5年更新・決算変更届の期限計算
     reminderDigest.js   複数クライアントのリマインドを集計・整形（M4の土台。送信は行わない）
+    clientStore.js      クライアント情報をdata/clients.jsonへ読み書きするローカル永続化層
   web/
     server.js           インテイク用の簡易Webフォーム（M3）のHTTPサーバー
     formPage.js          入力フォーム画面（HTML/CSS/JS）
     resultPage.js         判定結果・生成書類ダウンロード画面
+    reminderPage.js       登録済みクライアントのリマインド・ダイジェスト表示画面（読み取り専用）
     htmlUtils.js          HTMLエスケープ等の共通ヘルパー
 test/
   eligibility.test.js    要件判定エンジンのユニットテスト
   renewalSchedule.test.js 期限計算のユニットテスト
   reminderDigest.test.js  リマインド・ダイジェストのユニットテスト
+  clientStore.test.js     クライアント永続化層のユニットテスト
   documents.test.js      書類生成モジュール（様式第一号・六号・七号・八号・二十号の二）のユニットテスト
   web.test.js            Webフォームサーバーの結合テスト
 scripts/
@@ -79,7 +82,10 @@ scripts/
   generate-youshiki7-sample.js    様式第七号サマリーのdocx生成サンプル
   generate-youshiki8-sample.js    様式第八号サマリーのdocx生成サンプル
   generate-youshiki20-2-sample.js 様式第二十号の二サマリーのdocx生成サンプル
-  generate-reminder-digest-sample.js 複数クライアントのリマインド・ダイジェスト出力サンプル
+  generate-reminder-digest-sample.js 複数クライアントのリマインド・ダイジェスト出力サンプル（ダミーデータ）
+  add-client.js                   実クライアントをdata/clients.jsonへ登録・更新するCLI
+  remove-client.js                実クライアントをdata/clients.jsonから削除するCLI
+  reminder-digest.js               data/clients.jsonの実クライアントについてダイジェストを表示するCLI
 docs/
   ARCHITECTURE.md   アーキテクチャ方針の要約（本書のダイジェスト版）
   PROPOSAL.md       ビジネス背景・ロードマップ
@@ -343,7 +349,7 @@ ApplicantProfileを入力→要件判定→書類サマリー生成までを一�
   違いを吸収するため `pathToFileURL` を使う）
 - ルーティング: `GET /`（フォーム画面）、`POST /submit`
   （判定＋書類生成→結果画面）、`GET /download/<sessionId>/<filename>`
-  （生成済みdocxのダウンロード）
+  （生成済みdocxのダウンロード）、`GET /reminders`（§5.11参照）
 - `/submit` はセッションごとに `crypto.randomUUID()` でディレクトリを分け、
   5様式すべてのdocxを `outDir/<sessionId>/` に生成する。この動作は
   `src/documents/*.js` の各 `write<様式名>Docx` をそのまま呼ぶだけで、
@@ -351,9 +357,13 @@ ApplicantProfileを入力→要件判定→書類サマリー生成までを一�
 - `/download` はパストラバーサル対策として、解決後のパスが `outDir` 配下に
   あることを必ず確認してから読み出す
 
-**意図的にやらないこと**: 複数クライアントの案件を永続化するデータベース、
-認証・セッション管理、HTTPS化。個人の副業運用でのローカル一時利用を
-想定した最小構成であり、過剰な設計を避ける（DEVELOPMENT_GUIDE.md 6章の方針）。
+**意図的にやらないこと**: 認証・セッション管理、HTTPS化。個人の副業運用での
+ローカル利用を想定した最小構成であり、過剰な設計を避ける
+（DEVELOPMENT_GUIDE.md 6章の方針）。インテイクフォーム自体（`/submit`）は
+案件を永続化しない（送信のたびに独立したセッションとして書類を生成するのみ）。
+複数クライアントの継続的な追跡が必要なM4（リマインド）については、
+本格的なデータベースではなく単一のJSONファイル（`data/clients.json`）による
+最小限の永続化を別途導入している（§5.11参照）。
 
 ### 5.11 `src/reminders/reminderDigest.js` — リマインド・ダイジェスト（M4の土台）
 
@@ -375,6 +385,20 @@ ApplicantProfileを入力→要件判定→書類サマリー生成までを一�
 に追加した上で、`filterDueAlerts` で対象を絞り込み、選定した送信チャネルの
 モジュールに渡す構成を推奨する（既存の判定・計算ロジックへの影響を局所化するため）。
 
+**`src/reminders/clientStore.js`（永続化層）**: `ClientLicenseRecord[]` を
+単一のJSONファイル（既定: `data/clients.json`）へ読み書きする。
+`loadClients` はファイル未存在時に空配列を返す（初回利用時にエラーにしない
+ため）。`data/` は `.gitignore` で除外しており、実クライアントデータを
+リポジトリにコミットしないこと（NFR-5）。クライアントの登録・削除は
+`scripts/add-client.js` / `scripts/remove-client.js` のCLIで行う想定。
+
+**Webフォームとの連携**: `src/web/server.js` の `GET /reminders`
+（`src/web/reminderPage.js`）が `data/clients.json` を読み込み、
+`formatReminderDigest` の結果をブラウザで表示する。この画面は表示専用で、
+クライアント登録用のフォームは持たない。理由は、許可日が確定するのは
+インテイク（`/submit`）より後の工程であり、案件のライフサイクル段階が
+異なるため、意図的にワークフローを混在させていない。
+
 ## 6. エラーハンドリング方針
 
 - 現状、各判定関数は例外を投げず、`passed: false` と理由文字列で
@@ -394,8 +418,10 @@ ApplicantProfileを入力→要件判定→書類サマリー生成までを一�
   `test/documents.test.js`（15件。様式生成モジュールの「未入力」フォールバック・
   判定ロジック再利用・docx出力の3観点をカバー）、`test/web.test.js`（7件。
   ランダムポートでサーバーを起動し `fetch` で結合テストする。ダウンロードの
-  パストラバーサル拒否も検証）、`test/reminderDigest.test.js`（8件。
-  期限超過判定・複数クライアントのソート順・区分別フォーマットを検証）
+  パストラバーサル拒否、`/reminders` の表示も検証）、
+  `test/reminderDigest.test.js`（8件。期限超過判定・複数クライアントの
+  ソート順・区分別フォーマットを検証）、`test/clientStore.test.js`（6件。
+  ファイル未存在時の空配列返却・保存/読込の往復・追加/更新/削除を検証）
 - 新規モジュールを追加する場合、最低限次のケースをカバーすること
   - 正常系（すべての条件を満たすケース）
   - 境界値（年数・金額等の基準値ちょうど、基準値-1）
