@@ -124,6 +124,8 @@
 - `tsconfig.json`（`checkJs: true` / `noEmit: true`）による型チェックを導入し、
   `npm run typecheck` としてCIに追加（`.js`ファイルはそのまま。ビルド・
   トランスパイルステップは追加していない。`docs/adr/0007-checkjs-type-checking.md`）
+- ESLint（`eslint.config.js`、flat config）を導入し、`npm run lint` としてCIに
+  追加（ビルドステップは増やしていない。導入時点でエラー0件）
 - GitHub Actions（`.github/workflows/test.yml`）でpush・PR時に
   Node.js 20.x/22.xの2バージョンで `npm test` を自動実行
 - Dependabot（`.github/dependabot.yml`）でnpm依存パッケージ・GitHub Actionsの

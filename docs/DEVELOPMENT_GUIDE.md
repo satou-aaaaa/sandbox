@@ -30,6 +30,7 @@ git clone <リポジトリURL>
 cd kensetsu-kyoka-toolkit   # または実際のディレクトリ名
 npm install
 npm run typecheck           # JSDocの型チェック（tsc --noEmit。ビルドは行わない）
+npm run lint                # ESLintによる静的チェック
 npm test                    # 全テスト（現時点で125件）が成功することを確認
 npm run gen:eligibility     # 要件判定のサンプル実行
 npm run gen:youshiki1       # 様式第一号サマリーのdocx生成サンプル
@@ -158,9 +159,9 @@ Microsoft Word、LibreOffice Writer等で開いて内容を確認すること。
 
 ## 5. 受け入れ・検収の進め方
 
-1. 開発者が `npm run typecheck` と `npm test` を実行し、型チェック・全テストが
-   成功することを確認する（GitHub Actionsでも自動実行されるため、PR画面の
-   チェック結果でも確認できる）
+1. 開発者が `npm run typecheck` と `npm run lint`・`npm test` を実行し、
+   型チェック・静的解析・全テストが成功することを確認する
+   （GitHub Actionsでも自動実行されるため、PR画面のチェック結果でも確認できる）
 2. PRテンプレート（`.github/pull_request_template.md`）のセルフレビュー観点
    （Google eng-practicesの12項目: 設計・機能性・複雑性・テスト・命名・
    コメント・スタイル・一貫性・ドキュメント・全行・文脈・良い点）を一通り確認する

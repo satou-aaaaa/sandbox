@@ -49,6 +49,7 @@
 npm install
 git config core.hooksPath hooks   # シークレット混入チェックのpre-commitフックを有効化（初回のみ）
 npm run typecheck           # JSDocの型チェック（tsc --noEmit。ビルドは行わない）
+npm run lint                # ESLintによる静的チェック
 npm test                    # ユニットテストを実行
 npm run gen:eligibility     # 要件判定のサンプル実行
 npm run gen:youshiki1       # 様式第一号サマリーのdocx生成サンプル
