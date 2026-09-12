@@ -42,7 +42,12 @@ jobs:
       - run: npm ci
       - run: npm run typecheck
       - run: npm run lint
-      - run: npm test
+      # ubuntu・22.xのジョブは直後に `npm run test:coverage` で同じ200件を
+      # カバレッジ計測付きで再実行する（合否件数もそちらで確認できる）ため、
+      # そのセルだけは同一テストの二重実行を避けるためこのステップを省略する。
+      - name: npm test
+        if: "!(matrix.os == 'ubuntu-latest' && matrix.node-version == '22.x')"
+        run: npm test
       # --experimental-test-coverage には Node 20 系で誤って例外を投げる既知の不具合があるため、
       # 22.x のジョブでのみ実行する。結果はOSに依存しないため ubuntu の1系統のみで足りる。
       # テスト件数・カバレッジ数値をActionsのジョブサマリーにも出力し、ログを
@@ -72,11 +77,13 @@ jobs:
       - name: シークレット混入チェック（CI側の安全網）
         if: matrix.os == 'ubuntu-latest' && matrix.node-version == '22.x'
         run: npm run check-secrets
-      # 依存パッケージの既知脆弱性チェック。結果はOSに依存しないため ubuntu のみで実行する。
+      # 依存パッケージの既知脆弱性チェック。package-lock.jsonのみに依存する結果であり
+      # OS・Node.jsバージョンいずれにも依存しないため、ubuntu・22.xの1系統のみで足りる。
       - name: npm audit（高深刻度以上）
-        if: matrix.os == 'ubuntu-latest'
+        if: matrix.os == 'ubuntu-latest' && matrix.node-version == '22.x'
         run: npm audit --audit-level=high
       # npmレジストリ上のパッケージ署名を検証する（サプライチェーン改ざん対策）。
+      # 同上の理由でubuntu・22.xの1系統のみで足りる。
       - name: npmパッケージ署名の検証
-        if: matrix.os == 'ubuntu-latest'
+        if: matrix.os == 'ubuntu-latest' && matrix.node-version == '22.x'
         run: npm audit signatures
