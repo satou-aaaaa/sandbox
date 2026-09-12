@@ -10,6 +10,12 @@
  *   通常のフォームPOST（application/x-www-form-urlencoded）の1フィールドとして
  *   送信される（src/web/formPage.js 参照）。サーバー側は多重定義を避けるため
  *   このJSONをそのままevaluateEligibility/書類生成モジュールに渡す。
+ * - `/reminders` は data/clients.json（src/reminders/clientStore.js）に
+ *   登録済みのクライアントについて更新リマインドを表示する読み取り専用画面。
+ *   クライアントの登録・削除はCLI（scripts/add-client.js等）で行う想定であり、
+ *   このサーバー自体にクライアント登録用のフォームは持たせていない
+ *   （許可日が確定するのは申請intakeより後の工程であり、ライフサイクルが
+ *   異なるため、意図的にワークフローを混在させていない）。
  *
  * 起動: `node src/web/server.js`（または `npm run web`）
  */
@@ -25,8 +31,11 @@ import { writeYoushiki6Docx } from "../documents/youshiki6.js";
 import { writeYoushiki7Docx } from "../documents/youshiki7.js";
 import { writeYoushiki8Docx } from "../documents/youshiki8.js";
 import { writeYoushiki20_2Docx } from "../documents/youshiki20-2.js";
+import { loadClients, DEFAULT_CLIENTS_PATH } from "../reminders/clientStore.js";
+import { buildReminderDigest, formatReminderDigest } from "../reminders/reminderDigest.js";
 import { renderFormPage } from "./formPage.js";
 import { renderResultPage } from "./resultPage.js";
+import { renderReminderPage } from "./reminderPage.js";
 import { escapeHtml } from "./htmlUtils.js";
 
 export const DEFAULT_OUT_DIR = "out/web";
@@ -117,14 +126,21 @@ async function serveDownload(req, res, outDir) {
  * インテイクフォームのHTTPサーバー（未起動）を作成する。
  * テストから `outDir` を差し替えられるよう、起動処理とは分離している。
  *
- * @param {{ outDir?: string }} [options]
+ * @param {{ outDir?: string, clientsPath?: string }} [options]
  * @returns {import('node:http').Server}
  */
-export function createServer({ outDir = DEFAULT_OUT_DIR } = {}) {
+export function createServer({ outDir = DEFAULT_OUT_DIR, clientsPath = DEFAULT_CLIENTS_PATH } = {}) {
   return http.createServer(async (req, res) => {
     try {
       if (req.method === "GET" && (req.url === "/" || req.url === "/index.html")) {
         respondHtml(res, 200, renderFormPage());
+        return;
+      }
+
+      if (req.method === "GET" && req.url === "/reminders") {
+        const clients = await loadClients(clientsPath);
+        const report = formatReminderDigest(buildReminderDigest(clients));
+        respondHtml(res, 200, renderReminderPage({ report, clientCount: clients.length }));
         return;
       }
 
@@ -163,11 +179,11 @@ export function createServer({ outDir = DEFAULT_OUT_DIR } = {}) {
 
 /**
  * サーバーを起動し、ローカルホストで待ち受ける。
- * @param {{ port?: number, outDir?: string }} [options]
+ * @param {{ port?: number, outDir?: string, clientsPath?: string }} [options]
  * @returns {import('node:http').Server}
  */
-export function startServer({ port = 3000, outDir } = {}) {
-  const server = createServer({ outDir });
+export function startServer({ port = 3000, outDir, clientsPath } = {}) {
+  const server = createServer({ outDir, clientsPath });
   server.listen(port, "127.0.0.1", () => {
     console.log(`kensetsu-kyoka-toolkit インテイクフォームを起動しました: http://127.0.0.1:${port}`);
     console.log("（ローカルホストのみで待受しています。外部ネットワークには公開されません）");

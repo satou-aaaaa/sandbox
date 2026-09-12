@@ -6,19 +6,23 @@ import fs from "node:fs/promises";
 
 import { createServer } from "../src/web/server.js";
 import { buildSampleApplicantProfile } from "../scripts/sampleProfile.js";
+import { saveClients } from "../src/reminders/clientStore.js";
 
 /** テスト用にランダムポートでサーバーを起動し、baseURLを返す。 */
 async function startTestServer() {
-  const outDir = await fs.mkdtemp(path.join(os.tmpdir(), "kensetsu-kyoka-toolkit-web-test-"));
-  const server = createServer({ outDir });
+  const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "kensetsu-kyoka-toolkit-web-test-"));
+  const outDir = path.join(tmpDir, "out");
+  const clientsPath = path.join(tmpDir, "clients.json");
+  const server = createServer({ outDir, clientsPath });
   await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
   const { port } = server.address();
   return {
     baseUrl: `http://127.0.0.1:${port}`,
     outDir,
+    clientsPath,
     async close() {
       await new Promise((resolve) => server.close(resolve));
-      await fs.rm(outDir, { recursive: true, force: true });
+      await fs.rm(tmpDir, { recursive: true, force: true });
     },
   };
 }
@@ -152,6 +156,33 @@ test("存在しないパスは404を返す", async () => {
   try {
     const res = await fetch(`${ctx.baseUrl}/no-such-path`);
     assert.equal(res.status, 404);
+  } finally {
+    await ctx.close();
+  }
+});
+
+test("GET /reminders: クライアント未登録の場合はその旨を表示する", async () => {
+  const ctx = await startTestServer();
+  try {
+    const res = await fetch(`${ctx.baseUrl}/reminders`);
+    assert.equal(res.status, 200);
+    const html = await res.text();
+    assert.match(html, /登録クライアント数: 0件/);
+    assert.match(html, /対象のリマインドはありません/);
+  } finally {
+    await ctx.close();
+  }
+});
+
+test("GET /reminders: data/clients.json相当のファイルに登録済みのクライアントを表示する", async () => {
+  const ctx = await startTestServer();
+  try {
+    await saveClients([{ clientName: "テスト建設", grantDateIso: "2020-04-01" }], ctx.clientsPath);
+    const res = await fetch(`${ctx.baseUrl}/reminders`);
+    const html = await res.text();
+    assert.match(html, /登録クライアント数: 1件/);
+    assert.match(html, /テスト建設/);
+    assert.match(html, /期限超過（至急確認してください）/); // 2020年許可なので期限超過のはず
   } finally {
     await ctx.close();
   }

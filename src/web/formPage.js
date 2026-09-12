@@ -39,6 +39,7 @@ export function renderFormPage(options = {}) {
     最終的な適格性の判断・書類の内容確認・提出は必ず登録行政書士本人が行ってください。
     実在の顧客情報を入力する場合、このツールはローカルでのみ動作し外部へは送信しません。
   </p>
+  <p><a href="/reminders">→ 更新リマインド・ダイジェストを見る</a></p>
 </header>
 ${errorBlock}
 <form id="applicantForm" method="POST" action="/submit">
