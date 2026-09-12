@@ -14,14 +14,24 @@
 import { calcRenewalSchedule, calcKessanHenkoDeadline, daysUntil } from "./renewalSchedule.js";
 
 /**
- * @typedef {Object} ClientLicenseRecord クライアント1件分の許可情報
- * @property {string} clientName クライアント名（会社名 or 個人名）
+ * @typedef {Object} LicenseEntry 許可1件分の情報（ADR-0008）
+ * @property {string} licenseId クライアント内で一意なラベル（例: "般-建築工事業"）
+ * @property {"一般" | "特定"} [licenseType]
  * @property {string} grantDateIso 許可年月日（YYYY-MM-DD）
+ */
+
+/**
+ * @typedef {Object} ClientRecord クライアント（会社）1件分の情報（ADR-0008）
+ * @property {string} clientName クライアント名（会社名 or 個人名）
  * @property {string} [fiscalYearEndIso] 直近の事業年度終了日（YYYY-MM-DD、任意。
- *   指定した場合のみ決算変更届のリマインドを計算する）
- * @property {string} [contactEmail] 連絡先メールアドレス（任意。指定した場合のみ
- *   buildReminderMailtoUrl でメール下書きのURLを生成できる。本モジュールは
- *   このアドレスへメールを送信すること自体は行わない）
+ *   指定した場合のみ決算変更届のリマインドを計算する。決算日は会社単位の
+ *   属性であり、保有する許可の数に関わらず1つだけ持つ（許可ごとに
+ *   重複させない。重複させると決算変更届のリマインドが許可の数だけ
+ *   重複して生成されてしまう）
+ * @property {string} [contactEmail] 連絡先メールアドレス（任意、会社単位。
+ *   指定した場合のみ buildReminderMailtoUrl でメール下書きのURLを生成できる。
+ *   本モジュールはこのアドレスへメールを送信すること自体は行わない）
+ * @property {LicenseEntry[]} licenses 保有する許可の一覧（1件以上）
  */
 
 /**
@@ -33,35 +43,62 @@ import { calcRenewalSchedule, calcKessanHenkoDeadline, daysUntil } from "./renew
  * @property {number} daysUntil 基準日から期限日までの残り日数（負なら期限超過）
  * @property {boolean} isOverdue 期限を過ぎているか
  * @property {string} [contactEmail] クライアントの連絡先メールアドレス（登録があれば）
+ * @property {string} [licenseId] どの許可に対するリマインドかを示すラベル
+ *   （更新関連の3種のみに付与する。決算変更届はクライアント単位のため
+ *   付与しない。1クライアントが複数許可を持つ場合に一覧上で区別するための
+ *   もの。ADR-0008・FR-5.4参照）
  */
 
 /**
  * クライアント一覧から、リマインド項目の一覧を計算する。
+ * 「クライアント→保有する各許可」の二重ループで、更新関連のリマインド
+ * （早期検討・準備開始・最終締切）を許可ごとに個別生成する（FR-5.4）。
+ * 決算変更届のリマインドは、保有する許可の数に関わらずクライアントごとに
+ * 1件のみ生成する（FR-5.3。重複防止のため二重ループの外側で1回だけ計算する）。
  * 期限が近い順（daysUntil昇順。期限超過が先頭）にソートして返す。
  *
- * @param {ClientLicenseRecord[]} records
+ * @param {ClientRecord[]} records
  * @param {string} [todayIso] 基準日（YYYY-MM-DD）。省略時は本日
  * @returns {ReminderAlert[]}
  */
 export function buildReminderDigest(records, todayIso) {
   const alerts = [];
   for (const record of records) {
-    const schedule = calcRenewalSchedule(record.grantDateIso);
-    alerts.push(
-      makeAlert(
-        record,
-        "renewal-early-notice",
-        "更新準備の早期検討（満了180日前）",
-        schedule.earlyNoticeDate,
-        todayIso
-      )
-    );
-    alerts.push(
-      makeAlert(record, "renewal-prepare", "更新準備開始の推奨日（満了60日前）", schedule.recommendedStartDate, todayIso)
-    );
-    alerts.push(
-      makeAlert(record, "renewal-deadline", "更新申請の最終締切（満了30日前）", schedule.hardDeadline, todayIso)
-    );
+    for (const license of record.licenses) {
+      const schedule = calcRenewalSchedule(license.grantDateIso);
+      alerts.push(
+        makeAlert(
+          record,
+          "renewal-early-notice",
+          "更新準備の早期検討（満了180日前）",
+          schedule.earlyNoticeDate,
+          todayIso,
+          license
+        )
+      );
+      alerts.push(
+        makeAlert(
+          record,
+          "renewal-prepare",
+          "更新準備開始の推奨日（満了60日前）",
+          schedule.recommendedStartDate,
+          todayIso,
+          license
+        )
+      );
+      alerts.push(
+        makeAlert(
+          record,
+          "renewal-deadline",
+          "更新申請の最終締切（満了30日前）",
+          schedule.hardDeadline,
+          todayIso,
+          license
+        )
+      );
+    }
+    // 決算変更届は会社単位のリマインドのため、許可ごとのループの外で
+    // クライアントにつき1回だけ生成する（FR-5.3。重複防止）。
     if (record.fiscalYearEndIso) {
       const kessanDeadline = calcKessanHenkoDeadline(record.fiscalYearEndIso);
       alerts.push(makeAlert(record, "kessan-henko", "決算変更届の提出期限", kessanDeadline, todayIso));
@@ -71,16 +108,18 @@ export function buildReminderDigest(records, todayIso) {
 }
 
 /**
- * @param {ClientLicenseRecord} record
+ * @param {ClientRecord} record
  * @param {ReminderAlert["type"]} type
  * @param {string} label
  * @param {string} dueDateIso
  * @param {string} [todayIso]
+ * @param {LicenseEntry} [license] 指定した場合、生成するアラートに licenseId を付与する
  * @returns {ReminderAlert}
  */
-function makeAlert(record, type, label, dueDateIso, todayIso) {
+function makeAlert(record, type, label, dueDateIso, todayIso, license) {
   const days = daysUntil(dueDateIso, todayIso);
-  return {
+  /** @type {ReminderAlert} */
+  const alert = {
     clientName: record.clientName,
     type,
     label,
@@ -89,6 +128,8 @@ function makeAlert(record, type, label, dueDateIso, todayIso) {
     isOverdue: days < 0,
     contactEmail: record.contactEmail,
   };
+  if (license) alert.licenseId = license.licenseId;
+  return alert;
 }
 
 /**
@@ -198,7 +239,11 @@ export function formatReminderDigest(alerts) {
 /** @param {ReminderAlert} alert */
 function formatLine(alert) {
   const daysLabel = alert.isOverdue ? `${Math.abs(alert.daysUntil)}日超過` : `残り${alert.daysUntil}日`;
-  return `- [${alert.clientName}] ${alert.label}: ${alert.dueDateIso}（${daysLabel}）`;
+  // 1クライアントが複数許可を持つ場合、どの許可分のリマインドかを一覧上で
+  // 判別できるようにする（FR-5.4）。決算変更届等 licenseId を持たないアラートは
+  // 従来どおりの表示のまま。
+  const licenseLabel = alert.licenseId ? `（許可: ${alert.licenseId}）` : "";
+  return `- [${alert.clientName}]${licenseLabel} ${alert.label}: ${alert.dueDateIso}（${daysLabel}）`;
 }
 
 /**
@@ -219,11 +264,16 @@ export function buildReminderMailtoUrl(alert) {
     `${alert.clientName} 様`,
     "",
     "建設業許可に関するご連絡です。",
+    // 複数許可を保有するクライアントの場合、どの許可に対する連絡かを
+    // 本文にも明記する（FR-5.4）。
+    alert.licenseId ? `対象の許可: ${alert.licenseId}` : null,
     `${alert.label}: ${alert.dueDateIso}`,
     "",
     "※ このメールは kensetsu-kyoka-toolkit が生成した下書きです。",
     "　内容をご確認・修正のうえ、送信前に必ず内容をチェックしてください。",
-  ].join("\n");
+  ]
+    .filter((line) => line !== null)
+    .join("\n");
 
   return `mailto:${alert.contactEmail}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
 }

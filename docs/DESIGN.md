@@ -190,11 +190,12 @@ docs/
 様式生成モジュールもこの `RequirementCheckResult` 形式に準じたログ・警告表現を
 踏襲すること（一貫性のため）。
 
-### 4.8 クライアント管理のデータモデル（M7で拡張予定・ADR-0008）
+### 4.8 クライアント管理のデータモデル（M7・実装済み・ADR-0008）
 
-現行の `ClientLicenseRecord`（`src/reminders/reminderDigest.js`）は
-「1クライアント＝1許可」を前提としているが、M7で「クライアント（会社単位）」と
-「許可（1件単位）」を分離した2階層モデルへ拡張する。
+旧来の `ClientLicenseRecord`（`src/reminders/reminderDigest.js`）は
+「1クライアント＝1許可」を前提としていたが、M7で「クライアント（会社単位）」と
+「許可（1件単位）」を分離した2階層モデル（`LicenseEntry` / `ClientRecord`）へ
+置き換えた。
 
 | 型 | フィールド | 説明 |
 |---|---|---|
@@ -206,8 +207,13 @@ docs/
 | | contactEmail（任意） | 連絡先（会社単位） |
 | | licenses | LicenseEntry[]（1件以上） |
 
+両型は `src/reminders/reminderDigest.js` にJSDoc `@typedef` として定義し、
+`clientStore.js`・`clientCsv.js`・`scripts/add-client.js` 等から
+`import('./reminderDigest.js').ClientRecord` の形で参照する（型の二重定義を避けるため）。
+
 詳細な移行方針（既存 `data/clients.json` の自動アップグレード）・CSV形式の
-変更は `docs/adr/0008-multi-license-client-model.md` を参照。
+変更は `docs/adr/0008-multi-license-client-model.md` を参照。実装の詳細は
+§5.15を参照。
 
 ## 5. モジュール詳細設計
 
@@ -568,31 +574,54 @@ Webの `GET /clients.csv`（読み取り専用のダウンロードのみ。登�
   （既存の「表示専用」という設計判断（§5.11）を維持）。すべてのラベルは
   `escapeHtml` を通す。
 
-### 5.15 クライアントの複数許可対応（M7・設計・ADR-0008）
+### 5.15 クライアントの複数許可対応（M7・実装済み・ADR-0008）
 
 データモデルの変更内容は §4.8・`docs/adr/0008-multi-license-client-model.md`
-を参照。実装に関わる主な変更点は以下の通り（FR-5.1〜FR-5.6）。
+を参照。実装内容は以下の通り（FR-5.1〜FR-5.6）。
 
-- `clientStore.js` の `loadClients()`: 読み込み時に旧形式（トップレベルに
-  `grantDateIso` を持つ要素）を検出したら、その場で新形式
-  （`licenses: [{ licenseId: "既定", grantDateIso }]`）へ変換して返す
-  （lazy migration。専用のマイグレーションスクリプトは用意しない）。
-  `upsertClient` は「クライアント全体の上書き」と「特定の許可（`licenseId`）
-  のみの追加・更新」の両方に対応できるよう関数シグネチャを見直す必要がある。
+- `clientStore.js` の `loadClients(filePath?)`: 読み込み時に旧形式
+  （トップレベルに `grantDateIso` を持ち、`licenses` 配列を持たない要素）を
+  検出したら、その場で新形式（`{ ...companyFields, licenses: [{ licenseId: "既定", grantDateIso }] }`。
+  旧フィールドの `grantDateIso` はトップレベルに残さない）へ変換して返す
+  （lazy migration。専用のマイグレーションスクリプトは用意しない。FR-5.5）。
+  `saveClients()` は常に新形式で書き出す。
+- クライアントの追加・更新には目的が異なる2つの関数を用意し、役割を分けている
+  （「クライアント全体の丸ごと上書き」と「特定の許可だけの追加・更新」を
+  1つの関数の暗黙的なモード切り替えにすると呼び出し側から意図が読み取り
+  にくくなるため、あえて別関数にした。ADR-0008の想定より一歩踏み込んだ
+  API分割だが、データモデル・移行方針・CSV形式はADR-0008のとおり）。
+  - `upsertClient(record, filePath?)`: 従来通り、同名クライアントを
+    `record` の内容で丸ごと置き換える（CSV一括取込 `scripts/import-clients-csv.js`
+    等、レコード全体が確定している場合に使用）。
+  - `upsertClientLicense(clientName, license, companyInfo?, filePath?)`
+    （新規追加）: 指定した `clientName` の、`license.licenseId` に対応する
+    許可だけを追加・更新する。該当クライアントが無ければ
+    `licenses: [license]` の新規クライアントとして作成する。`companyInfo`
+    （`fiscalYearEndIso`・`contactEmail`）は指定したキーのみ上書きし、
+    省略したキーは既存の値を保持する。`scripts/add-client.js` が使用する。
 - `reminderDigest.js` の `buildReminderDigest`: 「クライアント→保有する
-  各許可（`licenses`）」の二重ループに変更する。更新関連のリマインド
-  （準備検討・準備開始・最終締切）は許可ごとに個別生成し、`ReminderAlert`に
-  任意フィールド `licenseId` を追加してどの許可分か判別できるようにする。
-  決算変更届のリマインドは許可の数に関わらずクライアントごとに1回だけ
-  生成する（重複防止。FR-5.3）。
-- `clientCsv.js`: CSV形式を「1行＝1許可」に変更する（列:
+  各許可（`licenses`）」の二重ループに変更した。更新関連のリマインド
+  （早期検討・準備開始・最終締切）は許可ごとに個別生成し、`ReminderAlert`に
+  任意フィールド `licenseId` を追加してどの許可分か判別できるようにしている
+  （CLI出力 `formatReminderDigest` の各行、および `buildReminderMailtoUrl`
+  が生成するメール本文にも `licenseId` を表示する。FR-5.4）。決算変更届の
+  リマインドは、許可ごとのループの**外側**でクライアントにつき1回だけ生成し、
+  複数許可があっても重複しないようにしている（FR-5.3）。
+- `clientCsv.js`: CSV形式を「1行＝1許可」に変更した（列:
   `clientName, licenseId, licenseType, grantDateIso, fiscalYearEndIso, contactEmail`。
   会社単位の列は同一クライアントの全行で値を繰り返す非正規化形式）。
-  `licenseId` 列がない旧形式CSVは、`licenseId` を "既定" として読み込む
-  （後方互換。FR-5.6）。
-- `scripts/add-client.js`: 「既存クライアントへの許可追加」を行えるよう
-  `--license-id` 等のオプションを追加する（既存の `clientName` が
-  見つかった場合は `licenses` へ追記する）。
+  `clientsFromCsv` は同一 `clientName` の行を1つの `ClientRecord` の
+  `licenses` へ集約する。`licenseId` 列が無い（または空の）旧形式CSVは、
+  `licenseId` を "既定" として読み込む（後方互換。FR-5.6）。
+- `scripts/add-client.js`: 「既存クライアントへの許可追加」に対応するため
+  引数体系をオプション形式へ変更した。
+  ```
+  node scripts/add-client.js "<クライアント名>" --license-id <許可ID> --grant-date <許可年月日YYYY-MM-DD> [--license-type 一般|特定] [--fiscal-year-end <事業年度終了日YYYY-MM-DD>] [--contact-email <連絡先メールアドレス>]
+  ```
+  既存の `clientName` を指定すると `upsertClientLicense` により
+  「その許可の追加・更新」になる（`--license-id` が既存の許可と一致すれば
+  上書き、一致しなければ `licenses` へ追記。他の既存の許可はクロバーされない）。
+  決算日・連絡先はクライアント単位のため、省略時は既存値を保持する。
 
 ### 5.16 入力内容の整合性チェック（M7・設計）
 

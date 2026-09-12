@@ -2,12 +2,27 @@ import { buildReminderDigest, formatReminderDigest } from "../src/reminders/remi
 
 /**
  * 複数クライアントのダミー許可情報。実在の顧客データは絶対に使用しない（NFR-5）。
- * @type {import('../src/reminders/reminderDigest.js').ClientLicenseRecord[]}
+ * 「ダミー電気工事店」は一般・特定の2許可を保有する例（M7・ADR-0008）。
+ * @type {import('../src/reminders/reminderDigest.js').ClientRecord[]}
  */
 const sampleClients = [
-  { clientName: "サンプル建設株式会社", grantDateIso: "2021-10-21", fiscalYearEndIso: "2026-08-31" },
-  { clientName: "テスト工業有限会社", grantDateIso: "2020-04-01" },
-  { clientName: "ダミー電気工事店", grantDateIso: "2024-04-01", fiscalYearEndIso: "2026-03-31" },
+  {
+    clientName: "サンプル建設株式会社",
+    fiscalYearEndIso: "2026-08-31",
+    licenses: [{ licenseId: "般-建築工事業", grantDateIso: "2021-10-21" }],
+  },
+  {
+    clientName: "テスト工業有限会社",
+    licenses: [{ licenseId: "般-とび土工工事業", grantDateIso: "2020-04-01" }],
+  },
+  {
+    clientName: "ダミー電気工事店",
+    fiscalYearEndIso: "2026-03-31",
+    licenses: [
+      { licenseId: "般-電気工事業", licenseType: "一般", grantDateIso: "2024-04-01" },
+      { licenseId: "特-電気工事業", licenseType: "特定", grantDateIso: "2025-06-01" },
+    ],
+  },
 ];
 
 const alerts = buildReminderDigest(sampleClients);

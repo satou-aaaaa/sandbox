@@ -180,7 +180,10 @@ test("GET /reminders: クライアント未登録の場合はその旨を表示�
 test("GET /reminders: data/clients.json相当のファイルに登録済みのクライアントを表示する", async () => {
   const ctx = await startTestServer();
   try {
-    await saveClients([{ clientName: "テスト建設", grantDateIso: "2020-04-01" }], ctx.clientsPath);
+    await saveClients(
+      [{ clientName: "テスト建設", licenses: [{ licenseId: "既定", grantDateIso: "2020-04-01" }] }],
+      ctx.clientsPath
+    );
     const res = await fetch(`${ctx.baseUrl}/reminders`);
     const html = await res.text();
     assert.match(html, /登録クライアント数: 1件/);
@@ -195,7 +198,13 @@ test("GET /reminders: 連絡先メールアドレス登録済みのクライア�
   const ctx = await startTestServer();
   try {
     await saveClients(
-      [{ clientName: "テスト建設", grantDateIso: "2020-04-01", contactEmail: "info@example.com" }],
+      [
+        {
+          clientName: "テスト建設",
+          contactEmail: "info@example.com",
+          licenses: [{ licenseId: "既定", grantDateIso: "2020-04-01" }],
+        },
+      ],
       ctx.clientsPath
     );
     const res = await fetch(`${ctx.baseUrl}/reminders`);
@@ -210,7 +219,10 @@ test("GET /reminders: 連絡先メールアドレス登録済みのクライア�
 test("GET /reminders: 連絡先メールアドレス未登録の場合はメール下書きセクションを表示しない", async () => {
   const ctx = await startTestServer();
   try {
-    await saveClients([{ clientName: "テスト建設", grantDateIso: "2020-04-01" }], ctx.clientsPath);
+    await saveClients(
+      [{ clientName: "テスト建設", licenses: [{ licenseId: "既定", grantDateIso: "2020-04-01" }] }],
+      ctx.clientsPath
+    );
     const res = await fetch(`${ctx.baseUrl}/reminders`);
     const html = await res.text();
     assert.doesNotMatch(html, /連絡が必要な件（メール下書きを開く）/);
@@ -225,8 +237,8 @@ test("GET /reminders: クエリパラメータなしの場合は従来どおり�
     // 満了間近（30日以内）のクライアントと、まだ十分先（6ヶ月超）のクライアントを混在させる。
     await saveClients(
       [
-        { clientName: "まもなく建設", grantDateIso: "2021-08-01" }, // 満了2026-07-31付近 → 期限超過寄り
-        { clientName: "余裕建設", grantDateIso: "2030-01-01" }, // 満了はずっと先
+        { clientName: "まもなく建設", licenses: [{ licenseId: "既定", grantDateIso: "2021-08-01" }] }, // 満了2026-07-31付近 → 期限超過寄り
+        { clientName: "余裕建設", licenses: [{ licenseId: "既定", grantDateIso: "2030-01-01" }] }, // 満了はずっと先
       ],
       ctx.clientsPath
     );
@@ -247,8 +259,8 @@ test("GET /reminders?range=overdue: 期限超過のクライアントのみ表�
   try {
     await saveClients(
       [
-        { clientName: "期限切れ建設", grantDateIso: "2015-04-01" }, // 満了はとっくに過ぎている
-        { clientName: "余裕建設", grantDateIso: "2030-01-01" }, // 満了はずっと先
+        { clientName: "期限切れ建設", licenses: [{ licenseId: "既定", grantDateIso: "2015-04-01" }] }, // 満了はとっくに過ぎている
+        { clientName: "余裕建設", licenses: [{ licenseId: "既定", grantDateIso: "2030-01-01" }] }, // 満了はずっと先
       ],
       ctx.clientsPath
     );
@@ -268,8 +280,8 @@ test("GET /reminders?range=6m-plus: 6ヶ月超のクライアントのみ表示�
   try {
     await saveClients(
       [
-        { clientName: "期限切れ建設", grantDateIso: "2015-04-01" }, // 満了はとっくに過ぎている
-        { clientName: "余裕建設", grantDateIso: "2030-01-01" }, // 満了はずっと先
+        { clientName: "期限切れ建設", licenses: [{ licenseId: "既定", grantDateIso: "2015-04-01" }] }, // 満了はとっくに過ぎている
+        { clientName: "余裕建設", licenses: [{ licenseId: "既定", grantDateIso: "2030-01-01" }] }, // 満了はずっと先
       ],
       ctx.clientsPath
     );
@@ -287,7 +299,10 @@ test("GET /reminders?range=6m-plus: 6ヶ月超のクライアントのみ表示�
 test("GET /reminders?range=不正な値: 不正な値はフォールバックして全件表示する", async () => {
   const ctx = await startTestServer();
   try {
-    await saveClients([{ clientName: "テスト建設", grantDateIso: "2020-04-01" }], ctx.clientsPath);
+    await saveClients(
+      [{ clientName: "テスト建設", licenses: [{ licenseId: "既定", grantDateIso: "2020-04-01" }] }],
+      ctx.clientsPath
+    );
     const res = await fetch(`${ctx.baseUrl}/reminders?range=not-a-real-range`);
     assert.equal(res.status, 200);
     const html = await res.text();
@@ -298,16 +313,28 @@ test("GET /reminders?range=不正な値: 不正な値はフォールバックし
   }
 });
 
-test("GET /clients.csv: 登録済みクライアントをCSVとして返す", async () => {
+test("GET /clients.csv: 登録済みクライアントをCSVとして返す（1行＝1許可。M7・ADR-0008）", async () => {
   const ctx = await startTestServer();
   try {
-    await saveClients([{ clientName: "テスト建設", grantDateIso: "2024-04-01" }], ctx.clientsPath);
+    await saveClients(
+      [
+        {
+          clientName: "テスト建設",
+          licenses: [
+            { licenseId: "般-建築工事業", grantDateIso: "2024-04-01" },
+            { licenseId: "特-とび土工工事業", licenseType: "特定", grantDateIso: "2025-06-01" },
+          ],
+        },
+      ],
+      ctx.clientsPath
+    );
     const res = await fetch(`${ctx.baseUrl}/clients.csv`);
     assert.equal(res.status, 200);
     assert.match(res.headers.get("content-type"), /text\/csv/);
     const text = await res.text();
-    assert.match(text, /^clientName,grantDateIso,fiscalYearEndIso,contactEmail/);
-    assert.match(text, /テスト建設,2024-04-01/);
+    assert.match(text, /^clientName,licenseId,licenseType,grantDateIso,fiscalYearEndIso,contactEmail/);
+    assert.match(text, /テスト建設,般-建築工事業,,2024-04-01/);
+    assert.match(text, /テスト建設,特-とび土工工事業,特定,2025-06-01/); // 2件目の許可も1行として出力される
   } finally {
     await ctx.close();
   }
