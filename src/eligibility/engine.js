@@ -4,6 +4,7 @@ import { checkZaisanKiso } from "./rules/zaisanKiso.js";
 import { checkKekkaku } from "./rules/kekkaku.js";
 import { checkSeijitsusei } from "./rules/seijitsusei.js";
 import { getPrefectureRules } from "./prefectureRules.js";
+import { checkConsistency } from "./consistencyChecks.js";
 
 /**
  * 建設業許可の法定5要件をまとめて判定する。
@@ -39,7 +40,11 @@ export function evaluateEligibility(profile) {
     .filter((c) => !c.passed)
     .map((c) => `[${c.label}] ${c.reasons.filter((r) => r).join(" / ")}`);
 
-  return { eligible, checks, blockingIssues };
+  // 入力内容の整合性チェック（M7・FR-6.1〜FR-6.3）。合否判定（eligible/checks/blockingIssues）
+  // には一切影響しない、追加のみの「気づき」情報として付与する（FR-6.4）。
+  const consistencyWarnings = checkConsistency(profile);
+
+  return { eligible, checks, blockingIssues, consistencyWarnings };
 }
 
 /**
@@ -63,6 +68,11 @@ export function formatEligibilityReport(profile, result) {
   if (!result.eligible) {
     lines.push("## 未充足の要因まとめ");
     for (const issue of result.blockingIssues) lines.push(`- ${issue}`);
+    lines.push("");
+  }
+  if (result.consistencyWarnings?.length) {
+    lines.push("## 入力内容の確認事項（要確認・合否には影響しません）");
+    for (const w of result.consistencyWarnings) lines.push(`- ${w.message}`);
   }
   return lines.join("\n");
 }
