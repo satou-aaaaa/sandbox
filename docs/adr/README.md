@@ -32,3 +32,5 @@ Architecture Decision Record（ADR）を管理する。
 | [0004](0004-mailto-draft-over-auto-send.md) | 更新リマインドの通知はメール自動送信ではなくmailto:下書きに留める | Accepted |
 | [0005](0005-prefecture-rule-composition.md) | 都道府県固有要件は共通5要件モジュールを改変せず、登録制の追加ルールとして合成する | Accepted |
 | [0006](0006-jcip-integration-deferred.md) | JCIP自動連携は本フェーズで実装せず、公開情報の調査結果のみ記録する | Accepted |
+| [0007](0007-checkjs-type-checking.md) | `tsconfig.json` の `checkJs` によるビルドレスな型チェック導入 | Accepted |
+| [0008](0008-multi-license-client-model.md) | クライアントが複数の許可を保有できるデータモデルへ変更する | Accepted |

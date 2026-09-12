@@ -185,10 +185,29 @@ docs/
 ### 4.7 共通の出力型
 
 - **RequirementCheckResult**: `{key, label, passed, reasons[], warnings[]}` — 個別要件の判定結果
-- **EligibilityResult**: `{eligible, checks: RequirementCheckResult[], blockingIssues[]}` — 総合判定結果
+- **EligibilityResult**: `{eligible, checks: RequirementCheckResult[], blockingIssues[], consistencyWarnings: ConsistencyWarning[]}` — 総合判定結果（`consistencyWarnings` はM7で追加予定。§5.16参照。`eligible`/`checks`/`blockingIssues` の算出方法には影響しない）
 
 様式生成モジュールもこの `RequirementCheckResult` 形式に準じたログ・警告表現を
 踏襲すること（一貫性のため）。
+
+### 4.8 クライアント管理のデータモデル（M7で拡張予定・ADR-0008）
+
+現行の `ClientLicenseRecord`（`src/reminders/reminderDigest.js`）は
+「1クライアント＝1許可」を前提としているが、M7で「クライアント（会社単位）」と
+「許可（1件単位）」を分離した2階層モデルへ拡張する。
+
+| 型 | フィールド | 説明 |
+|---|---|---|
+| **LicenseEntry**（許可1件） | licenseId | クライアント内で一意なラベル（例: "般-建築工事業"） |
+| | licenseType（任意） | "一般" \| "特定" |
+| | grantDateIso | 許可年月日 |
+| **ClientRecord**（クライアント1件） | clientName | クライアント名 |
+| | fiscalYearEndIso（任意） | 決算日（会社単位。許可ごとに重複させない） |
+| | contactEmail（任意） | 連絡先（会社単位） |
+| | licenses | LicenseEntry[]（1件以上） |
+
+詳細な移行方針（既存 `data/clients.json` の自動アップグレード）・CSV形式の
+変更は `docs/adr/0008-multi-license-client-model.md` を参照。
 
 ## 5. モジュール詳細設計
 
@@ -497,6 +516,84 @@ Webの `GET /clients.csv`（読み取り専用のダウンロードのみ。登�
 されない。案件が完了した下書きは `/drafts` の一覧から手動で削除する運用とする
 （自動削除にすると、まだ検討中の下書きを誤って消すリスクがあるため）。
 
+### 5.14 リマインドの3段階化・一覧フィルタリング（M7・設計）
+
+競合調査（`docs/PROPOSAL.md` M7）の結果、業界標準は満了6ヶ月前・3ヶ月前・
+1ヶ月前の3段階アラートとされている。対応方針は以下の通り（FR-3.6・FR-3.7）。
+
+- `calcRenewalSchedule`（§5.7）の戻り値に `earlyNoticeDate`（満了180日前）を
+  追加する。既存の `recommendedStartDate`（60日前・実務上の目安）と
+  `hardDeadline`（30日前・建設業法上の法定期限）は**変更しない**
+  （`hardDeadline` は法令に基づく値であり、業界標準に合わせて動かしてよい
+  ものではない点に注意）。
+- `ReminderAlert.type` のユニオン型に `"renewal-early-notice"` を追加する
+  （既存の3種に対する非破壊的な追加。既存コードに `type` を網羅的に
+  分岐する箇所はないため、影響範囲は `buildReminderDigest` 内の1箇所のみ）。
+- 一覧のフィルタリングは **`GET /reminders` ページのみ**に追加する
+  （CLI向けの `formatReminderDigest` の出力形式・既存テストは変更しない。
+  クリックでの絞り込みはブラウザUIでのみ価値があるため、CLIとWebで
+  役割を分ける）。`reminderDigest.js` に残日数バケット分類用の新規関数
+  （例: `bucketizeAlerts(alerts)`）を追加し、`/reminders?range=1-3m` のような
+  クエリパラメータでの絞り込みをサーバー側で行う（既存の「表示専用」という
+  設計判断（§5.11）を維持し、状態を持つUIコンポーネントは追加しない）。
+- バケット区分: 期限超過／1ヶ月以内／1〜3ヶ月／3〜6ヶ月／6ヶ月超。
+
+### 5.15 クライアントの複数許可対応（M7・設計・ADR-0008）
+
+データモデルの変更内容は §4.8・`docs/adr/0008-multi-license-client-model.md`
+を参照。実装に関わる主な変更点は以下の通り（FR-5.1〜FR-5.6）。
+
+- `clientStore.js` の `loadClients()`: 読み込み時に旧形式（トップレベルに
+  `grantDateIso` を持つ要素）を検出したら、その場で新形式
+  （`licenses: [{ licenseId: "既定", grantDateIso }]`）へ変換して返す
+  （lazy migration。専用のマイグレーションスクリプトは用意しない）。
+  `upsertClient` は「クライアント全体の上書き」と「特定の許可（`licenseId`）
+  のみの追加・更新」の両方に対応できるよう関数シグネチャを見直す必要がある。
+- `reminderDigest.js` の `buildReminderDigest`: 「クライアント→保有する
+  各許可（`licenses`）」の二重ループに変更する。更新関連のリマインド
+  （準備検討・準備開始・最終締切）は許可ごとに個別生成し、`ReminderAlert`に
+  任意フィールド `licenseId` を追加してどの許可分か判別できるようにする。
+  決算変更届のリマインドは許可の数に関わらずクライアントごとに1回だけ
+  生成する（重複防止。FR-5.3）。
+- `clientCsv.js`: CSV形式を「1行＝1許可」に変更する（列:
+  `clientName, licenseId, licenseType, grantDateIso, fiscalYearEndIso, contactEmail`。
+  会社単位の列は同一クライアントの全行で値を繰り返す非正規化形式）。
+  `licenseId` 列がない旧形式CSVは、`licenseId` を "既定" として読み込む
+  （後方互換。FR-5.6）。
+- `scripts/add-client.js`: 「既存クライアントへの許可追加」を行えるよう
+  `--license-id` 等のオプションを追加する（既存の `clientName` が
+  見つかった場合は `licenses` へ追記する）。
+
+### 5.16 入力内容の整合性チェック（M7・設計）
+
+競合調査で識別した「AIによる記載ミス検知」を、NFR-4（外部送信禁止）を
+守った上でルールベースで実現する（FR-6.1〜FR-6.4）。新規モジュール
+`src/eligibility/consistencyChecks.js` を追加し、既存の5要件判定
+（`src/eligibility/rules/*.js`、合否を決める）とは明確に分離する。
+
+```js
+/**
+ * @typedef {Object} ConsistencyWarning
+ * @property {string} key
+ * @property {string} message
+ */
+```
+
+初期スコープのチェック項目（いずれも既存の `ApplicantProfile` フィールドのみで
+実現可能なものに限定し、新規フィールド追加を要さない範囲から着手する）:
+
+| チェック内容 | 対象フィールド |
+|---|---|
+| 代表者氏名と経営業務管理責任者（証明を受ける者）の氏名の不一致 | `representativeName` / `keieiGyomuKanri.responsibleName` |
+| 実務経験年数等の数値が負、または非現実的に大きい | `yearsOfPracticalExperience` 等の年数系フィールド全般 |
+| 同一人物が複数営業所の専任技術者として重複登録 | `senninGijutsushaList[].personName` |
+
+いずれも**合否判定ではなく注記**として扱う（不一致自体が違法とは限らないため）。
+`engine.js` の `evaluateEligibility` が `EligibilityResult.consistencyWarnings`
+（§4.7）として結果に含め、`eligible` / `checks` / `blockingIssues` の
+既存の算出方法・既存テストには影響を与えない（FR-6.4。追加のみの変更）。
+`formatEligibilityReport` にも「入力内容の確認事項」として追記する。
+
 ## 6. エラーハンドリング方針
 
 - 現状、各判定関数は例外を投げず、`passed: false` と理由文字列で
@@ -570,3 +667,8 @@ Webの `GET /clients.csv`（読み取り専用のダウンロードのみ。登�
   仕様書本文の精査、をすべて満たすまでは自動連携コードを実装しない
   （登録前に有償の提出代理を自動化することは設計原則1・法的前提と
   相容れないため）。
+- **M7 競合調査に基づく機能拡張**: 設計のみ完了、未着手。
+  (a) リマインドの3段階化・一覧フィルタリング（§5.14）、
+  (b) クライアントの複数許可対応（§5.15・ADR-0008）、
+  (c) 入力内容の整合性チェック（§5.16）の3件。詳細は `docs/PROPOSAL.md` M7、
+  `docs/REQUIREMENTS.md` §4.3・4.5・4.6を参照。
