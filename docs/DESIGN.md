@@ -61,17 +61,22 @@ src/
     renewalSchedule.js  5年更新・決算変更届の期限計算
     reminderDigest.js   複数クライアントのリマインドを集計・整形（M4の土台。送信は行わない）
     clientStore.js      クライアント情報をdata/clients.jsonへ読み書きするローカル永続化層
+    clientCsv.js        クライアント一覧とCSVの相互変換（バックアップ・一括登録用）
   web/
     server.js           インテイク用の簡易Webフォーム（M3）のHTTPサーバー
-    formPage.js          入力フォーム画面（HTML/CSS/JS）
+    formPage.js          入力フォーム画面（HTML/CSS/JS。下書きからの事前入力・未入力チェックを含む）
     resultPage.js         判定結果・生成書類ダウンロード画面
     reminderPage.js       登録済みクライアントのリマインド・ダイジェスト表示画面（読み取り専用）
+    draftsPage.js          保存済み下書きの一覧画面
+    draftStore.js          インテイクフォームの下書きをdata/drafts.jsonへ読み書きする永続化層
     htmlUtils.js          HTMLエスケープ等の共通ヘルパー
 test/
   eligibility.test.js    要件判定エンジンのユニットテスト
   renewalSchedule.test.js 期限計算のユニットテスト
   reminderDigest.test.js  リマインド・ダイジェストのユニットテスト
   clientStore.test.js     クライアント永続化層のユニットテスト
+  clientCsv.test.js       クライアントCSV変換のユニットテスト
+  draftStore.test.js      下書き永続化層のユニットテスト
   documents.test.js      書類生成モジュール（様式第一号・六号・七号・八号・二十号の二）のユニットテスト
   web.test.js            Webフォームサーバーの結合テスト
 scripts/
@@ -86,6 +91,8 @@ scripts/
   add-client.js                   実クライアントをdata/clients.jsonへ登録・更新するCLI
   remove-client.js                実クライアントをdata/clients.jsonから削除するCLI
   reminder-digest.js               data/clients.jsonの実クライアントについてダイジェストを表示するCLI
+  export-clients-csv.js            data/clients.jsonをCSVへ書き出すCLI
+  import-clients-csv.js            CSVからdata/clients.jsonへ一括登録・更新するCLI
 docs/
   ARCHITECTURE.md   アーキテクチャ方針の要約（本書のダイジェスト版）
   PROPOSAL.md       ビジネス背景・ロードマップ
@@ -349,7 +356,9 @@ ApplicantProfileを入力→要件判定→書類サマリー生成までを一�
   違いを吸収するため `pathToFileURL` を使う）
 - ルーティング: `GET /`（フォーム画面）、`POST /submit`
   （判定＋書類生成→結果画面）、`GET /download/<sessionId>/<filename>`
-  （生成済みdocxのダウンロード）、`GET /reminders`（§5.11参照）
+  （生成済みdocxのダウンロード）、`GET /reminders`（§5.11参照）、
+  `GET /clients.csv`（§5.12参照）、`GET /drafts`・`POST /drafts`・
+  `GET /drafts/<id>`・`POST /drafts/<id>/delete`（§5.13参照）
 - `/submit` はセッションごとに `crypto.randomUUID()` でディレクトリを分け、
   5様式すべてのdocxを `outDir/<sessionId>/` に生成する。この動作は
   `src/documents/*.js` の各 `write<様式名>Docx` をそのまま呼ぶだけで、
@@ -362,9 +371,11 @@ ApplicantProfileを入力→要件判定→書類サマリー生成までを一�
 
 **意図的にやらないこと**: 認証・セッション管理、HTTPS化。個人の副業運用での
 ローカル利用を想定した最小構成であり、過剰な設計を避ける
-（DEVELOPMENT_GUIDE.md 6章の方針）。インテイクフォーム自体（`/submit`）は
+（DEVELOPMENT_GUIDE.md 6章の方針）。`/submit`（最終的な書類生成）自体は
 案件を永続化しない（送信のたびに独立したセッションとして書類を生成するのみ）。
-複数クライアントの継続的な追跡が必要なM4（リマインド）については、
+入力途中のデータは `/drafts`（§5.13）で別途保存できるが、これは「最終提出」と
+「作業の一時保存」を明確に分けるための設計であり、`/submit` の責務を変えるもの
+ではない。複数クライアントの継続的な追跡が必要なM4（リマインド）については、
 本格的なデータベースではなく単一のJSONファイル（`data/clients.json`）による
 最小限の永続化を別途導入している（§5.11参照）。
 
@@ -409,6 +420,58 @@ ApplicantProfileを入力→要件判定→書類サマリー生成までを一�
 インテイク（`/submit`）より後の工程であり、案件のライフサイクル段階が
 異なるため、意図的にワークフローを混在させていない。
 
+### 5.12 `src/reminders/clientCsv.js` — クライアント一覧のCSV変換
+
+`data/clients.json` の内容を表計算ソフト（Excel等）でバックアップ・一括確認
+できるようにするためのCSVエンコード/デコード。RFC4180準拠の最小限の実装を
+自前で用意しており、外部パッケージには依存しない（NFR-1）。
+
+- `clientsToCsv(clients)`: カンマ・ダブルクォート・改行を含む値は
+  ダブルクォートで囲みエスケープする
+- `clientsFromCsv(text)`: ヘッダー行の列名でマッピングするため列順が
+  変わっていても読み込める。`clientName` または `grantDateIso` が
+  欠けている行は不正なデータとみなしスキップする（エラーで止めず、
+  読み込めた分だけ返す方針。§6のエラーハンドリング方針を踏襲）
+
+CLI（`scripts/export-clients-csv.js` / `scripts/import-clients-csv.js`）と、
+Webの `GET /clients.csv`（読み取り専用のダウンロードのみ。登録・更新はCLIの
+まま）から利用する。CSVからの一括登録はCLI限定とし、Web側にアップロード
+フォームは設けていない（`/reminders` の「表示専用」という設計判断
+（§5.11）と一貫させるため）。
+
+### 5.13 `src/web/draftStore.js` — インテイクフォームの下書き保存（使い勝手向上）
+
+長いインテイクフォームを一度に入力しきれない場合に備え、入力途中の
+`ApplicantProfile` を保存し、後から続きを入力できるようにする。
+
+`clientStore.js`（§5.11）と同じ設計方針を踏襲する: DBは使わず単一のJSON
+ファイル（既定: `data/drafts.json`）に配列として保存する。`DraftRecord` は
+`{ id, savedAt, profile }` の形。`upsertDraft(profile, id?)` は `id` を
+指定すれば上書き更新、省略すれば `crypto.randomUUID()` で新規IDを発行する。
+
+**Webフォームとの連携**: `src/web/formPage.js` の「下書きとして保存」ボタン
+（`formaction="/drafts"`）が現在の入力内容を `POST /drafts` へ送信する。
+保存後はサーバーが払い出した `draftId` を含む同じフォームを再表示し、
+以降の保存はその `id` を使って上書き更新される（新規作成の連打を防ぐ）。
+`GET /drafts` が一覧・削除、`GET /drafts/<id>` が指定の下書きを読み込んで
+フォームを事前入力する。
+
+**フォームの事前入力の仕組み**: `renderFormPage({ profile })` は
+`ApplicantProfile` をそのまま `<script>` 内にJSON（`INITIAL_PROFILE`）として
+埋め込み、ブラウザ側JavaScriptが各inputの `.value` に反映する
+（サーバー側でHTML属性 `value="..."` として個別に埋め込む方式は採らず、
+動的に増減する役員・営業所の行と同じ仕組みで統一的に扱うため）。
+`JSON.stringify` の結果に `</script` に一致する文字列が出現すると
+スクリプトタグが早期に閉じてしまう既知の問題があるため、山括弧の開き
+（U+003C）をUnicodeエスケープシーケンスに置き換えてから埋め込む
+（`src/web/formPage.js` の実装コメント参照）。
+
+**下書きと最終提出（`/submit`）の関係**: 下書きは `/submit` とは独立した
+別データであり、`/submit` 側は下書きの存在を意識しない（保存・削除は
+すべて `/drafts` 経由で行う）。書類生成が完了しても下書きは自動削除
+されない。案件が完了した下書きは `/drafts` の一覧から手動で削除する運用とする
+（自動削除にすると、まだ検討中の下書きを誤って消すリスクがあるため）。
+
 ## 6. エラーハンドリング方針
 
 - 現状、各判定関数は例外を投げず、`passed: false` と理由文字列で
@@ -429,15 +492,19 @@ ApplicantProfileを入力→要件判定→書類サマリー生成までを一�
   のような結合テスト（実際にHTTPサーバーを起動しリクエストを送る）は
   最小限に絞る。本ツールには外部サービスとの連携やUI操作を伴う画面遷移が
   ないため、E2Eテストは導入していない（`docs/BEST_PRACTICES_AUDIT.md` 参照）。
-- 既存テスト: `test/eligibility.test.js`（8件）、`test/renewalSchedule.test.js`（4件）、
+- 既存テスト（計76件）: `test/eligibility.test.js`（8件）、
+  `test/renewalSchedule.test.js`（4件）、
   `test/documents.test.js`（15件。様式生成モジュールの「未入力」フォールバック・
-  判定ロジック再利用・docx出力の3観点をカバー）、`test/web.test.js`（12件。
+  判定ロジック再利用・docx出力の3観点をカバー）、`test/web.test.js`（19件。
   ランダムポートでサーバーを起動し `fetch` で結合テストする。ダウンロードの
-  パストラバーサル拒否、`/reminders` の表示・メール下書きリンクの有無も検証）、
-  `test/reminderDigest.test.js`（11件。期限超過判定・複数クライアントの
-  ソート順・区分別フォーマット・mailto:リンク生成を検証）、
-  `test/clientStore.test.js`（6件。ファイル未存在時の空配列返却・保存/読込の
-  往復・追加/更新/削除を検証）
+  パストラバーサル拒否、`/reminders`・`/clients.csv`・`/drafts` 系ルートの
+  表示・保存・削除・404を検証）、`test/reminderDigest.test.js`（11件。
+  期限超過判定・複数クライアントのソート順・区分別フォーマット・mailto:リンク
+  生成を検証）、`test/clientStore.test.js`（6件。ファイル未存在時の空配列
+  返却・保存/読込の往復・追加/更新/削除を検証）、`test/clientCsv.test.js`
+  （7件。特殊文字のエスケープ・往復変換・不正行のスキップを検証）、
+  `test/draftStore.test.js`（6件。clientStore.test.jsと同様の観点を
+  下書きデータに対して検証）
 - 新規モジュールを追加する場合、最低限次のケースをカバーすること
   - 正常系（すべての条件を満たすケース）
   - 境界値（年数・金額等の基準値ちょうど、基準値-1）
