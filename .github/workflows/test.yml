@@ -62,11 +62,17 @@ jobs:
           npm run test:coverage 2>&1 | tee coverage-output.txt
           # Node.jsのテストランナーはTTY接続時は"ℹ "、CI等の非TTY環境では"# "を
           # 診断行の接頭辞に使う（reporterの自動切り替え）ため、両方にマッチさせる。
+          # 【注意】文字クラス構文 `[ℹ#]` はロケール未設定（LANG/LC_ALLが
+          # 空のCロケール。GitHub Actions含め多くのCI環境で実際に起こる）だと
+          # マルチバイト文字を正しく1文字として扱えず無言でマッチに失敗する
+          # （このため本サマリーが常に空欄になっていた不具合が過去にあった）。
+          # 文字クラスではなく `(ℹ|#)` の選択（alternation）を使うことで、
+          # ロケール設定に依存せず確実にマッチさせる。
           {
             echo '## テストカバレッジサマリー'
             echo
             echo '```'
-            grep -E '^[ℹ#] (tests|pass|fail|cancelled|skipped|todo|all files)' coverage-output.txt
+            grep -E '^(ℹ|#) (tests|pass|fail|cancelled|skipped|todo|all files)' coverage-output.txt
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
       # シークレット混入チェック（hooks/check-secrets.mjs）をCI側でも実行する。
@@ -105,6 +111,20 @@ jobs:
       # 判定はせず「壊れずに応答できるか」に絞ることでCI環境でも安定して
       # 実行できるようにしている。他の「OS非依存」チェックと同じくubuntu・
       # 22.xの1系統のみで実行する。
-      - name: 負荷テスト
+      - name: 負荷テストとサマリー出力
         if: matrix.os == 'ubuntu-latest' && matrix.node-version == '22.x'
-        run: npm run test:load
+        shell: bash
+        run: |
+          set -o pipefail
+          npm run test:load 2>&1 | tee load-test-output.txt
+          {
+            echo '## 負荷テスト結果'
+            echo
+            echo '```'
+            # server.jsのアクセスログ（1リクエストごとの `GET /path -> 200 (Nms)` 行）
+            # は同時アクセス数分（数百行）出力され読みづらいため除外し、
+            # シナリオ見出し・レイテンシ/スループットの集計テーブル・
+            # 最終結果メッセージのみをサマリーに残す。
+            grep -vE '^(GET|POST) ' load-test-output.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
