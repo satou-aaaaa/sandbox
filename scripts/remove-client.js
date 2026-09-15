@@ -4,7 +4,7 @@
  * 使い方:
  *   node scripts/remove-client.js "<クライアント名>"
  */
-import { removeClient } from "../src/reminders/clientStore.js";
+import { removeClient } from "../src/core/reminders/clientStore.js";
 
 const [, , clientName] = process.argv;
 

@@ -10,7 +10,7 @@
  *   通常のフォームPOST（application/x-www-form-urlencoded）の1フィールドとして
  *   送信される（src/web/formPage.js 参照）。サーバー側は多重定義を避けるため
  *   このJSONをそのままevaluateEligibility/書類生成モジュールに渡す。
- * - `/reminders` は data/clients.json（src/reminders/clientStore.js）に
+ * - `/reminders` は data/clients.json（src/core/reminders/clientStore.js）に
  *   登録済みのクライアントについて更新リマインドを表示する読み取り専用画面。
  *   クライアントの登録・削除はCLI（scripts/add-client.js等）で行う想定であり、
  *   このサーバー自体にクライアント登録用のフォームは持たせていない
@@ -43,14 +43,14 @@ import { writeYoushiki7Docx } from "../documents/youshiki7.js";
 import { writeYoushiki8Docx } from "../documents/youshiki8.js";
 import { writeYoushiki16Docx } from "../documents/youshiki16.js";
 import { writeYoushiki20_2Docx } from "../documents/youshiki20-2.js";
-import { loadClients, DEFAULT_CLIENTS_PATH } from "../reminders/clientStore.js";
+import { loadClients, DEFAULT_CLIENTS_PATH } from "../core/reminders/clientStore.js";
 import {
   buildReminderDigest,
   filterDueAlerts,
   formatReminderDigest,
   bucketizeAlerts,
 } from "../core/reminders/digest.js";
-import { clientsToCsv } from "../reminders/clientCsv.js";
+import { clientsToCsv } from "../core/reminders/clientCsv.js";
 import { loadDrafts, getDraft, upsertDraft, removeDraft, DEFAULT_DRAFTS_PATH } from "./draftStore.js";
 import { renderFormPage } from "./formPage.js";
 import { renderResultPage } from "./resultPage.js";

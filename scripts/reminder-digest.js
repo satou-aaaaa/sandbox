@@ -5,7 +5,7 @@
  * ダミーデータでの動作確認は generate-reminder-digest-sample.js を使うこと。
  * 実クライアントの登録・削除は scripts/add-client.js / remove-client.js を使う。
  */
-import { loadClients } from "../src/reminders/clientStore.js";
+import { loadClients } from "../src/core/reminders/clientStore.js";
 import { buildReminderDigest, filterDueAlerts, formatReminderDigest, buildReminderMailtoUrl } from "../src/core/reminders/digest.js";
 import { registerConstructionLicense } from "../src/licenses/construction/index.js";
 

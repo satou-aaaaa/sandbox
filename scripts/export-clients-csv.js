@@ -8,8 +8,8 @@
  */
 import fs from "node:fs/promises";
 import path from "node:path";
-import { loadClients } from "../src/reminders/clientStore.js";
-import { clientsToCsv } from "../src/reminders/clientCsv.js";
+import { loadClients } from "../src/core/reminders/clientStore.js";
+import { clientsToCsv } from "../src/core/reminders/clientCsv.js";
 
 const outPath = process.argv[2] || "out/clients-export.csv";
 

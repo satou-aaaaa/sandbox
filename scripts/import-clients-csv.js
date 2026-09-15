@@ -10,8 +10,8 @@
  * licenseId列が無い旧形式CSVも読み込める。M7・ADR-0008）
  */
 import fs from "node:fs/promises";
-import { clientsFromCsv } from "../src/reminders/clientCsv.js";
-import { upsertClient } from "../src/reminders/clientStore.js";
+import { clientsFromCsv } from "../src/core/reminders/clientCsv.js";
+import { upsertClient } from "../src/core/reminders/clientStore.js";
 
 const inPath = process.argv[2];
 

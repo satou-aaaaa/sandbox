@@ -6,7 +6,7 @@ import fs from "node:fs/promises";
 
 import { createServer, startServer } from "../src/web/server.js";
 import { buildSampleApplicantProfile } from "../scripts/sampleProfile.js";
-import { saveClients } from "../src/reminders/clientStore.js";
+import { saveClients } from "../src/core/reminders/clientStore.js";
 import { upsertDraft, loadDrafts } from "../src/web/draftStore.js";
 
 /** テスト用にランダムポートでサーバーを起動し、baseURLを返す。 */
@@ -402,9 +402,9 @@ test("GET /clients.csv: 登録済みクライアントをCSVとして返す（1�
     assert.equal(res.status, 200);
     assert.match(res.headers.get("content-type"), /text\/csv/);
     const text = await res.text();
-    assert.match(text, /^clientName,licenseId,licenseType,grantDateIso,fiscalYearEndIso,contactEmail/);
-    assert.match(text, /テスト建設,般-建築工事業,,2024-04-01/);
-    assert.match(text, /テスト建設,特-とび土工工事業,特定,2025-06-01/); // 2件目の許可も1行として出力される
+    assert.match(text, /^clientName,licenseId,licenseCategory,licenseType,grantDateIso,fiscalYearEndIso,contactEmail/);
+    assert.match(text, /テスト建設,般-建築工事業,construction,,2024-04-01/);
+    assert.match(text, /テスト建設,特-とび土工工事業,construction,特定,2025-06-01/); // 2件目の許可も1行として出力される
   } finally {
     await ctx.close();
   }
