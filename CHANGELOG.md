@@ -6,6 +6,29 @@
 日付単位のリリースではなく `docs/PROPOSAL.md` のマイルストーン（M1〜）を
 単位として記録する。
 
+## 負荷テスト・カオスエンジニアリング・契約テストの導入、および競合状態バグの修正（2026年9月）
+
+「今後ローカルツールではなくなる可能性がある」という前提のもと、負荷
+テスト・カオスエンジニアリング・契約テストを追加導入した。判断根拠は
+ADR-0013参照。`npm test` 326件→340件。
+
+- **カオスエンジニアリング（アプリケーション層の障害注入）**: `test/chaos.test.js`
+  を新設。この作成過程で**実際に深刻な競合状態バグを発見**した:
+  `clientStore.js`・`draftStore.js`の`upsertXxx`系関数（read-modify-write方式）
+  は、2つの呼び出しがほぼ同時に発生すると片方の登録が完全に失われる
+  （lost update）ことを確認。`src/core/reminders/fileLock.js`
+  （プロセス内の簡易ミューテックス）を新設し、`upsertClient`・
+  `upsertClientLicense`・`removeClient`・`upsertDraft`・`removeDraft`を
+  このロックで直列化して修正した
+- **負荷テスト（autocannon）**: `load/web-server.load.js`
+  （`npm run test:load`）で`GET /`・`POST /submit`への同時アクセスを検証。
+  具体的な性能閾値ではなく「エラー・タイムアウト・5xxが発生しないこと」の
+  確認に留める
+- **契約テスト（JSON Schema + ajv）**: `schemas/client-record.schema.json`で
+  `ClientRecord`/`LicenseEntry`の形を明文化し、`test/contract.test.js`で
+  検証。将来APIとして公開する際の土台として、実装とスキーマの乖離を
+  検出する回帰テストを含む
+
 ## アクセシビリティテスト・E2Eテスト・静的セキュリティ解析・カバレッジ可視化の導入（2026年9月）
 
 「他のタイプのテストがこの世にないのか調査し、あれば導入してほしい」

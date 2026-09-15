@@ -12,6 +12,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import crypto from "node:crypto";
+import { withFileLock } from "../core/reminders/fileLock.js";
 
 export const DEFAULT_DRAFTS_PATH = "data/drafts.json";
 
@@ -74,18 +75,20 @@ export async function getDraft(id, filePath = DEFAULT_DRAFTS_PATH) {
  * @returns {Promise<DraftRecord>} 保存した下書き（発行/確定したidを含む）
  */
 export async function upsertDraft(profile, id, filePath = DEFAULT_DRAFTS_PATH) {
-  const drafts = await loadDrafts(filePath);
-  const draftId = id || crypto.randomUUID();
-  const record = { id: draftId, savedAt: new Date().toISOString(), profile };
+  return withFileLock(filePath, async () => {
+    const drafts = await loadDrafts(filePath);
+    const draftId = id || crypto.randomUUID();
+    const record = { id: draftId, savedAt: new Date().toISOString(), profile };
 
-  const index = drafts.findIndex((d) => d.id === draftId);
-  if (index >= 0) {
-    drafts[index] = record;
-  } else {
-    drafts.push(record);
-  }
-  await saveDrafts(drafts, filePath);
-  return record;
+    const index = drafts.findIndex((d) => d.id === draftId);
+    if (index >= 0) {
+      drafts[index] = record;
+    } else {
+      drafts.push(record);
+    }
+    await saveDrafts(drafts, filePath);
+    return record;
+  });
 }
 
 /**
@@ -95,8 +98,10 @@ export async function upsertDraft(profile, id, filePath = DEFAULT_DRAFTS_PATH) {
  * @returns {Promise<DraftRecord[]>} 更新後の一覧
  */
 export async function removeDraft(id, filePath = DEFAULT_DRAFTS_PATH) {
-  const drafts = await loadDrafts(filePath);
-  const filtered = drafts.filter((d) => d.id !== id);
-  await saveDrafts(filtered, filePath);
-  return filtered;
+  return withFileLock(filePath, async () => {
+    const drafts = await loadDrafts(filePath);
+    const filtered = drafts.filter((d) => d.id !== id);
+    await saveDrafts(filtered, filePath);
+    return filtered;
+  });
 }

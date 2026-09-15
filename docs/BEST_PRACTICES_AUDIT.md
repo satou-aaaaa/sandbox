@@ -52,7 +52,7 @@ Martin Fowler・OWASP・Google Cloud DORAチーム等の公開資料を出典と
 
 | 項目 | 状態 | 補足 |
 |---|---|---|
-| ユニットテスト | ✅ | `node --test`（Node.js標準機能）。326件全通過 |
+| ユニットテスト | ✅ | `node --test`（Node.js標準機能）。340件全通過 |
 | CI（push/PR時の自動テスト） | ✅ | `.github/workflows/test.yml`。Node.js 20.x/22.x × ubuntu-latest/windows-latest の計4通りで実行（2026年9月にWindows環境を追加。開発機がWindowsであり、過去に改行コード関連の問題が実際に発生した経緯を踏まえた対応） |
 | CIの実行効率・堅牢性 | ✅ | 2026年9月追加。`concurrency`設定で同一ブランチ・PRへの連続pushの古い実行を自動キャンセル、`timeout-minutes: 10`でハング時のActions利用時間浪費を防止、`fail-fast: false`でOS/Node.jsバージョンの組み合わせごとの結果を最後まで確認できるようにした |
 | CI実行結果のサマリー表示 | ✅ | 2026年9月追加。テスト件数・カバレッジ数値を`$GITHUB_STEP_SUMMARY`に出力し、ログを展開しなくてもActionsの実行画面で概要を確認できるようにした |
@@ -62,6 +62,9 @@ Martin Fowler・OWASP・Google Cloud DORAチーム等の公開資料を出典と
 | Property-based testing | ✅ | 2026年9月追加。fast-checkで日付計算・CSV往復変換・HTMLエスケープにランダム入力での性質検証を追加。[ADR-0011](adr/0011-mutation-and-property-based-testing.md) |
 | アクセシビリティテスト | ✅ | 2026年9月追加。axe-core + jsdomで`src/web/*Page.js`の4画面を検証（`test/accessibility.test.js`）。導入初回でラベル欠落（critical）等の実際の不具合を発見・修正した。[ADR-0012](adr/0012-accessibility-e2e-sast-coverage-tooling.md) |
 | 静的セキュリティ解析（SAST） | ✅ | 2026年9月追加。`eslint-plugin-security`を`npm run lint`に追加。検出精度の限界（ベンチマークで27.5%程度）を認識した上での「無いよりはまし」という位置づけ。[ADR-0012](adr/0012-accessibility-e2e-sast-coverage-tooling.md) |
+| カオスエンジニアリング（障害注入テスト） | ✅ | 2026年9月追加。`test/chaos.test.js`でファイルシステムの障害・同時実行の競合を注入。**作成過程で実際の競合状態バグ（同時書き込みによるクライアント登録のlost update）を発見し、`src/core/reminders/fileLock.js`で修正した**。[ADR-0013](adr/0013-load-chaos-contract-testing.md) |
+| 負荷テスト | ✅ | 2026年9月追加。autocannonで`GET /`・`POST /submit`への同時アクセスを検証（`npm run test:load`）。具体的な性能閾値ではなくエラー・タイムアウトの有無のみ判定。[ADR-0013](adr/0013-load-chaos-contract-testing.md) |
+| 契約テスト | ✅ | 2026年9月追加。`schemas/client-record.schema.json`（JSON Schema）+ ajvで`ClientRecord`/`LicenseEntry`の形を検証（`test/contract.test.js`）。外部API消費者がまだ無いため、将来のAPI公開に備えた土台という位置づけ。[ADR-0013](adr/0013-load-chaos-contract-testing.md) |
 | ブランチ保護ルール（必須レビュー等） | 🟡 | GitHub側のリポジトリ設定（Settings > Branches）で有効化可能。単独開発のためレビュー必須は現実的でないが、「CIが通るまでマージ不可」の設定は検討の余地あり。コードからは変更できないため、必要なら発注者（あなた）がGitHub UIで設定すること |
 | 型チェック（JSDoc + `tsconfig.json` の `checkJs`） | ✅ | 独立したタスクとして着手し導入済み。`npm run typecheck`（`tsc --noEmit`）をCIに追加。対象は`src/`・`scripts/`のみ（`test/`は対象外。ダミーデータ主体でstrictモードとの相性が悪いため）。導入時に判明した既存コードの型不備（暗黙のany、`err.code`アクセス時のunknown型、`req.url`のundefined未考慮等）は修正済み。詳細は[ADR-0007](adr/0007-checkjs-type-checking.md) |
 | テストピラミッド構成の明文化 | ✅ | DESIGN.md 7章に追記。単体テストを主体とし、`web.test.js`のような結合テストは最小限。E2Eテスト（Playwright）は2026年9月に導入し、golden pathの疎通確認に限定（ubuntu・Node22.xの1系統のみCIで実行）。[ADR-0012](adr/0012-accessibility-e2e-sast-coverage-tooling.md) |

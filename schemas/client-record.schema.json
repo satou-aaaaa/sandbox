@@ -1,0 +1,61 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/satou-aaaaa/sandbox/schemas/client-record.schema.json",
+  "title": "ClientRecord",
+  "description": "data/clients.json に保存される、クライアント（会社）1件分のデータ契約。src/core/reminders/digest.js の ClientRecord/LicenseEntry のJSDoc型定義（ADR-0008）を正としてJSON Schemaとして明文化したもの。将来この形をAPIレスポンスとして外部へ公開する場合の『破壊的変更をしていないか』の基準にもなる（ADR-0013参照）。 各許可種別（licenses[].licenseCategory）固有の追加フィールド（例: kobutsuDetail）は、コアが許可種別を知らないという設計原則（docs/DESIGN_kobutsu-core.md）に従いこのスキーマでは規定せず、additionalPropertiesをtrueにして許容する。",
+  "type": "object",
+  "required": ["clientName", "licenses"],
+  "additionalProperties": false,
+  "properties": {
+    "clientName": {
+      "type": "string",
+      "minLength": 1,
+      "description": "クライアント名（会社名または個人名）"
+    },
+    "fiscalYearEndIso": {
+      "type": "string",
+      "format": "date",
+      "description": "直近の事業年度終了日（YYYY-MM-DD）。指定した場合のみ決算変更届のリマインドを計算する（会社単位の属性のため許可ごとには持たない）"
+    },
+    "contactEmail": {
+      "type": "string",
+      "format": "email",
+      "description": "連絡先メールアドレス（任意、会社単位）"
+    },
+    "licenses": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/licenseEntry" },
+      "description": "保有する許可の一覧（1件以上）"
+    }
+  },
+  "$defs": {
+    "licenseEntry": {
+      "type": "object",
+      "required": ["licenseId"],
+      "additionalProperties": true,
+      "properties": {
+        "licenseId": {
+          "type": "string",
+          "minLength": 1,
+          "description": "クライアント内で一意なラベル（例: \"般-建築工事業\"）"
+        },
+        "licenseCategory": {
+          "type": "string",
+          "minLength": 1,
+          "description": "許可種別を示すキー（例: \"construction\", \"kobutsu\"）。省略時は\"construction\"とみなす（後方互換）。コアはこのキーの中身を解釈しない"
+        },
+        "licenseType": {
+          "type": "string",
+          "enum": ["一般", "特定"],
+          "description": "建設業許可のみで使用するフィールド"
+        },
+        "grantDateIso": {
+          "type": "string",
+          "format": "date",
+          "description": "建設業許可のみで使用する許可年月日（YYYY-MM-DD）。古物商許可では未使用"
+        }
+      }
+    }
+  }
+}

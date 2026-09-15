@@ -99,3 +99,12 @@ jobs:
       - name: E2Eテスト
         if: matrix.os == 'ubuntu-latest' && matrix.node-version == '22.x'
         run: npm run test:e2e
+      # 負荷テスト（autocannon）。厳密な性能閾値は判定せず、同時リクエスト下で
+      # エラー・タイムアウト・5xxが発生しないことのみを確認する（ADR-0013参照）。
+      # 共有CIランナーの性能は変動するため、具体的なレイテンシ数値でのpass/fail
+      # 判定はせず「壊れずに応答できるか」に絞ることでCI環境でも安定して
+      # 実行できるようにしている。他の「OS非依存」チェックと同じくubuntu・
+      # 22.xの1系統のみで実行する。
+      - name: 負荷テスト
+        if: matrix.os == 'ubuntu-latest' && matrix.node-version == '22.x'
+        run: npm run test:load
