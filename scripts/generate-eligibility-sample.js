@@ -1,4 +1,4 @@
-import { evaluateEligibility, formatEligibilityReport } from "../src/eligibility/engine.js";
+import { evaluateEligibility, formatEligibilityReport } from "../src/licenses/construction/eligibility/engine.js";
 import { buildSampleApplicantProfile } from "./sampleProfile.js";
 
 const sample = buildSampleApplicantProfile();

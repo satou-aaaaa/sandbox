@@ -35,7 +35,7 @@ import crypto from "node:crypto";
 import fs from "node:fs/promises";
 import { pathToFileURL } from "node:url";
 
-import { evaluateEligibility, formatEligibilityReport } from "../eligibility/engine.js";
+import { evaluateEligibility, formatEligibilityReport } from "../licenses/construction/eligibility/engine.js";
 import { writeYoushiki1Docx } from "../documents/youshiki1.js";
 import { writeYoushiki2Docx } from "../documents/youshiki2.js";
 import { writeYoushiki6Docx } from "../documents/youshiki6.js";
@@ -74,7 +74,7 @@ const DOCUMENT_TARGETS = [
 
 /**
  * ApplicantProfile から様式すべてのdocxサマリーを生成する（DOCUMENT_TARGETS参照）。
- * @param {import('../eligibility/types.js').ApplicantProfile} profile
+ * @param {import('../licenses/construction/eligibility/types.js').ApplicantProfile} profile
  * @param {string} sessionDir
  * @returns {Promise<{ label: string, filename: string }[]>}
  */
@@ -262,7 +262,7 @@ export function createServer({
         if (!profileJson) {
           throw new Error("profileJson が送信されていません（フォームのJavaScriptが動作していない可能性があります）");
         }
-        /** @type {import('../eligibility/types.js').ApplicantProfile} */
+        /** @type {import('../licenses/construction/eligibility/types.js').ApplicantProfile} */
         const profile = JSON.parse(profileJson);
 
         const result = evaluateEligibility(profile);

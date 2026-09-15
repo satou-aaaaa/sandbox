@@ -6,7 +6,7 @@
  * それぞれの様式サマリーを生成する（様式ごとにダミーデータを個別に
  * 定義しない。ApplicantProfile が唯一のデータソースであることの実例にもなる）。
  *
- * @returns {import('../src/eligibility/types.js').ApplicantProfile}
+ * @returns {import('../src/licenses/construction/eligibility/types.js').ApplicantProfile}
  */
 export function buildSampleApplicantProfile() {
   return {

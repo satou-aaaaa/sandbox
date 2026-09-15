@@ -19,7 +19,7 @@ export const DEFAULT_DRAFTS_PATH = "data/drafts.json";
  * @typedef {Object} DraftRecord 下書き1件分
  * @property {string} id 下書きID（crypto.randomUUID()で発行）
  * @property {string} savedAt 保存日時（ISO 8601）
- * @property {import('../eligibility/types.js').ApplicantProfile} profile
+ * @property {import('../licenses/construction/eligibility/types.js').ApplicantProfile} profile
  */
 
 /**
@@ -68,7 +68,7 @@ export async function getDraft(id, filePath = DEFAULT_DRAFTS_PATH) {
  * 下書きを保存する。id を指定すれば既存の下書きを上書き更新し、
  * 指定しなければ新規のIDを発行して追加する。
  *
- * @param {import('../eligibility/types.js').ApplicantProfile} profile
+ * @param {import('../licenses/construction/eligibility/types.js').ApplicantProfile} profile
  * @param {string} [id] 省略時は新規作成
  * @param {string} [filePath]
  * @returns {Promise<DraftRecord>} 保存した下書き（発行/確定したidを含む）

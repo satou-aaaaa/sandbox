@@ -27,7 +27,7 @@ import {
  * ApplicantProfile から様式第一号サマリーの表示行（ラベル・値）を解決する。
  * 未入力の項目は「（未入力）」に置き換えた、表示用の最終文字列を返す。
  *
- * @param {import('../eligibility/types.js').ApplicantProfile} profile
+ * @param {import('../licenses/construction/eligibility/types.js').ApplicantProfile} profile
  * @returns {[string, string][]}
  */
 export function resolveYoushiki1Rows(profile) {
@@ -45,7 +45,7 @@ export function resolveYoushiki1Rows(profile) {
 
 /**
  * 申請内容サマリーの Document オブジェクトを組み立てる。
- * @param {import('../eligibility/types.js').ApplicantProfile} profile
+ * @param {import('../licenses/construction/eligibility/types.js').ApplicantProfile} profile
  * @returns {Document}
  */
 export function buildYoushiki1Document(profile) {
@@ -65,7 +65,7 @@ export function buildYoushiki1Document(profile) {
 
 /**
  * 申請内容サマリーを .docx ファイルとして書き出す。
- * @param {import('../eligibility/types.js').ApplicantProfile} profile
+ * @param {import('../licenses/construction/eligibility/types.js').ApplicantProfile} profile
  * @param {string} outPath
  */
 export async function writeYoushiki1Docx(profile, outPath) {

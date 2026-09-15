@@ -51,7 +51,7 @@ function formatAmount(amount) {
 
 /**
  * 許可番号・許可年月日・許可行政庁の区分をまとめた表示用文字列を作る（項番02）。
- * @param {import('../eligibility/types.js').KeishinRequestInput} req
+ * @param {import('../licenses/construction/eligibility/types.js').KeishinRequestInput} req
  * @returns {string}
  */
 function formatLicenseInfo(req) {
@@ -64,7 +64,7 @@ function formatLicenseInfo(req) {
 
 /**
  * 自己資本額の算定方法（1期分／2期平均）に応じた表示行を組み立てる（項番17）。
- * @param {import('../eligibility/types.js').ApplicantProfile} profile
+ * @param {import('../licenses/construction/eligibility/types.js').ApplicantProfile} profile
  * @returns {[string, string][]}
  */
 function resolveNetAssetsRows(profile) {
@@ -85,7 +85,7 @@ function resolveNetAssetsRows(profile) {
  * ApplicantProfile本体の既存項目（商号・代表者・所在地・資本金・対象業種）と
  * keishinRequestの様式固有項目を合成する。
  *
- * @param {import('../eligibility/types.js').ApplicantProfile} profile
+ * @param {import('../licenses/construction/eligibility/types.js').ApplicantProfile} profile
  * @returns {[string, string][]}
  */
 export function resolveYoushiki25_14Rows(profile) {
@@ -116,7 +116,7 @@ export function resolveYoushiki25_14Rows(profile) {
 
 /**
  * 経営規模等評価申請書・総合評定値請求書サマリーの Document オブジェクトを組み立てる。
- * @param {import('../eligibility/types.js').ApplicantProfile} profile
+ * @param {import('../licenses/construction/eligibility/types.js').ApplicantProfile} profile
  * @returns {Document}
  */
 export function buildYoushiki25_14Document(profile) {
@@ -147,7 +147,7 @@ export function buildYoushiki25_14Document(profile) {
 
 /**
  * 経営規模等評価申請書・総合評定値請求書サマリーを .docx ファイルとして書き出す。
- * @param {import('../eligibility/types.js').ApplicantProfile} profile
+ * @param {import('../licenses/construction/eligibility/types.js').ApplicantProfile} profile
  * @param {string} outPath
  */
 export async function writeYoushiki25_14Docx(profile, outPath) {

@@ -22,7 +22,7 @@ import { escapeHtml } from "./htmlUtils.js";
 
 /**
  * インテイクフォームのHTMLページを返す。
- * @param {{ error?: string, profile?: import('../eligibility/types.js').ApplicantProfile, draftId?: string, savedNotice?: boolean }} [options]
+ * @param {{ error?: string, profile?: import('../licenses/construction/eligibility/types.js').ApplicantProfile, draftId?: string, savedNotice?: boolean }} [options]
  * @returns {string}
  */
 export function renderFormPage(options = {}) {
