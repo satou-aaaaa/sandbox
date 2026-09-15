@@ -45,7 +45,7 @@ function formatContractAmount(amount) {
 
 /**
  * 工期（着手年月〜完成年月）を表示用文字列に整形する。着手年月は任意。
- * @param {import('../eligibility/types.js').WorkRecordInput} record
+ * @param {import('../licenses/construction/eligibility/types.js').WorkRecordInput} record
  * @returns {string}
  */
 function formatConstructionPeriod(record) {
@@ -55,7 +55,7 @@ function formatConstructionPeriod(record) {
 
 /**
  * 配置技術者の氏名・別（主任技術者／監理技術者）を表示用文字列に整形する。
- * @param {import('../eligibility/types.js').WorkRecordInput} record
+ * @param {import('../licenses/construction/eligibility/types.js').WorkRecordInput} record
  * @returns {string}
  */
 function formatEngineer(record) {
@@ -69,7 +69,7 @@ function formatEngineer(record) {
  * 並べ替える。入力側（配列の並び順）には依存しない設計にすることで、
  * 入力順を気にせず追記できるようにしている。
  *
- * @param {import('../eligibility/types.js').ApplicantProfile} profile
+ * @param {import('../licenses/construction/eligibility/types.js').ApplicantProfile} profile
  * @returns {string[][]}
  */
 export function resolveYoushiki2Rows(profile) {
@@ -93,7 +93,7 @@ export function resolveYoushiki2Rows(profile) {
 
 /**
  * 工事経歴書サマリーの Document オブジェクトを組み立てる。
- * @param {import('../eligibility/types.js').ApplicantProfile} profile
+ * @param {import('../licenses/construction/eligibility/types.js').ApplicantProfile} profile
  * @returns {Document}
  */
 export function buildYoushiki2Document(profile) {
@@ -134,7 +134,7 @@ export function buildYoushiki2Document(profile) {
 
 /**
  * 工事経歴書サマリーを .docx ファイルとして書き出す。
- * @param {import('../eligibility/types.js').ApplicantProfile} profile
+ * @param {import('../licenses/construction/eligibility/types.js').ApplicantProfile} profile
  * @param {string} outPath
  */
 export async function writeYoushiki2Docx(profile, outPath) {

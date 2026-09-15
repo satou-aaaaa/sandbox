@@ -3,7 +3,7 @@
  *
  * 競合調査で識別した「AIによる記載ミス・添付漏れの自動チェック」を、
  * NFR-4（顧客データの外部送信禁止）を守った上でルールベースの静的チェックとして
- * 実現するモジュール。`src/eligibility/rules/*.js` の法定5要件判定とは明確に分離し、
+ * 実現するモジュール。`src/licenses/construction/eligibility/rules/*.js` の法定5要件判定とは明確に分離し、
  * ここで検出した内容は**合否判定に一切影響しない「気づき」情報**として扱う（FR-6.4）。
  *
  * 参照: docs/REQUIREMENTS.md §4.6（FR-6.1〜FR-6.4）、docs/DESIGN.md §5.16

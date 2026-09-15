@@ -1,7 +1,7 @@
 /**
  * 様式第二十号の二（誓約書）の自動生成モジュール。
  *
- * 要件4「欠格要件に該当しないこと」（src/eligibility/rules/kekkaku.js）の
+ * 要件4「欠格要件に該当しないこと」（src/licenses/construction/eligibility/rules/kekkaku.js）の
  * 判定結果をもとに、誓約書の記載内容サマリーを docx で出力する。
  *
  * 【重要】本モジュールが確認するのは、本ツールが要件判定に用いている
@@ -14,7 +14,7 @@
  * 国交省・都道府県が指定する正式様式に転記・整形すること。
  */
 import { Document } from "docx";
-import { checkKekkaku } from "../eligibility/rules/kekkaku.js";
+import { checkKekkaku } from "../licenses/construction/eligibility/rules/kekkaku.js";
 import {
   A4_PAGE_PROPERTIES,
   buildTitleHeading,
@@ -29,8 +29,8 @@ import {
  * ApplicantProfile から誓約書サマリーの基本情報行と、
  * 欠格要件の判定結果（RequirementCheckResult）を解決する。
  *
- * @param {import('../eligibility/types.js').ApplicantProfile} profile
- * @returns {{ rows: [string, string][], check: import('../eligibility/types.js').RequirementCheckResult }}
+ * @param {import('../licenses/construction/eligibility/types.js').ApplicantProfile} profile
+ * @returns {{ rows: [string, string][], check: import('../licenses/construction/eligibility/types.js').RequirementCheckResult }}
  */
 export function resolveYoushiki20_2Fields(profile) {
   const check = checkKekkaku(profile.kekkaku);
@@ -47,7 +47,7 @@ export function resolveYoushiki20_2Fields(profile) {
 
 /**
  * 誓約書サマリーの Document オブジェクトを組み立てる。
- * @param {import('../eligibility/types.js').ApplicantProfile} profile
+ * @param {import('../licenses/construction/eligibility/types.js').ApplicantProfile} profile
  * @returns {Document}
  */
 export function buildYoushiki20_2Document(profile) {
@@ -76,7 +76,7 @@ export function buildYoushiki20_2Document(profile) {
 
 /**
  * 誓約書サマリーを .docx ファイルとして書き出す。
- * @param {import('../eligibility/types.js').ApplicantProfile} profile
+ * @param {import('../licenses/construction/eligibility/types.js').ApplicantProfile} profile
  * @param {string} outPath
  */
 export async function writeYoushiki20_2Docx(profile, outPath) {

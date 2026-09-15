@@ -6,8 +6,8 @@ import { escapeHtml } from "./htmlUtils.js";
 
 /**
  * @param {Object} params
- * @param {import('../eligibility/types.js').ApplicantProfile} params.profile
- * @param {import('../eligibility/types.js').EligibilityResult} params.result
+ * @param {import('../licenses/construction/eligibility/types.js').ApplicantProfile} params.profile
+ * @param {import('../licenses/construction/eligibility/types.js').EligibilityResult} params.result
  * @param {string} params.report フォーマット済みテキストレポート（formatEligibilityReportの出力）
  * @param {{ label: string, filename: string }[]} params.files
  * @param {string} params.sessionId ダウンロードURLに使うセッションID

@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { evaluateEligibility } from "../src/eligibility/engine.js";
-import { registerPrefectureRules, getPrefectureRules, clearPrefectureRules } from "../src/eligibility/prefectureRules.js";
+import { evaluateEligibility } from "../src/licenses/construction/eligibility/engine.js";
+import { registerPrefectureRules, getPrefectureRules, clearPrefectureRules } from "../src/licenses/construction/eligibility/prefectureRules.js";
 import { buildSampleApplicantProfile } from "../scripts/sampleProfile.js";
 
 // 以降のテストは架空の都道府県名・架空の要件のみを使う。

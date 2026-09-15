@@ -1,8 +1,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { evaluateEligibility, formatEligibilityReport } from "../src/eligibility/engine.js";
+import { evaluateEligibility, formatEligibilityReport } from "../src/licenses/construction/eligibility/engine.js";
 
-/** @returns {import('../src/eligibility/types.js').ApplicantProfile} */
+/** @returns {import('../src/licenses/construction/eligibility/types.js').ApplicantProfile} */
 function baseProfile() {
   return {
     applicantName: "テスト建設株式会社",

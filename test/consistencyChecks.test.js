@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { checkConsistency } from "../src/eligibility/consistencyChecks.js";
+import { checkConsistency } from "../src/licenses/construction/eligibility/consistencyChecks.js";
 import { buildSampleApplicantProfile } from "../scripts/sampleProfile.js";
 
 /**

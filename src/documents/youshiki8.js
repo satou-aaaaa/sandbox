@@ -1,7 +1,7 @@
 /**
  * 様式第八号（専任技術者証明書）の自動生成モジュール。
  *
- * 要件2「営業所ごとの専任技術者の配置」（src/eligibility/rules/senninGijutsusha.js）の
+ * 要件2「営業所ごとの専任技術者の配置」（src/licenses/construction/eligibility/rules/senninGijutsusha.js）の
  * 判定結果を、営業所ごとに証明を受ける者の情報とあわせて確認用サマリーとして docx で出力する。
  * 判定ロジックは checkSenninGijutsushaForOffice を再利用し、独自に再実装しない。
  *
@@ -13,7 +13,7 @@
  * 国交省・都道府県が指定する正式様式に転記・整形すること。
  */
 import { Document } from "docx";
-import { checkSenninGijutsushaForOffice } from "../eligibility/rules/senninGijutsusha.js";
+import { checkSenninGijutsushaForOffice } from "../licenses/construction/eligibility/rules/senninGijutsusha.js";
 import {
   A4_PAGE_PROPERTIES,
   buildTitleHeading,
@@ -29,7 +29,7 @@ import {
  * ApplicantProfile から営業所ごとのセクション情報（基本情報行・判定結果）を解決する。
  * 営業所が1件も入力されていない場合は空配列を返す。
  *
- * @param {import('../eligibility/types.js').ApplicantProfile} profile
+ * @param {import('../licenses/construction/eligibility/types.js').ApplicantProfile} profile
  * @returns {{ officeName: string, rows: [string, string][], check: ReturnType<typeof checkSenninGijutsushaForOffice> }[]}
  */
 export function resolveYoushiki8Sections(profile) {
@@ -49,7 +49,7 @@ export function resolveYoushiki8Sections(profile) {
 
 /**
  * 専任技術者証明書サマリーの Document オブジェクトを組み立てる。
- * @param {import('../eligibility/types.js').ApplicantProfile} profile
+ * @param {import('../licenses/construction/eligibility/types.js').ApplicantProfile} profile
  * @returns {Document}
  */
 export function buildYoushiki8Document(profile) {
@@ -83,7 +83,7 @@ export function buildYoushiki8Document(profile) {
 
 /**
  * 専任技術者証明書サマリーを .docx ファイルとして書き出す。
- * @param {import('../eligibility/types.js').ApplicantProfile} profile
+ * @param {import('../licenses/construction/eligibility/types.js').ApplicantProfile} profile
  * @param {string} outPath
  */
 export async function writeYoushiki8Docx(profile, outPath) {

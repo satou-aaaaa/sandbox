@@ -47,7 +47,7 @@ function formatAmount(amount) {
  * ApplicantProfile.completedConstructionCost から完成工事原価報告書の
  * 表示行を解決する。未入力の場合は空配列を返す。
  *
- * @param {import('../eligibility/types.js').ApplicantProfile} profile
+ * @param {import('../licenses/construction/eligibility/types.js').ApplicantProfile} profile
  * @returns {[string, string][]}
  */
 export function resolveYoushiki16Rows(profile) {
@@ -72,7 +72,7 @@ export function resolveYoushiki16Rows(profile) {
 
 /**
  * 完成工事原価報告書サマリーの Document オブジェクトを組み立てる。
- * @param {import('../eligibility/types.js').ApplicantProfile} profile
+ * @param {import('../licenses/construction/eligibility/types.js').ApplicantProfile} profile
  * @returns {Document}
  */
 export function buildYoushiki16Document(profile) {
@@ -114,7 +114,7 @@ export function buildYoushiki16Document(profile) {
 
 /**
  * 完成工事原価報告書サマリーを .docx ファイルとして書き出す。
- * @param {import('../eligibility/types.js').ApplicantProfile} profile
+ * @param {import('../licenses/construction/eligibility/types.js').ApplicantProfile} profile
  * @param {string} outPath
  */
 export async function writeYoushiki16Docx(profile, outPath) {

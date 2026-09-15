@@ -22,7 +22,7 @@ import {
  * ApplicantProfile から役員一覧の表示行（役員1名につき3行のラベル・値）を解決する。
  * officers が未入力の場合は、その旨がわかる1件分のプレースホルダー行を返す。
  *
- * @param {import('../eligibility/types.js').ApplicantProfile} profile
+ * @param {import('../licenses/construction/eligibility/types.js').ApplicantProfile} profile
  * @returns {[string, string][]}
  */
 export function resolveYoushiki6Rows(profile) {
@@ -44,7 +44,7 @@ export function resolveYoushiki6Rows(profile) {
 
 /**
  * 役員等の一覧表サマリーの Document オブジェクトを組み立てる。
- * @param {import('../eligibility/types.js').ApplicantProfile} profile
+ * @param {import('../licenses/construction/eligibility/types.js').ApplicantProfile} profile
  * @returns {Document}
  */
 export function buildYoushiki6Document(profile) {
@@ -67,7 +67,7 @@ export function buildYoushiki6Document(profile) {
 
 /**
  * 役員等の一覧表サマリーを .docx ファイルとして書き出す。
- * @param {import('../eligibility/types.js').ApplicantProfile} profile
+ * @param {import('../licenses/construction/eligibility/types.js').ApplicantProfile} profile
  * @param {string} outPath
  */
 export async function writeYoushiki6Docx(profile, outPath) {

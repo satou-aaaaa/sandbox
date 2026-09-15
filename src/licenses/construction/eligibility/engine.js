@@ -5,6 +5,7 @@ import { checkKekkaku } from "./rules/kekkaku.js";
 import { checkSeijitsusei } from "./rules/seijitsusei.js";
 import { getPrefectureRules } from "./prefectureRules.js";
 import { checkConsistency } from "./consistencyChecks.js";
+import { aggregateEligibility, formatChecksSection } from "../../../core/eligibility/aggregate.js";
 
 /**
  * 建設業許可の法定5要件をまとめて判定する。
@@ -35,10 +36,7 @@ export function evaluateEligibility(profile) {
     checks.push(...prefectureCheckFn(profile));
   }
 
-  const eligible = checks.every((c) => c.passed);
-  const blockingIssues = checks
-    .filter((c) => !c.passed)
-    .map((c) => `[${c.label}] ${c.reasons.filter((r) => r).join(" / ")}`);
+  const { eligible, blockingIssues } = aggregateEligibility(checks);
 
   // 入力内容の整合性チェック（M7・FR-6.1〜FR-6.3）。合否判定（eligible/checks/blockingIssues）
   // には一切影響しない、追加のみの「気づき」情報として付与する（FR-6.4）。
@@ -59,12 +57,7 @@ export function formatEligibilityReport(profile, result) {
   lines.push("");
   lines.push(`総合判定: ${result.eligible ? "○ 5要件すべて充足（申請準備を進められます）" : "× 未充足の要件があります"}`);
   lines.push("");
-  for (const c of result.checks) {
-    lines.push(`## ${c.passed ? "○" : "×"} ${c.label}`);
-    for (const r of c.reasons) lines.push(`- ${r}`);
-    for (const w of c.warnings) lines.push(`  - ⚠ ${w}`);
-    lines.push("");
-  }
+  lines.push(...formatChecksSection(result.checks));
   if (!result.eligible) {
     lines.push("## 未充足の要因まとめ");
     for (const issue of result.blockingIssues) lines.push(`- ${issue}`);

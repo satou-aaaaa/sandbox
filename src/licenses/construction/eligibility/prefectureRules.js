@@ -4,8 +4,8 @@
  * 【重要】このファイル自体は特定の都道府県の実際の法的要件を一切含まない。
  * 対象都道府県が発注者側で確定し（docs/REQUIREMENTS.md 8章）、固有要件の
  * 内容が判明した時点で、`registerPrefectureRules()` を使って
- * `src/eligibility/prefectures/<都道府県名>.js` のような別モジュールとして
- * 追加すること。既存の共通5要件モジュール（`src/eligibility/rules/*.js`）は
+ * `src/licenses/construction/eligibility/prefectures/<都道府県名>.js` のような別モジュールとして
+ * 追加すること。既存の共通5要件モジュール（`src/licenses/construction/eligibility/rules/*.js`）は
  * 直接改変しない（docs/DESIGN.md §9「M6 複数都道府県対応」の方針を実装したもの）。
  *
  * ApplicantProfile には既に `prefecture`（都道府県名）フィールドがあるため

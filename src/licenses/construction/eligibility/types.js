@@ -140,27 +140,13 @@
  */
 
 /**
- * @typedef {Object} RequirementCheckResult 個別要件の判定結果
- * @property {string} key 要件のキー（例: "keieiGyomuKanri"）
- * @property {string} label 要件の日本語ラベル
- * @property {boolean} passed 要件を満たすか
- * @property {string[]} reasons 判定理由・根拠の説明（満たす場合も満たさない場合も記録する）
- * @property {string[]} warnings 要件は満たすが確認・追加書類が必要な点など
- */
-
-/**
- * @typedef {Object} EligibilityResult 総合判定結果
- * @property {boolean} eligible 5要件すべてを満たすか
- * @property {RequirementCheckResult[]} checks 要件ごとの判定結果一覧
- * @property {string[]} blockingIssues 許可取得の妨げになっている理由の一覧（eligible=falseのとき）
- * @property {ConsistencyWarning[]} consistencyWarnings 入力内容の整合性チェック（M7・FR-6.1〜6.3）の注記一覧。
- *   合否判定（eligible/checks/blockingIssues）には一切影響しない「気づき」情報（FR-6.4）
- */
-
-/**
- * @typedef {Object} ConsistencyWarning 入力内容の整合性チェック（ルールベース、M7）で検出した注記1件
- * @property {string} key 注記の種別キー（例: "representativeNameMismatch"）
- * @property {string} message 行政書士・申請者への確認を促すメッセージ（合否には影響しないことが分かる文言にする）
+ * @typedef {import('../../../core/eligibility/types.js').RequirementCheckResult} RequirementCheckResult
+ * @typedef {import('../../../core/eligibility/types.js').EligibilityResult} EligibilityResult
+ * @typedef {import('../../../core/eligibility/types.js').ConsistencyWarning} ConsistencyWarning
+ * これら3つの型は許可種別非依存のためsrc/core/eligibility/types.jsが唯一の
+ * 定義元（docs/DESIGN_kobutsu-core.md 4.1節）。ここではローカルエイリアスとして
+ * 再エクスポートし、本ファイル内・呼び出し元の既存の `import('./types.js')...`
+ * 参照を壊さないようにする。
  */
 
 export {};
