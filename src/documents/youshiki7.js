@@ -19,7 +19,7 @@ import {
   buildBulletList,
   orNotEntered,
   writeDocxFile,
-} from "./common.js";
+} from "../core/documents/common.js";
 
 /**
  * ApplicantProfile から様式第七号サマリーの基本情報行と、

@@ -10,7 +10,7 @@ import {
   buildHeaderedTable,
   buildBulletList,
   NOT_ENTERED,
-} from "../src/documents/common.js";
+} from "../src/core/documents/common.js";
 
 test("orNotEntered: 空文字列・null・undefinedは（未入力）になる", () => {
   assert.equal(orNotEntered(""), NOT_ENTERED);

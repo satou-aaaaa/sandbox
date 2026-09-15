@@ -21,7 +21,7 @@ import {
   buildLabeledTable,
   orNotEntered,
   writeDocxFile,
-} from "./common.js";
+} from "../core/documents/common.js";
 
 /**
  * ApplicantProfile から様式第一号サマリーの表示行（ラベル・値）を解決する。
