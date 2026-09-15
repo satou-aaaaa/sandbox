@@ -9,7 +9,7 @@
  *
  * 【M7: 複数許可対応（ADR-0008）】「クライアント（会社単位）」と
  * 「許可（1件単位）」を分離した `ClientRecord` / `LicenseEntry` モデルを扱う
- * （詳細は `../core/reminders/digest.js` の型定義・`docs/adr/0008-multi-license-client-model.md`
+ * （詳細は `./digest.js` の型定義・`docs/adr/0008-multi-license-client-model.md`
  * を参照）。旧形式（1クライアント＝1許可。トップレベルに `grantDateIso` を持つ）
  * の `data/clients.json` は `loadClients()` が読み込み時にその場で新形式へ
  * 変換する（lazy migration。専用の移行スクリプトは用意しない）。
@@ -29,7 +29,7 @@ const DEFAULT_LICENSE_ID = "既定";
  * 変換せずそのまま返す。
  *
  * @param {unknown} client
- * @returns {import('../core/reminders/digest.js').ClientRecord}
+ * @returns {import('./digest.js').ClientRecord}
  */
 function migrateClientIfNeeded(client) {
   if (
@@ -44,7 +44,25 @@ function migrateClientIfNeeded(client) {
       licenses: [{ licenseId: DEFAULT_LICENSE_ID, grantDateIso }],
     };
   }
-  return /** @type {import('../core/reminders/digest.js').ClientRecord} */ (client);
+  return /** @type {import('./digest.js').ClientRecord} */ (client);
+}
+
+/**
+ * 各許可の `licenseCategory` が未設定の場合、"construction" を補う
+ * （本開発以前に保存された既存データはすべて建設業許可であるため）。
+ * `migrateClientIfNeeded` とは独立したステップにすることで、「旧形式から
+ * 変換された場合」「既に新形式だった場合」の両方に漏れなく適用する
+ * （docs/DESIGN_kobutsu-core.md 5.4節の設計レビューで判明した、片方の
+ * 経路にしか適用されない実装ミスを避けるため）。
+ *
+ * @param {import('./digest.js').ClientRecord} client
+ * @returns {import('./digest.js').ClientRecord}
+ */
+function applyLicenseCategoryDefault(client) {
+  return {
+    ...client,
+    licenses: client.licenses.map((l) => ({ licenseCategory: "construction", ...l })),
+  };
 }
 
 /**
@@ -54,7 +72,7 @@ function migrateClientIfNeeded(client) {
  * 自動的に変換してから返す（FR-5.5・lazy migration）。
  *
  * @param {string} [filePath]
- * @returns {Promise<import('../core/reminders/digest.js').ClientRecord[]>}
+ * @returns {Promise<import('./digest.js').ClientRecord[]>}
  */
 export async function loadClients(filePath = DEFAULT_CLIENTS_PATH) {
   let text;
@@ -69,7 +87,7 @@ export async function loadClients(filePath = DEFAULT_CLIENTS_PATH) {
   if (!Array.isArray(data)) {
     throw new Error(`${filePath} の内容が配列ではありません`);
   }
-  return data.map(migrateClientIfNeeded);
+  return data.map(migrateClientIfNeeded).map(applyLicenseCategoryDefault);
 }
 
 /**
@@ -77,7 +95,7 @@ export async function loadClients(filePath = DEFAULT_CLIENTS_PATH) {
  * 存在しない場合は自動作成する。常に新形式（`ClientRecord`。`licenses` 配列）
  * で書き出す（旧形式では書き出さない）。
  *
- * @param {import('../core/reminders/digest.js').ClientRecord[]} clients
+ * @param {import('./digest.js').ClientRecord[]} clients
  * @param {string} [filePath]
  */
 export async function saveClients(clients, filePath = DEFAULT_CLIENTS_PATH) {
@@ -91,9 +109,9 @@ export async function saveClients(clients, filePath = DEFAULT_CLIENTS_PATH) {
  * 場合は `upsertClientLicense` を使うこと）。CSVの一括取込
  * （`scripts/import-clients-csv.js`）等、レコード全体が確定している場合に使う。
  *
- * @param {import('../core/reminders/digest.js').ClientRecord} record
+ * @param {import('./digest.js').ClientRecord} record
  * @param {string} [filePath]
- * @returns {Promise<import('../core/reminders/digest.js').ClientRecord[]>} 更新後の一覧
+ * @returns {Promise<import('./digest.js').ClientRecord[]>} 更新後の一覧
  */
 export async function upsertClient(record, filePath = DEFAULT_CLIENTS_PATH) {
   const clients = await loadClients(filePath);
@@ -122,10 +140,10 @@ export async function upsertClient(record, filePath = DEFAULT_CLIENTS_PATH) {
  * であれば未設定のままにする。
  *
  * @param {string} clientName
- * @param {import('../core/reminders/digest.js').LicenseEntry} license 追加・更新する許可
+ * @param {import('./digest.js').LicenseEntry} license 追加・更新する許可
  * @param {{ fiscalYearEndIso?: string, contactEmail?: string }} [companyInfo]
  * @param {string} [filePath]
- * @returns {Promise<import('../core/reminders/digest.js').ClientRecord[]>} 更新後の一覧
+ * @returns {Promise<import('./digest.js').ClientRecord[]>} 更新後の一覧
  */
 export async function upsertClientLicense(clientName, license, companyInfo = {}, filePath = DEFAULT_CLIENTS_PATH) {
   const clients = await loadClients(filePath);
@@ -143,7 +161,7 @@ export async function upsertClientLicense(clientName, license, companyInfo = {},
       client.licenses.push(license);
     }
   } else {
-    /** @type {import('../core/reminders/digest.js').ClientRecord} */
+    /** @type {import('./digest.js').ClientRecord} */
     const newClient = { clientName, licenses: [license] };
     if (companyInfo.fiscalYearEndIso !== undefined) newClient.fiscalYearEndIso = companyInfo.fiscalYearEndIso;
     if (companyInfo.contactEmail !== undefined) newClient.contactEmail = companyInfo.contactEmail;
@@ -159,7 +177,7 @@ export async function upsertClientLicense(clientName, license, companyInfo = {},
  * 数に関わらず、クライアント（会社）単位で丸ごと削除する。
  * @param {string} clientName
  * @param {string} [filePath]
- * @returns {Promise<import('../core/reminders/digest.js').ClientRecord[]>} 更新後の一覧
+ * @returns {Promise<import('./digest.js').ClientRecord[]>} 更新後の一覧
  */
 export async function removeClient(clientName, filePath = DEFAULT_CLIENTS_PATH) {
   const clients = await loadClients(filePath);

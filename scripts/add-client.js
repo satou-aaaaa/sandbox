@@ -18,7 +18,7 @@
  * 例（既存クライアントに2件目の許可を追加。会社単位の情報は省略すれば既存値を保持）:
  *   node scripts/add-client.js "サンプル建設" --license-id 特-とび土工工事業 --grant-date 2025-06-01 --license-type 特定
  */
-import { upsertClientLicense } from "../src/reminders/clientStore.js";
+import { upsertClientLicense } from "../src/core/reminders/clientStore.js";
 
 const USAGE = [
   '使い方: node scripts/add-client.js "<クライアント名>" --license-id <許可ID> --grant-date <許可年月日YYYY-MM-DD> ' +

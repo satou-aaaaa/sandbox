@@ -17,7 +17,15 @@
  * 全行で値を繰り返す。
  * @type {string[]}
  */
-const COLUMNS = ["clientName", "licenseId", "licenseType", "grantDateIso", "fiscalYearEndIso", "contactEmail"];
+const COLUMNS = [
+  "clientName",
+  "licenseId",
+  "licenseCategory",
+  "licenseType",
+  "grantDateIso",
+  "fiscalYearEndIso",
+  "contactEmail",
+];
 
 /** 旧形式CSV（licenseId列が無い）を読み込む際に割り当てる既定の許可ID。 */
 const DEFAULT_LICENSE_ID = "既定";
@@ -38,7 +46,7 @@ function escapeCsvField(value) {
 
 /**
  * クライアント一覧をCSV文字列に変換する（1行＝1許可）。
- * @param {import('../core/reminders/digest.js').ClientRecord[]} clients
+ * @param {import('./digest.js').ClientRecord[]} clients
  * @returns {string}
  */
 export function clientsToCsv(clients) {
@@ -49,6 +57,7 @@ export function clientsToCsv(clients) {
       const row = {
         clientName: client.clientName,
         licenseId: license.licenseId,
+        licenseCategory: license.licenseCategory,
         licenseType: license.licenseType,
         grantDateIso: license.grantDateIso,
         fiscalYearEndIso: client.fiscalYearEndIso,
@@ -119,24 +128,29 @@ function parseCsvRows(text) {
 /**
  * CSVテキストからクライアント一覧を読み込む。
  * ヘッダー行の列名でマッピングするため、列の並び順が変わっていても読み込める。
- * `clientName` または `grantDateIso` が空の行は不正なデータとみなしスキップする
- * （エラーで止めず、読み込めた分だけ返す方針。DESIGN.md 6章のエラー
- * ハンドリング方針を踏襲）。
+ * `clientName` が空の行は不正なデータとみなしスキップする（エラーで止めず、
+ * 読み込めた分だけ返す方針。DESIGN.md 6章のエラーハンドリング方針を踏襲）。
+ * `grantDateIso` は建設業許可（`licenseCategory: "construction"`）のみ必須と
+ * する。古物商許可等、`grantDateIso` を使わない許可種別の行まで一律で
+ * 弾いてしまわないようにするため（docs/DESIGN_kobutsu-core.md 5.5節参照。
+ * 以前はこの区別が無く、`grantDateIso` の無い行は許可種別に関わらず
+ * 全て読み捨てられていた）。
  *
  * 1行＝1許可の非正規化形式（ADR-0008）のため、同一 `clientName` の行は
  * 1つの `ClientRecord` にまとめ、各行を `licenses` の要素として集約する。
  * `licenseId` 列が無い（または空の）行は、後方互換のため `licenseId` を
- * "既定" として扱う（旧形式CSVの読み込み。FR-5.6）。
+ * "既定" として扱う（旧形式CSVの読み込み。FR-5.6）。`licenseCategory` 列が
+ * 無い（または空の）行は "construction" として扱う（後方互換）。
  *
  * @param {string} text
- * @returns {import('../core/reminders/digest.js').ClientRecord[]}
+ * @returns {import('./digest.js').ClientRecord[]}
  */
 export function clientsFromCsv(text) {
   const rows = parseCsvRows(text).filter((r) => !(r.length === 1 && r[0] === ""));
   if (rows.length === 0) return [];
 
   const [header, ...dataRows] = rows;
-  /** @type {Map<string, import('../core/reminders/digest.js').ClientRecord>} */
+  /** @type {Map<string, import('./digest.js').ClientRecord>} */
   const clientsByName = new Map();
   /** @type {string[]} clientNameの初出順を保持するため */
   const order = [];
@@ -148,7 +162,9 @@ export function clientsFromCsv(text) {
       const value = row[index];
       if (value) record[key] = value;
     });
-    if (!record.clientName || !record.grantDateIso) continue;
+    if (!record.clientName) continue;
+    const licenseCategory = record.licenseCategory || "construction";
+    if (licenseCategory === "construction" && !record.grantDateIso) continue;
 
     let client = clientsByName.get(record.clientName);
     if (!client) {
@@ -161,14 +177,15 @@ export function clientsFromCsv(text) {
       order.push(record.clientName);
     }
 
-    /** @type {import('../core/reminders/digest.js').LicenseEntry} */
+    /** @type {import('./digest.js').LicenseEntry} */
     const license = {
       licenseId: record.licenseId || DEFAULT_LICENSE_ID,
-      grantDateIso: record.grantDateIso,
+      licenseCategory,
     };
+    if (record.grantDateIso) license.grantDateIso = record.grantDateIso;
     if (record.licenseType) license.licenseType = /** @type {"一般" | "特定"} */ (record.licenseType);
     client.licenses.push(license);
   }
 
-  return order.map((name) => /** @type {import('../core/reminders/digest.js').ClientRecord} */ (clientsByName.get(name)));
+  return order.map((name) => /** @type {import('./digest.js').ClientRecord} */ (clientsByName.get(name)));
 }

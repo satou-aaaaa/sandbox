@@ -10,7 +10,7 @@ import {
   upsertClient,
   upsertClientLicense,
   removeClient,
-} from "../src/reminders/clientStore.js";
+} from "../src/core/reminders/clientStore.js";
 
 /** テスト用に一時ファイルパスを発行する。 */
 async function tempClientsPath() {
@@ -36,8 +36,8 @@ test("saveClients → loadClients の往復でデータが保持される（新�
         clientName: "テスト建設",
         fiscalYearEndIso: "2026-03-31",
         licenses: [
-          { licenseId: "般-建築工事業", grantDateIso: "2024-04-01" },
-          { licenseId: "特-とび土工工事業", licenseType: "特定", grantDateIso: "2025-06-01" },
+          { licenseId: "般-建築工事業", licenseCategory: "construction", grantDateIso: "2024-04-01" },
+          { licenseId: "特-とび土工工事業", licenseCategory: "construction", licenseType: "特定", grantDateIso: "2025-06-01" },
         ],
       },
     ];
@@ -65,17 +65,21 @@ test("loadClients: 旧形式（1クライアント＝1許可）を新形式へ�
     assert.equal(loaded[0].clientName, "テスト建設");
     assert.equal(loaded[0].fiscalYearEndIso, "2026-03-31");
     assert.equal(loaded[0].contactEmail, "a@example.com");
-    assert.deepEqual(loaded[0].licenses, [{ licenseId: "既定", grantDateIso: "2020-04-01" }]);
+    assert.deepEqual(loaded[0].licenses, [
+      { licenseCategory: "construction", licenseId: "既定", grantDateIso: "2020-04-01" },
+    ]);
     assert.equal("grantDateIso" in loaded[0], false); // トップレベルの旧フィールドは残らない
 
     assert.equal(loaded[1].clientName, "シンプル工業");
-    assert.deepEqual(loaded[1].licenses, [{ licenseId: "既定", grantDateIso: "2021-01-01" }]);
+    assert.deepEqual(loaded[1].licenses, [
+      { licenseCategory: "construction", licenseId: "既定", grantDateIso: "2021-01-01" },
+    ]);
   } finally {
     await fs.rm(dir, { recursive: true, force: true });
   }
 });
 
-test("loadClients: 既に新形式（licenses配列あり）の要素は変換せずそのまま返す", async () => {
+test("loadClients: 既に新形式（licenses配列あり）の要素は形式変換をせず、licenseCategoryの補完のみ行う", async () => {
   const { filePath, dir } = await tempClientsPath();
   try {
     const newShape = [{ clientName: "テスト建設", licenses: [{ licenseId: "既定", grantDateIso: "2020-04-01" }] }];
@@ -83,7 +87,12 @@ test("loadClients: 既に新形式（licenses配列あり）の要素は変換�
     await fs.writeFile(filePath, JSON.stringify(newShape, null, 2), "utf8");
 
     const loaded = await loadClients(filePath);
-    assert.deepEqual(loaded, newShape);
+    assert.deepEqual(loaded, [
+      {
+        clientName: "テスト建設",
+        licenses: [{ licenseCategory: "construction", licenseId: "既定", grantDateIso: "2020-04-01" }],
+      },
+    ]);
   } finally {
     await fs.rm(dir, { recursive: true, force: true });
   }
