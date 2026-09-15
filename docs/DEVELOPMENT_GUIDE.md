@@ -31,7 +31,7 @@ cd kensetsu-kyoka-toolkit   # または実際のディレクトリ名
 npm install
 npm run typecheck           # JSDocの型チェック（tsc --noEmit。ビルドは行わない）
 npm run lint                # ESLintによる静的チェック
-npm test                    # 全テスト（現時点で200件）が成功することを確認
+npm test                    # 全テスト（現時点で260件）が成功することを確認
 npm run gen:eligibility     # 要件判定のサンプル実行
 npm run gen:youshiki1       # 様式第一号サマリーのdocx生成サンプル
 npm run web                 # インテイク用Webフォームを起動（任意）
@@ -72,10 +72,10 @@ Microsoft Word、LibreOffice Writer等で開いて内容を確認すること。
   ADR-0007で導入済みで、これはビルドステップではない（`npm run typecheck`）。
 - 新しい公開関数・型には必ずJSDocコメントを付与する
   （`@param` / `@returns` / 型定義の `@typedef` を含む）。既存ファイル
-  （`src/eligibility/rules/*.js` 等）のコメントスタイルを参考にすること。
+  （`src/licenses/construction/eligibility/rules/*.js` 等）のコメントスタイルを参考にすること。
   `npm run typecheck` がCIで実行されるため、型注釈が不正確だとCIが失敗する。
 - import/exportは常にESM構文（`import`/`export`）を使う。`require` は使わない
-  （`src/documents/youshiki1.js` の `writeYoushiki1Docx` 内のように、
+  （`src/licenses/construction/documents/youshiki1.js` の `writeYoushiki1Docx` 内のように、
   Node組み込みモジュールを動的import `await import("node:fs/promises")`
   する形は許容される既存パターン）。
 
@@ -88,17 +88,17 @@ Microsoft Word、LibreOffice Writer等で開いて内容を確認すること。
 
 - 判定ロジック・期限計算ロジックを新規実装・変更する場合、根拠となる
   法令・公式情報源（国交省ページ等）のURLをファイル冒頭のコメントに記載する
-  （既存の `src/eligibility/rules/*.js` の慣習を踏襲）。
+  （既存の `src/licenses/<種別>/eligibility/*.js` の慣習を踏襲）。
 
 ### 2.4 ファイル構成のパターン
 
-- 「1要件・1機能＝1ファイル」の粒度を維持する（`src/eligibility/rules/` のように）。
+- 「1要件・1機能＝1ファイル」の粒度を維持する（`src/licenses/construction/eligibility/rules/` のように）。
 - 様式生成モジュールを追加する場合は `docs/DESIGN.md` 5.8.1節の
   命名規則・関数構成（`build<様式名>Document` / `write<様式名>Docx`）に従う。
 
 ### 2.5 データ型の扱い
 
-- 申請者データの型は `src/eligibility/types.js` を唯一の情報源とする。
+- 申請者データの型は各許可種別の `eligibility/types.js`（建設業許可は `src/licenses/construction/eligibility/types.js`）を唯一の情報源とする。
   同じ意味のデータに対して別モジュールで別の型を新設しない。
   型を拡張する場合はこのファイルに追記する。
 
@@ -165,7 +165,14 @@ Microsoft Word、LibreOffice Writer等で開いて内容を確認すること。
   ブラウザ側JavaScriptをjsdomで実行するテストを追加。さらに`npm run test:coverage`
   の残り分岐（`formatEligibilityReport`・リマインド区分表示・エラーレスポンス系
   ルート等）も洗い出して追加した。138件→200件、分岐網羅率は約88%→約92%。
-  詳細は`docs/DESIGN.md` 7章）。
+  詳細は`docs/DESIGN.md` 7章）。M11（許認可自動化コア抽出＋古物商許可
+  モジュール）も完了し、建設業許可専用だった実装を「許可種別非依存の
+  共通コア（`src/core/`）＋許可種別ごとのアドオン（`src/licenses/<種別>/`）」
+  に整理した上で、第2のパイロットとして古物商許可（欠格事由・営業所/管理者
+  要件の判定、許可申請書・誓約書・略歴書のdocx生成、変更届・書換申請
+  リマインド）を新規実装した（`docs/DESIGN_kobutsu-core.md`・
+  `docs/REQUIREMENTS_kobutsu-core.md`）。個人申請のみが対象で、法人申請・
+  Webフォーム対応・整合性チェックは引き続き対象外。200件→260件。
 - 対象都道府県・対象様式の詳細（レイアウト・記載要領）が発注者側で未確定の場合、
   着手前に発注者へ確認すること（`docs/REQUIREMENTS.md` 8章の前提条件を参照）。
 - 実装方針で `docs/DESIGN.md` に明記されていない判断が必要になった場合
@@ -210,7 +217,9 @@ Microsoft Word、LibreOffice Writer等で開いて内容を確認すること。
 | `docs/PROPOSAL.md` | ビジネス背景・開発ロードマップ（発注者向け提案書） |
 | `docs/ARCHITECTURE.md` | アーキテクチャ方針の要約 |
 | `docs/REQUIREMENTS.md` | 要件定義書 |
-| `docs/DESIGN.md` | 技術設計書（モジュール詳細設計を含む） |
+| `docs/DESIGN.md` | 技術設計書（モジュール詳細設計を含む。建設業許可分） |
+| `docs/REQUIREMENTS_kobutsu-core.md` | 要件定義書（許認可自動化コア抽出＋古物商許可モジュール分） |
+| `docs/DESIGN_kobutsu-core.md` | 技術設計書（同上） |
 | `docs/DEVELOPMENT_GUIDE.md` | 本書 |
 | `docs/BEST_PRACTICES_AUDIT.md` | セキュリティ・CI・リポジトリ運用のベストプラクティス棚卸し |
 | `docs/adr/` | アーキテクチャ決定記録（ADR）。重要な設計判断の背景 |
