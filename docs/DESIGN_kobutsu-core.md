@@ -822,15 +822,26 @@ CLIスクリプト（`scripts/generate-kobutsu-*.js` 等、新規追加分）・
 コア抽出は「一気に書き換える」のではなく、各ステップの後に必ず
 既存テストを全通過させながら小さく進める。
 
-| ステップ | 内容 | 完了条件 |
-|---|---|---|
-| Step 0 | 現状の `npm test`（200件）を実行し、ベースラインとして記録する | 全通過 |
-| Step 1 | `src/core/documents/common.js` へ `src/documents/common.js` を移動し、既存様式8ファイルのimportパスのみ変更する | `npm test` 全通過（PRを分けて確認） |
-| Step 2 | `src/core/eligibility/aggregate.js` を新設し、`engine.js` の集約部分を差し替える。`src/licenses/construction/eligibility/` へ既存の要件判定一式を移動する | `npm test` 全通過 |
-| Step 3 | `src/core/reminders/scheduleTypes.js`・`src/core/reminders/dateUtils.js`（`daysUntil`の実体）を新設し、`src/licenses/construction/index.js` を追加。`reminderDigest.js` → `src/core/reminders/digest.js` へ移動し、内部ループをプラグイン呼び出しに変更する。`renewalSchedule.js` は`daysUntil`をdateUtils.jsから再エクスポートする形に変更する。既存CLIスクリプト・`src/web/server.js` の起動時に `registerConstructionLicense()` 呼び出しを追加する | `npm test` 全通過。`npm run gen:reminder-digest` の出力がStep 0と一致することを目視確認 |
-| Step 4 | `clientStore.js`・`clientCsv.js` を `src/core/reminders/` へ移動し、`licenseCategory` のデフォルト補完・CSV列追加を行う（5.4節・5.5節の注意点を反映すること） | `npm test` 全通過。既存の `data/clients.json`（旧形式サンプル）を読み込ませ、全許可に `licenseCategory: "construction"` が補われることを確認。古物商許可（`grantDateIso` を持たない）のダミーCSV行を作成し、`clientsFromCsv()` が黙って読み捨てずに正しく取り込めることを確認 |
-| Step 5 | 古物商許可モジュール（要件判定 → 書類生成 → リマインド の順）を新規実装する。既存プロジェクトのM1→M2→M4の順序を踏襲 | 各モジュール追加ごとにユニットテストを追加し全通過 |
-| Step 6 | README・`docs/ARCHITECTURE.md`・本設計書の「実装後の実態」欄を更新する | 受け入れ基準5・6（要件定義書6章）を満たす |
+| ステップ | 内容 | 完了条件 | 状態 |
+|---|---|---|---|
+| Step 0 | 現状の `npm test`（200件）を実行し、ベースラインとして記録する | 全通過 | ✅ 完了 |
+| Step 1 | `src/core/documents/common.js` へ `src/documents/common.js` を移動し、既存様式8ファイルのimportパスのみ変更する | `npm test` 全通過（PRを分けて確認） | ✅ 完了（[PR #32]） |
+| Step 2 | `src/core/eligibility/aggregate.js` を新設し、`engine.js` の集約部分を差し替える。`src/licenses/construction/eligibility/` へ既存の要件判定一式を移動する | `npm test` 全通過 | ✅ 完了（[PR #33]） |
+| Step 3 | `src/core/reminders/scheduleTypes.js`・`src/core/reminders/dateUtils.js`（`daysUntil`の実体）を新設し、`src/licenses/construction/index.js` を追加。`reminderDigest.js` → `src/core/reminders/digest.js` へ移動し、内部ループをプラグイン呼び出しに変更する。`renewalSchedule.js` は`daysUntil`をdateUtils.jsから再エクスポートする形に変更する。既存CLIスクリプト・`src/web/server.js` の起動時に `registerConstructionLicense()` 呼び出しを追加する | `npm test` 全通過。`npm run gen:reminder-digest` の出力がStep 0と一致することを目視確認 | ✅ 完了（[PR #34]） |
+| Step 4 | `clientStore.js`・`clientCsv.js` を `src/core/reminders/` へ移動し、`licenseCategory` のデフォルト補完・CSV列追加を行う（5.4節・5.5節の注意点を反映すること） | `npm test` 全通過。既存の `data/clients.json`（旧形式サンプル）を読み込ませ、全許可に `licenseCategory: "construction"` が補われることを確認。古物商許可（`grantDateIso` を持たない）のダミーCSV行を作成し、`clientsFromCsv()` が黙って読み捨てずに正しく取り込めることを確認 | ✅ 完了（[PR #35]） |
+| Step 5 | 古物商許可モジュール（要件判定 → 書類生成 → リマインド の順）を新規実装する。既存プロジェクトのM1→M2→M4の順序を踏襲 | 各モジュール追加ごとにユニットテストを追加し全通過 | ✅ 完了（[PR #36]） |
+| Step 6 | README・`docs/ARCHITECTURE.md`・本設計書の「実装後の実態」欄を更新する | 受け入れ基準5・6（要件定義書6章）を満たす | ✅ 完了（本PR） |
+
+[PR #32]: https://github.com/satou-aaaaa/sandbox/pull/32
+[PR #33]: https://github.com/satou-aaaaa/sandbox/pull/33
+[PR #34]: https://github.com/satou-aaaaa/sandbox/pull/34
+[PR #35]: https://github.com/satou-aaaaa/sandbox/pull/35
+[PR #36]: https://github.com/satou-aaaaa/sandbox/pull/36
+
+実装時にStep 5で判明した、本書のサンプルコードからの小さな差分:
+- `eigyosho.js`: 営業所リストが空配列の場合に不合格として明示的なメッセージを
+  返すガード節を追加した（建設業許可の`senninGijutsusha.js`と同じ既存パターンを
+  踏襲。設計書のサンプルコードには無かったが、動作としては後方互換）
 
 各ステップは独立したPRとして分割することを推奨する（既存の
 `DEVELOPMENT_GUIDE.md` 3.2節「機能追加・修正は作業用ブランチを切って

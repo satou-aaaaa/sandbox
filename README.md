@@ -35,14 +35,22 @@
   十四の総括表サマリーをdocxで自動生成（`npm run gen:youshiki25-14`）。経審は
   新規許可申請とは別の手続きのため、上記の7様式一括生成には含めていない。
   経審の評点計算・別紙一〜三・財務諸表は対象外（ADR-0009）
+- **古物商許可モジュール（M11）**: 建設業許可専用だった実装を「許可種別非依存の
+  共通コア（`src/core/`）＋許可種別ごとのアドオン（`src/licenses/<種別>/`）」に
+  整理した上で、第2のパイロットとして新規実装。欠格事由（古物営業法第4条）・
+  営業所/管理者要件（第13条）の判定、許可申請書・誓約書・略歴書のdocx生成、
+  変更届・書換申請・許可証返納のリマインドに対応（CLI/スクリプト操作のみ。
+  法人申請・Webフォーム対応は対象外。詳細は`docs/DESIGN_kobutsu-core.md`）
 
 詳細な設計方針は [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) を参照。
 
 外部の開発者にソフトウェア開発を委託する場合は、以下のドキュメント一式を参照すること。
 
 - [`docs/PROPOSAL.md`](docs/PROPOSAL.md) — ビジネス背景・開発ロードマップ
-- [`docs/REQUIREMENTS.md`](docs/REQUIREMENTS.md) — 要件定義書
-- [`docs/DESIGN.md`](docs/DESIGN.md) — 技術設計書（モジュール詳細設計を含む）
+- [`docs/REQUIREMENTS.md`](docs/REQUIREMENTS.md) — 要件定義書（建設業許可分）
+- [`docs/DESIGN.md`](docs/DESIGN.md) — 技術設計書（建設業許可分。モジュール詳細設計を含む）
+- [`docs/REQUIREMENTS_kobutsu-core.md`](docs/REQUIREMENTS_kobutsu-core.md) — 要件定義書（許認可自動化コア抽出＋古物商許可モジュール分）
+- [`docs/DESIGN_kobutsu-core.md`](docs/DESIGN_kobutsu-core.md) — 技術設計書（同上）
 - [`docs/DEVELOPMENT_GUIDE.md`](docs/DEVELOPMENT_GUIDE.md) — 開発環境構築・コーディング規約・Git運用ガイド
 - [`docs/BEST_PRACTICES_AUDIT.md`](docs/BEST_PRACTICES_AUDIT.md) — セキュリティ・CI・リポジトリ運用の棚卸しと今後の推奨事項
 - [`docs/adr/`](docs/adr/) — アーキテクチャ決定記録（重要な設計判断の背景）
@@ -66,6 +74,10 @@ npm run gen:youshiki16      # 様式第十六号の一部（完成工事原価�
 npm run gen:youshiki20-2    # 様式第二十号の二サマリーのdocx生成サンプル
 npm run gen:youshiki25-14   # 様式第二十五号の十四（経審の総括表）サマリーのdocx生成サンプル（新規許可申請とは別の任意機能）
 npm run gen:reminder-digest # 複数クライアントのリマインド・ダイジェスト出力サンプル（ダミーデータ）
+npm run gen:kobutsu-eligibility  # 古物商許可の要件判定サンプル実行
+npm run gen:kobutsu-shinseisho   # 古物商許可申請書サマリーのdocx生成サンプル
+npm run gen:kobutsu-seiyakusho   # 誓約書サマリーのdocx生成サンプル
+npm run gen:kobutsu-rirekisho    # 略歴書サマリーのdocx生成サンプル
 ```
 
 ### 実クライアントのリマインドを管理する
@@ -108,10 +120,15 @@ npm run web
 
 ```
 src/
-  eligibility/   要件判定エンジン（法定5要件＋都道府県固有ルール合成の仕組み）
-  documents/     書類自動生成（様式第一号・六号・七号・八号・二十号の二 + 共通ヘルパー）
-  reminders/     更新・提出期限のリマインド計算＋複数クライアントのダイジェスト・CSV変換
-  web/           インテイク用の簡易Webフォーム（下書き保存含む。ローカルホストのみ）
+  core/                    許可種別に依存しない共通コア（要件判定の集約・docx共通ヘルパー・
+                           リマインドのスケジュール方式レジストリ・クライアント永続化/CSV変換）
+  licenses/
+    construction/          建設業許可アドオン（法定5要件・都道府県固有ルール合成・8様式のdocx生成・
+                           5年更新リマインド）
+    kobutsu/               古物商許可アドオン（欠格事由・営業所/管理者要件・3様式のdocx生成・
+                           変更届/書換申請リマインド）
+  web/                     インテイク用の簡易Webフォーム（建設業許可のみ。下書き保存含む。
+                           ローカルホストのみ）
 test/            node --test で実行するユニットテスト
 scripts/         動作確認用サンプルスクリプト
 docs/            設計方針・アーキテクチャドキュメント
@@ -121,7 +138,7 @@ docs/            設計方針・アーキテクチャドキュメント
 
 - [ ] 実際に活動する都道府県のJCIP対応状況・gBizID要件を確認
 - [ ] 対象都道府県の正式様式レイアウト・記載要領を入手し、正式様式に準拠した出力への拡張を検討（M6）
-- [ ] 対象都道府県が確定次第、`src/eligibility/prefectureRules.js` に固有要件を
+- [ ] 対象都道府県が確定次第、`src/licenses/construction/eligibility/prefectureRules.js` に固有要件を
       登録する（合成の仕組み自体はM6の土台として実装済み。`docs/adr/0005-*.md`）
 - [ ] JCIP連携は行政書士登録・対象都道府県確定・仕様書本文の精査が揃うまで着手しない
       （公式ページの所在は調査済み。`docs/adr/0006-*.md`）

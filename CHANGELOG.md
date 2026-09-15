@@ -6,6 +6,36 @@
 日付単位のリリースではなく `docs/PROPOSAL.md` のマイルストーン（M1〜）を
 単位として記録する。
 
+## M11: 許認可自動化コア抽出＋古物商許可モジュール（完了）
+
+建設業許可専用だった実装（`src/eligibility/`・`src/documents/`・
+`src/reminders/`）を「許可種別非依存の共通コア（`src/core/`）＋許可種別
+ごとの薄いアドオン（`src/licenses/<種別>/`）」という構造に整理する
+リファクタリングと、その基盤の汎用性を検証する第2のパイロットとして
+「古物商許可」モジュールの新規実装を行った（`docs/DESIGN_kobutsu-core.md`・
+`docs/REQUIREMENTS_kobutsu-core.md`）。実装はStep 0〜6に分割し、各Stepで
+既存の`npm test`を全通過させながら段階的に進めた（PR #32〜#37）。
+
+- コア抽出: `src/core/eligibility/`（判定結果集約ロジック・共通型）、
+  `src/core/documents/common.js`（docx共通ヘルパー）、
+  `src/core/reminders/`（スケジュール方式のレジストリ・日数計算・
+  リマインド集計・クライアント永続化・CSV変換）を新設。既存の建設業許可
+  機能一式を`src/licenses/construction/`へ移動し、コア経由で動作するよう
+  リファクタリング（公開関数の入出力・生成される書類の内容・CLI出力は
+  一切変更なし）
+- `LicenseEntry`に`licenseCategory`（省略時"construction"）を追加。
+  CSVインポートの`grantDateIso`必須チェックを建設業許可のみに限定する
+  修正も合わせて実施（設計レビューで判明した見落としの解消）
+- 古物商許可モジュール（`src/licenses/kobutsu/`）を新規実装:
+  欠格事由（古物営業法第4条。2026年9月にe-Gov法令検索の原文で確認済み）・
+  営業所/管理者要件（第13条）の判定、許可申請書・誓約書・略歴書の
+  docxサマリー生成、変更届（3日以内）・書換申請（14日以内）・
+  許可証返納（10日以内）のリマインド計算
+- 個人申請のみが対象（法人申請・Webフォーム対応・整合性チェックは
+  対象外。`docs/REQUIREMENTS_kobutsu-core.md` 4.6節・9章参照）
+- `npm test` 200件→260件全通過。`docs/ARCHITECTURE.md`・`README.md`・
+  `docs/PROPOSAL.md`をコア抽出後の構成に合わせて更新
+
 ## テストの分岐網羅率強化（2026年9月）
 
 コードレビューで見つかった過去の実バグ（工事経歴未収集、複数許可リマインド
