@@ -78,6 +78,21 @@ test("経営業務管理体制: ルートD（複合要件）でも合格でき�
   assert.equal(check.passed, true);
 });
 
+test("経営業務管理体制: assistantSupportYearsが未入力(undefined)でもルートAの判定はエラーにならない（||の分岐網羅）", () => {
+  const profile = baseProfile();
+  profile.keieiGyomuKanri = {
+    yearsAsResponsibleOfficer: 5,
+    yearsAsQuasiResponsibleOfficer: 0,
+    yearsAsAssistant: 0,
+    isOfficerFor2Years: false,
+    hasSocialInsurance: true,
+    // assistantSupportYears を意図的に省略
+  };
+  const result = evaluateEligibility(profile);
+  const check = result.checks.find((c) => c.key === "keieiGyomuKanri");
+  assert.equal(check.passed, true); // ルートA（5年以上）で合格するはず
+});
+
 test("専任技術者: 実務経験10年ルートで合格できる", () => {
   const profile = baseProfile();
   profile.senninGijutsushaList = [

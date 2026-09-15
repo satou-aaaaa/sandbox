@@ -42,6 +42,22 @@ test("様式第一号: docxファイルを生成できる", async () => {
   await assertWrittenDocx(writeYoushiki1Docx, buildSampleApplicantProfile());
 });
 
+test("様式第一号: zaisanKisoが未入力でも一般建設業として表示する（オプショナルチェーンの分岐網羅）", () => {
+  const profile = buildSampleApplicantProfile();
+  profile.zaisanKiso = undefined;
+  const rows = resolveYoushiki1Rows(profile);
+  const map = Object.fromEntries(rows);
+  assert.equal(map["許可の種類"], "一般建設業");
+});
+
+test("様式第一号: zaisanKiso.licenseTypeが「特定」なら特定建設業として表示する（三項演算子の分岐網羅）", () => {
+  const profile = buildSampleApplicantProfile();
+  profile.zaisanKiso.licenseType = "特定";
+  const rows = resolveYoushiki1Rows(profile);
+  const map = Object.fromEntries(rows);
+  assert.equal(map["許可の種類"], "特定建設業");
+});
+
 test("様式第二号: 工事経歴が未入力なら空配列を返す", () => {
   const profile = buildSampleApplicantProfile();
   profile.constructionHistory = [];
@@ -84,6 +100,46 @@ test("様式第二号: docxファイルを生成できる", async () => {
   await assertWrittenDocx(writeYoushiki2Docx, buildSampleApplicantProfile());
 });
 
+test("様式第二号: constructionHistoryが未入力(undefined)でも空配列を返す（??の分岐網羅）", () => {
+  const profile = buildSampleApplicantProfile();
+  profile.constructionHistory = undefined;
+  const rows = resolveYoushiki2Rows(profile);
+  assert.equal(rows.length, 0);
+});
+
+test("様式第二号: 配置技術者名はあるが別（主任/監理）が未入力なら氏名のみ表示する", () => {
+  const profile = buildSampleApplicantProfile();
+  profile.constructionHistory = [
+    {
+      constructionType: "建築工事業",
+      isSubcontract: false,
+      orderer: "A社",
+      projectName: "工事A",
+      contractAmount: 1_000_000,
+      completionDateIso: "2025-01",
+      assignedEngineerName: "田中 次郎",
+    },
+  ];
+  const rows = resolveYoushiki2Rows(profile);
+  assert.equal(rows[0][6], "田中 次郎");
+});
+
+test("様式第二号: 請負代金の額が数値でなければ（未入力）と表示する", () => {
+  const profile = buildSampleApplicantProfile();
+  profile.constructionHistory = [
+    {
+      constructionType: "建築工事業",
+      isSubcontract: false,
+      orderer: "A社",
+      projectName: "工事A",
+      contractAmount: NaN,
+      completionDateIso: "2025-01",
+    },
+  ];
+  const rows = resolveYoushiki2Rows(profile);
+  assert.equal(rows[0][4], "（未入力）");
+});
+
 test("様式第二号: 工事経歴が未入力でもdocxファイルを生成できる", async () => {
   const profile = buildSampleApplicantProfile();
   profile.constructionHistory = [];
@@ -110,6 +166,14 @@ test("様式第六号: 役員1名分の氏名・役名・生年月日が未入�
 
 test("様式第六号: docxファイルを生成できる", async () => {
   await assertWrittenDocx(writeYoushiki6Docx, buildSampleApplicantProfile());
+});
+
+test("様式第六号: officersが未入力(undefined)でも未入力である旨の行を返す（??の分岐網羅）", () => {
+  const profile = buildSampleApplicantProfile();
+  profile.officers = undefined;
+  const rows = resolveYoushiki6Rows(profile);
+  assert.equal(rows.length, 1);
+  assert.match(rows[0][1], /未入力/);
 });
 
 test("様式第七号: 証明を受ける者の氏名が未入力なら（未入力）になる", () => {
@@ -167,6 +231,13 @@ test("様式第八号: 特定建設業で指導監督的実務経験が不足し
 
 test("様式第八号: docxファイルを生成できる", async () => {
   await assertWrittenDocx(writeYoushiki8Docx, buildSampleApplicantProfile());
+});
+
+test("様式第八号: senninGijutsushaListが未入力(undefined)でも空配列を返す（??の分岐網羅）", () => {
+  const profile = buildSampleApplicantProfile();
+  profile.senninGijutsushaList = undefined;
+  const sections = resolveYoushiki8Sections(profile);
+  assert.equal(sections.length, 0);
 });
 
 test("様式第八号: 営業所が未入力でもdocxファイルを生成できる", async () => {
@@ -235,6 +306,35 @@ test("様式第二十五号の十四: 技術職員数は専任技術者一覧の
   assert.equal(map["技術職員数（専任技術者一覧からの参考値）"], "2名");
 });
 
+test("様式第二十五号の十四: senninGijutsushaListが未入力(undefined)なら技術職員数は0名になる（??の分岐網羅）", () => {
+  const profile = buildSampleApplicantProfile();
+  profile.senninGijutsushaList = undefined;
+  const rows = resolveYoushiki25_14Rows(profile);
+  const map = Object.fromEntries(rows);
+  assert.equal(map["技術職員数（専任技術者一覧からの参考値）"], "0名");
+});
+
+test("様式第二十五号の十四: constructionTypesが未入力(undefined)または空配列なら（未入力）と表示する", () => {
+  const profile = buildSampleApplicantProfile();
+  profile.constructionTypes = undefined;
+  let rows = resolveYoushiki25_14Rows(profile);
+  let map = Object.fromEntries(rows);
+  assert.equal(map["経審対象の建設業の種類"], "（未入力）");
+
+  profile.constructionTypes = [];
+  rows = resolveYoushiki25_14Rows(profile);
+  map = Object.fromEntries(rows);
+  assert.equal(map["経審対象の建設業の種類"], "（未入力）");
+});
+
+test("様式第二十五号の十四: 許可行政庁の種別（知事/大臣）が未入力なら許可番号等の行は（未入力）を含む形になる", () => {
+  const profile = buildSampleApplicantProfile();
+  profile.keishinRequest.licenseAuthorityType = undefined;
+  const rows = resolveYoushiki25_14Rows(profile);
+  const map = Object.fromEntries(rows);
+  assert.match(map["許可番号・許可年月日・許可行政庁"], /^（未入力）/);
+});
+
 test("様式第二十五号の十四: docxファイルを生成できる", async () => {
   await assertWrittenDocx(writeYoushiki25_14Docx, buildSampleApplicantProfile());
 });
@@ -285,6 +385,35 @@ test("様式第十六号の一部: 労務外注費・人件費の内訳が入力
   const map = Object.fromEntries(rows);
   assert.equal(map["（うち）労務外注費"], "2,000,000円");
   assert.equal(map["（うち）人件費"], "1,200,000円");
+});
+
+test("様式第十六号の一部: 材料費・労務費・外注費・経費のいずれか1つだけが未入力でも、その項目を0円として合計を計算する（||の分岐網羅・4項目個別）", () => {
+  const profile = buildSampleApplicantProfile();
+  const baseValues = { materialCost: 1_000_000, laborCost: 2_000_000, subcontractCost: 3_000_000, expenses: 4_000_000 };
+  const total = Object.values(baseValues).reduce((a, b) => a + b, 0);
+  for (const missingField of Object.keys(baseValues)) {
+    const cost = { ...baseValues };
+    delete cost[missingField];
+    profile.completedConstructionCost = cost;
+    const rows = resolveYoushiki16Rows(profile);
+    const map = Object.fromEntries(rows);
+    // 未入力にした項目だけ0円扱いになり、その分を差し引いた合計になるはず。
+    const expectedTotal = total - baseValues[missingField];
+    assert.equal(map["完成工事原価（合計）"], `${expectedTotal.toLocaleString("ja-JP")}円`, `missingField=${missingField}`);
+  }
+});
+
+test("様式第十六号の一部: 金額が数値でなければ（未入力）と表示する", () => {
+  const profile = buildSampleApplicantProfile();
+  profile.completedConstructionCost = {
+    materialCost: NaN,
+    laborCost: 2_000_000,
+    subcontractCost: 3_000_000,
+    expenses: 4_000_000,
+  };
+  const rows = resolveYoushiki16Rows(profile);
+  const map = Object.fromEntries(rows);
+  assert.equal(map["材料費"], "（未入力）");
 });
 
 test("様式第十六号の一部: docxファイルを生成できる", async () => {

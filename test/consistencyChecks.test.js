@@ -60,6 +60,39 @@ test("FR-6.2: しきい値（80年）ちょうどは警告なし、81年は警�
   assert.equal(warnings.filter((w) => w.key === "keieiGyomuKanri.yearsAsResponsibleOfficer").length, 1);
 });
 
+test("FR-6.2: 実務経験年数がNaNなら入力ミスとして扱わない（数値以外は無視する）", () => {
+  const profile = buildSampleApplicantProfile();
+  profile.keieiGyomuKanri.yearsAsResponsibleOfficer = NaN;
+  const warnings = checkConsistency(profile);
+  assert.equal(warnings.filter((w) => w.key === "keieiGyomuKanri.yearsAsResponsibleOfficer").length, 0);
+});
+
+test("FR-6.2: senninGijutsushaListが未入力(undefined)でもエラーにならず警告0件（??の分岐網羅）", () => {
+  const profile = buildSampleApplicantProfile();
+  profile.senninGijutsushaList = undefined;
+  const warnings = checkConsistency(profile);
+  assert.equal(warnings.length, 0);
+});
+
+test("FR-6.2: officeNameが未入力の専任技術者の年数エラーは「n件目の営業所」とラベル表示する", () => {
+  const profile = buildSampleApplicantProfile();
+  profile.senninGijutsushaList = [
+    {
+      personName: "佐藤 一郎",
+      licenseType: "一般",
+      hasNationalLicense: true,
+      isDesignatedCourseGraduate: false,
+      educationLevel: null,
+      yearsOfPracticalExperience: 0,
+      yearsOfGeneralExperience: -1,
+      yearsOfSupervisoryExperience: 0,
+    },
+  ];
+  const warnings = checkConsistency(profile);
+  const target = warnings.find((w) => w.key === "senninGijutsushaList[0].yearsOfGeneralExperience");
+  assert.match(target.message, /1件目の営業所/);
+});
+
 test("FR-6.3: 同一人物が異なる2営業所の専任技術者として登録されていると警告が出る", () => {
   const profile = buildSampleApplicantProfile();
   profile.senninGijutsushaList = [

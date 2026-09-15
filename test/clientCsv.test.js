@@ -67,6 +67,21 @@ test("clientsFromCsv: 空文字列は空配列を返す", () => {
   assert.deepEqual(clientsFromCsv(""), []);
 });
 
+test("clientsFromCsv: データ行の間に空行が混じっていても無視して読み込む", () => {
+  const csv = [
+    "clientName,licenseId,licenseType,grantDateIso,fiscalYearEndIso,contactEmail",
+    "テスト建設,既定,,2024-04-01,,",
+    "", // 空行
+    "別会社,既定,,2022-01-01,,",
+  ].join("\r\n");
+  const parsed = clientsFromCsv(csv);
+  assert.equal(parsed.length, 2);
+  assert.deepEqual(
+    parsed.map((c) => c.clientName),
+    ["テスト建設", "別会社"]
+  );
+});
+
 test("clientsFromCsv: ヘッダーのみ（データ行なし）は空配列を返す", () => {
   assert.deepEqual(
     clientsFromCsv("clientName,licenseId,licenseType,grantDateIso,fiscalYearEndIso,contactEmail\r\n"),

@@ -70,6 +70,16 @@ test("getDraft: 指定idの下書きを返す。存在しなければundefined",
   }
 });
 
+test("loadDrafts: ENOENT以外のエラー（例: ディレクトリを指定した場合）はそのまま再送出する", async () => {
+  const { dir } = await tempDraftsPath();
+  try {
+    // filePathとしてディレクトリそのものを渡し、EISDIR（ENOENT以外のエラー）を発生させる。
+    await assert.rejects(() => loadDrafts(dir));
+  } finally {
+    await fs.rm(dir, { recursive: true, force: true });
+  }
+});
+
 test("loadDrafts: 配列でないJSONの場合はエラーを投げる", async () => {
   const { filePath, dir } = await tempDraftsPath();
   try {

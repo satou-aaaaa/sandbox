@@ -31,6 +31,14 @@ test("buildReminderDigest: 許可日から早期検討・更新準備・最終�
   assert.ok(alerts.some((a) => a.type === "renewal-deadline" && a.dueDateIso === "2029-03-01"));
 });
 
+test("buildReminderDigest: 未登録のlicenseCategoryはリマインド対象外として静かに無視する", () => {
+  const alerts = buildReminderDigest(
+    [{ clientName: "テスト建設", licenses: [{ licenseId: "既定", licenseCategory: "未登録の許可種別" }] }],
+    "2026-09-01"
+  );
+  assert.deepEqual(alerts, []);
+});
+
 test("buildReminderDigest: fiscalYearEndIsoを指定すると決算変更届のリマインドも含まれる（計4件）", () => {
   const alerts = buildReminderDigest(
     [
@@ -168,6 +176,23 @@ test("formatReminderDigest: 30日以内に期限が到来する区分の見出�
   assert.match(report, /まもなく社/);
 });
 
+test("formatReminderDigest: 決算変更届（licenseIdを持たないアラート）は許可ID表示を付けない（三項演算子の分岐網羅）", () => {
+  const alerts = buildReminderDigest(
+    [
+      {
+        clientName: "テスト建設",
+        fiscalYearEndIso: "2026-03-31",
+        licenses: [{ licenseId: "既定", grantDateIso: "2024-04-01" }],
+      },
+    ],
+    "2026-09-01"
+  );
+  const kessan = alerts.find((a) => a.type === "kessan-henko");
+  assert.equal("licenseId" in kessan, false);
+  const report = formatReminderDigest(alerts);
+  assert.match(report, /\[テスト建設\] 決算変更届の提出期限/); // 許可IDのラベルが付かない形
+});
+
 test("formatReminderDigest: licenseIdが付与されたアラートは行にも許可IDを表示する（FR-5.4）", () => {
   const alerts = buildReminderDigest(
     [
@@ -237,6 +262,23 @@ test("buildReminderMailtoUrl: licenseIdがあれば本文に対象の許可を�
   );
   const url = buildReminderMailtoUrl(alert);
   assert.match(decodeURIComponent(url), /対象の許可: 般-建築工事業/);
+});
+
+test("buildReminderMailtoUrl: licenseIdを持たないアラート（決算変更届等）は「対象の許可」行を含まない（三項演算子の分岐網羅）", () => {
+  const alerts = buildReminderDigest(
+    [
+      {
+        clientName: "テスト建設",
+        contactEmail: "info@example.com",
+        fiscalYearEndIso: "2026-03-31",
+        licenses: [{ licenseId: "既定", grantDateIso: "2024-04-01" }],
+      },
+    ],
+    "2026-09-01"
+  );
+  const kessan = alerts.find((a) => a.type === "kessan-henko");
+  const url = buildReminderMailtoUrl(kessan);
+  assert.doesNotMatch(decodeURIComponent(url), /対象の許可:/);
 });
 
 test("buildReminderMailtoUrl: 古物商許可のリマインドでも本文に「建設業許可」と固定表示しない（コアの許可種別非依存の原則）", () => {
