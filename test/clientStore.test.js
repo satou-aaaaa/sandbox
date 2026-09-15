@@ -233,6 +233,37 @@ test("removeClient: 指定した名前のクライアントのみ削除する", 
   }
 });
 
+test("loadClients: ENOENT以外のエラー（例: ディレクトリを指定した場合）はそのまま再送出する", async () => {
+  const { dir } = await tempClientsPath();
+  try {
+    // filePathとしてディレクトリそのものを渡し、EISDIR（ENOENT以外のエラー）を発生させる。
+    await assert.rejects(() => loadClients(dir));
+  } finally {
+    await fs.rm(dir, { recursive: true, force: true });
+  }
+});
+
+test("upsertClientLicense: 既存クライアントのcontactEmailのみを更新できる", async () => {
+  const { filePath, dir } = await tempClientsPath();
+  try {
+    await upsertClientLicense(
+      "A社",
+      { licenseId: "既定", grantDateIso: "2024-04-01" },
+      { contactEmail: "old@example.com" },
+      filePath
+    );
+    const clients = await upsertClientLicense(
+      "A社",
+      { licenseId: "既定", grantDateIso: "2024-04-01" },
+      { contactEmail: "new@example.com" },
+      filePath
+    );
+    assert.equal(clients[0].contactEmail, "new@example.com");
+  } finally {
+    await fs.rm(dir, { recursive: true, force: true });
+  }
+});
+
 test("loadClients: 配列でないJSONの場合はエラーを投げる", async () => {
   const { filePath, dir } = await tempClientsPath();
   try {

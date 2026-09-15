@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import os from "node:os";
 import path from "node:path";
 import fs from "node:fs/promises";
+import { spawn } from "node:child_process";
 
 import { createServer, startServer } from "../src/web/server.js";
 import { buildSampleApplicantProfile } from "../scripts/sampleProfile.js";
@@ -178,6 +179,27 @@ test("POST /submit で profileJson が不正なJSONなら400を返す（サー�
   }
 });
 
+test("POST /submit はリクエストボディが上限サイズ(5MB)を超えると接続を切断する（DoS対策）", async () => {
+  const ctx = await startTestServer();
+  try {
+    // MAX_BODY_BYTES（5MB）を超える巨大なボディを送る。
+    const hugeBody = "profileJson=" + "a".repeat(6 * 1024 * 1024);
+    await assert.rejects(() =>
+      fetch(`${ctx.baseUrl}/submit`, {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: hugeBody,
+      })
+    );
+
+    // 切断後もサーバー自体は正常に動作し続けることを確認する。
+    const followUp = await fetch(`${ctx.baseUrl}/`);
+    assert.equal(followUp.status, 200);
+  } finally {
+    await ctx.close();
+  }
+});
+
 test("存在しないパスは404を返す", async () => {
   const ctx = await startTestServer();
   try {
@@ -203,6 +225,49 @@ test("startServer: ランダムポート（0指定）でリッスンし、実際
     assert.equal(res.status, 200);
   } finally {
     await new Promise((resolve) => server.close(resolve));
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test("`node src/web/server.js` として直接実行するとPORT環境変数のポートで実際に起動する（エントリポイント分岐の網羅）", async () => {
+  // createServer/startServerを単体でimportして呼ぶ既存のテストとは異なり、
+  // `npm run web` が実際に使うエントリポイント（ファイル末尾の自己実行ガード）
+  // 自体を、子プロセスとして本当に起動することで検証する。
+  const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "kensetsu-kyoka-toolkit-direct-exec-test-"));
+  const port = 39812;
+  const serverPath = path.resolve("src/web/server.js");
+  const child = spawn(process.execPath, [serverPath], {
+    cwd: tmpDir, // 既定のdata/・out/相対パスが実プロジェクトを汚さないよう隔離する
+    env: { ...process.env, PORT: String(port) },
+    stdio: ["ignore", "pipe", "pipe"],
+  });
+  try {
+    await new Promise((resolve, reject) => {
+      let output = "";
+      const timer = setTimeout(() => reject(new Error("タイムアウト: 起動メッセージが出力されませんでした")), 10000);
+      const onData = (chunk) => {
+        output += chunk.toString();
+        if (output.includes("起動しました")) {
+          clearTimeout(timer);
+          child.stdout.off("data", onData);
+          resolve();
+        }
+      };
+      child.stdout.on("data", onData);
+      child.once("error", reject);
+      child.once("exit", (code) => reject(new Error(`サーバープロセスが起動前に終了しました（code: ${code}）`)));
+    });
+    const res = await fetch(`http://127.0.0.1:${port}/`);
+    assert.equal(res.status, 200);
+    const html = await res.text();
+    assert.match(html, /申請者情報インテイク/);
+  } finally {
+    // Windowsではプロセスがcwdとして掴んでいるディレクトリを、終了前に
+    // 削除しようとするとEBUSYになるため、終了を待ってから削除する。
+    await new Promise((resolve) => {
+      child.once("exit", resolve);
+      child.kill();
+    });
     await fs.rm(tmpDir, { recursive: true, force: true });
   }
 });
