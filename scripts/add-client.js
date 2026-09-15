@@ -46,7 +46,7 @@ if (!clientName || !options["license-id"] || !options["grant-date"]) {
   process.exit(1);
 }
 
-/** @type {import('../src/reminders/reminderDigest.js').LicenseEntry} */
+/** @type {import('../src/core/reminders/digest.js').LicenseEntry} */
 const license = { licenseId: options["license-id"], grantDateIso: options["grant-date"] };
 if (options["license-type"]) {
   license.licenseType = /** @type {"一般" | "特定"} */ (options["license-type"]);

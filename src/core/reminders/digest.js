@@ -1,5 +1,5 @@
 /**
- * M4（通知連携）の土台となる「リマインド・ダイジェスト」計算。
+ * M4（通知連携）の土台となる「リマインド・ダイジェスト」計算（許可種別非依存）。
  *
  * 【スコープ】本モジュールが行うのは、複数クライアントの許可情報から
  * 「今どのリマインドが必要か」を集計・整形することまで。実際のメール等の
@@ -7,17 +7,29 @@
  * 外部サービス連携が前提になるためNFR-2・NFR-4との整合を要する。
  * 詳細は docs/DESIGN.md 9章を参照）。
  *
- * 日付計算そのものは新規実装せず、既存の src/reminders/renewalSchedule.js
- * （calcRenewalSchedule / calcKessanHenkoDeadline / daysUntil）をそのまま
- * 再利用する。
+ * 更新関連リマインドの具体的な計算方法は許可種別ごとに大きく異なるため、
+ * `scheduleTypes.js`（レジストリパターン）経由で許可種別ごとの計算関数
+ * （`getScheduleFn`）を呼び出す方式にしている（docs/DESIGN_kobutsu-core.md
+ * 5.3節）。本モジュール自身は「建設業」「古物商」等の固有の許可種別名・
+ * 法令名を一切知らない。
  */
-import { calcRenewalSchedule, calcKessanHenkoDeadline, daysUntil } from "./renewalSchedule.js";
+import { getScheduleFn } from "./scheduleTypes.js";
+import { daysUntil } from "./dateUtils.js";
+import { calcKessanHenkoDeadline } from "../../licenses/construction/reminders/renewalSchedule.js";
 
 /**
- * @typedef {Object} LicenseEntry 許可1件分の情報（ADR-0008）
+ * @typedef {Object} LicenseEntry 許可1件分の情報（ADR-0008。許可種別非依存の共通部分）
  * @property {string} licenseId クライアント内で一意なラベル（例: "般-建築工事業"）
- * @property {"一般" | "特定"} [licenseType]
- * @property {string} grantDateIso 許可年月日（YYYY-MM-DD）
+ * @property {string} [licenseCategory] 許可種別を示すキー（例: "construction", "kobutsu"）。
+ *   省略時は "construction" とみなす（後方互換。docs/DESIGN_kobutsu-core.md 4.2節）。
+ *   コアはこのキーの中身を解釈しない、単なる `scheduleTypes.js` のレジストリキー
+ * @property {"一般" | "特定"} [licenseType] 建設業許可のみで使用するフィールド
+ * @property {string} [grantDateIso] 建設業許可のみで使用する許可年月日（YYYY-MM-DD）。古物商許可では未使用
+ *
+ * 許可種別固有の追加情報（例: 古物商許可の変更履歴等）は、この型に
+ * フィールドを追加する形ではなく、各 `src/licenses/<種別>/` 側で
+ * 必要なプロパティを読み取る形にする（コアが特定の許可種別名を
+ * 知らないようにするため。1章の設計原則参照）。
  */
 
 /**
@@ -37,7 +49,9 @@ import { calcRenewalSchedule, calcKessanHenkoDeadline, daysUntil } from "./renew
 /**
  * @typedef {Object} ReminderAlert 1件のリマインド項目
  * @property {string} clientName
- * @property {"renewal-early-notice" | "renewal-prepare" | "renewal-deadline" | "kessan-henko"} type
+ * @property {string} type リマインド種別キー（許可種別ごとに`scheduleTypes.js`経由で自由に定義される。
+ *   建設業許可: "renewal-early-notice" | "renewal-prepare" | "renewal-deadline" | "kessan-henko"。
+ *   古物商許可等、他の許可種別は別のキーを使う）
  * @property {string} label 人間可読なラベル
  * @property {string} dueDateIso 期限日（YYYY-MM-DD）
  * @property {number} daysUntil 基準日から期限日までの残り日数（負なら期限超過）
@@ -65,40 +79,21 @@ export function buildReminderDigest(records, todayIso) {
   const alerts = [];
   for (const record of records) {
     for (const license of record.licenses) {
-      const schedule = calcRenewalSchedule(license.grantDateIso);
-      alerts.push(
-        makeAlert(
-          record,
-          "renewal-early-notice",
-          "更新準備の早期検討（満了180日前）",
-          schedule.earlyNoticeDate,
-          todayIso,
-          license
-        )
-      );
-      alerts.push(
-        makeAlert(
-          record,
-          "renewal-prepare",
-          "更新準備開始の推奨日（満了60日前）",
-          schedule.recommendedStartDate,
-          todayIso,
-          license
-        )
-      );
-      alerts.push(
-        makeAlert(
-          record,
-          "renewal-deadline",
-          "更新申請の最終締切（満了30日前）",
-          schedule.hardDeadline,
-          todayIso,
-          license
-        )
-      );
+      const category = license.licenseCategory ?? "construction";
+      const scheduleFn = getScheduleFn(category);
+      if (!scheduleFn) continue; // 未登録の許可種別はリマインド対象外
+      for (const item of scheduleFn(license)) {
+        alerts.push(makeAlert(record, item.type, item.label, item.dueDateIso, todayIso, license));
+      }
     }
     // 決算変更届は会社単位のリマインドのため、許可ごとのループの外で
     // クライアントにつき1回だけ生成する（FR-5.3。重複防止）。
+    // 【注意】決算変更届は建設業許可固有の概念だが、現行実装はrecord単位
+    // （許可ループの外）でしか発生しない特殊な形になっている。既存の出力を
+    // 変えないことを優先し、この分岐をそのまま残す（3つ目以降の許可種別を
+    // 追加する際、「クライアント単位の追加リマインド」という概念自体を
+    // コア側に一般化するかは今後の検討課題。docs/DESIGN_kobutsu-core.md
+    // 5.3節・9章参照）。
     if (record.fiscalYearEndIso) {
       const kessanDeadline = calcKessanHenkoDeadline(record.fiscalYearEndIso);
       alerts.push(makeAlert(record, "kessan-henko", "決算変更届の提出期限", kessanDeadline, todayIso));

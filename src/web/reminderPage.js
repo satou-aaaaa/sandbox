@@ -18,13 +18,13 @@
  * （表示専用という既存の設計判断（§5.11）を踏襲。状態を持つUI部品は追加しない）。
  */
 import { escapeHtml } from "./htmlUtils.js";
-import { buildReminderMailtoUrl, REMINDER_RANGES } from "../reminders/reminderDigest.js";
+import { buildReminderMailtoUrl, REMINDER_RANGES } from "../core/reminders/digest.js";
 
 /**
  * @param {{
  *   report: string,
  *   clientCount: number,
- *   actionableAlerts: import('../reminders/reminderDigest.js').ReminderAlert[],
+ *   actionableAlerts: import('../core/reminders/digest.js').ReminderAlert[],
  *   activeRange?: string | null
  * }} params
  * @returns {string}

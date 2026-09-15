@@ -38,7 +38,7 @@ function escapeCsvField(value) {
 
 /**
  * クライアント一覧をCSV文字列に変換する（1行＝1許可）。
- * @param {import('./reminderDigest.js').ClientRecord[]} clients
+ * @param {import('../core/reminders/digest.js').ClientRecord[]} clients
  * @returns {string}
  */
 export function clientsToCsv(clients) {
@@ -129,14 +129,14 @@ function parseCsvRows(text) {
  * "既定" として扱う（旧形式CSVの読み込み。FR-5.6）。
  *
  * @param {string} text
- * @returns {import('./reminderDigest.js').ClientRecord[]}
+ * @returns {import('../core/reminders/digest.js').ClientRecord[]}
  */
 export function clientsFromCsv(text) {
   const rows = parseCsvRows(text).filter((r) => !(r.length === 1 && r[0] === ""));
   if (rows.length === 0) return [];
 
   const [header, ...dataRows] = rows;
-  /** @type {Map<string, import('./reminderDigest.js').ClientRecord>} */
+  /** @type {Map<string, import('../core/reminders/digest.js').ClientRecord>} */
   const clientsByName = new Map();
   /** @type {string[]} clientNameの初出順を保持するため */
   const order = [];
@@ -161,7 +161,7 @@ export function clientsFromCsv(text) {
       order.push(record.clientName);
     }
 
-    /** @type {import('./reminderDigest.js').LicenseEntry} */
+    /** @type {import('../core/reminders/digest.js').LicenseEntry} */
     const license = {
       licenseId: record.licenseId || DEFAULT_LICENSE_ID,
       grantDateIso: record.grantDateIso,
@@ -170,5 +170,5 @@ export function clientsFromCsv(text) {
     client.licenses.push(license);
   }
 
-  return order.map((name) => /** @type {import('./reminderDigest.js').ClientRecord} */ (clientsByName.get(name)));
+  return order.map((name) => /** @type {import('../core/reminders/digest.js').ClientRecord} */ (clientsByName.get(name)));
 }

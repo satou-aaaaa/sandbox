@@ -49,7 +49,7 @@ import {
   filterDueAlerts,
   formatReminderDigest,
   bucketizeAlerts,
-} from "../reminders/reminderDigest.js";
+} from "../core/reminders/digest.js";
 import { clientsToCsv } from "../reminders/clientCsv.js";
 import { loadDrafts, getDraft, upsertDraft, removeDraft, DEFAULT_DRAFTS_PATH } from "./draftStore.js";
 import { renderFormPage } from "./formPage.js";
@@ -57,6 +57,12 @@ import { renderResultPage } from "./resultPage.js";
 import { renderReminderPage } from "./reminderPage.js";
 import { renderDraftsPage } from "./draftsPage.js";
 import { escapeHtml } from "./htmlUtils.js";
+import { registerConstructionLicense } from "../licenses/construction/index.js";
+
+// 建設業許可アドオンをコアへ登録する。/reminders・/clients.csv 等が
+// リマインドを計算する前に必ず実行されている必要があるため、モジュール
+// 読み込み時（トップレベル）で行う（docs/DESIGN_kobutsu-core.md 5.6節）。
+registerConstructionLicense();
 
 export const DEFAULT_OUT_DIR = "out/web";
 const MAX_BODY_BYTES = 5 * 1024 * 1024; // 5MB（フォーム入力のみを想定した余裕のある上限）
