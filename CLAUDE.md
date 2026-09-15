@@ -81,14 +81,15 @@ docs/          設計方針・アーキテクチャドキュメント（下記�
   未知のクエリパラメータで全件表示にフォールバック）。ただし判定ロジックの
   合否そのものを曖昧にフォールバックさせない。
 
-## テスト（詳細は ADR-0011・ADR-0012, `docs/DESIGN.md` 7章）
+## テスト（詳細は ADR-0011〜0013, `docs/DESIGN.md` 7章）
 
 ```bash
-npm test                    # node --test（ユニット・アクセシビリティ）。コミット前に必ず通すこと
+npm test                    # node --test（ユニット・アクセシビリティ・カオス・契約）。コミット前に必ず通すこと
 npm run test:coverage       # 行・分岐カバレッジ付き（テキスト出力）
 npm run test:coverage:html  # カバレッジHTMLレポート生成（coverage/index.html。すぐ見たい時はこちら）
 npm run test:mutation       # Stryker（数分〜数十分。CIには含まれない。大きな変更の節目で手動実行）
 npm run test:e2e            # Playwright（実ブラウザ。初回は npx playwright install chromium が必要）
+npm run test:load           # autocannon（同時アクセス下でのエラー・タイムアウト有無を確認）
 npm run typecheck           # tsc --noEmit（JSDoc型チェック）
 npm run lint                # ESLint（eslint-plugin-securityによる静的セキュリティ解析を含む）
 ```
@@ -107,6 +108,17 @@ npm run lint                # ESLint（eslint-plugin-securityによる静的セ�
   （`node --test` が `test/` 配下の.jsファイルを命名規則に関わらず自動検出し
   衝突するため）。スコープは実ブラウザでの疎通確認（golden path）に限定し、
   判定ロジックの網羅は単体テスト側に委ねる。
+- カオステスト（`test/chaos.test.js`）は依存先（ファイルシステム）の障害・
+  同時実行の競合をアプリケーション層で直接注入する。`data/clients.json`等への
+  read-modify-write操作は必ず `src/core/reminders/fileLock.js` の
+  `withFileLock` で包むこと（同時呼び出しでの lost update を防ぐため。
+  過去に実際にこの競合バグが見つかった経緯がある）。
+- 契約テスト（`test/contract.test.js`）は `schemas/client-record.schema.json`
+  （JSON Schema）で `ClientRecord`/`LicenseEntry` の形を検証する。
+  `digest.js` のJSDoc型定義を変更した場合はスキーマ側も追従させること。
+- 負荷テスト（`load/web-server.load.js`）はautocannonで同時アクセス時の
+  エラー・タイムアウト有無のみを確認し、具体的な性能閾値は判定しない
+  （閾値を決めるだけの実運用データがまだ無いため）。
 
 ## Git運用（詳細は `docs/DEVELOPMENT_GUIDE.md` 3章）
 

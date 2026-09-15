@@ -16,6 +16,7 @@
  */
 import fs from "node:fs/promises";
 import path from "node:path";
+import { withFileLock } from "./fileLock.js";
 
 export const DEFAULT_CLIENTS_PATH = "data/clients.json";
 
@@ -114,15 +115,17 @@ export async function saveClients(clients, filePath = DEFAULT_CLIENTS_PATH) {
  * @returns {Promise<import('./digest.js').ClientRecord[]>} 更新後の一覧
  */
 export async function upsertClient(record, filePath = DEFAULT_CLIENTS_PATH) {
-  const clients = await loadClients(filePath);
-  const index = clients.findIndex((c) => c.clientName === record.clientName);
-  if (index >= 0) {
-    clients[index] = record;
-  } else {
-    clients.push(record);
-  }
-  await saveClients(clients, filePath);
-  return clients;
+  return withFileLock(filePath, async () => {
+    const clients = await loadClients(filePath);
+    const index = clients.findIndex((c) => c.clientName === record.clientName);
+    if (index >= 0) {
+      clients[index] = record;
+    } else {
+      clients.push(record);
+    }
+    await saveClients(clients, filePath);
+    return clients;
+  });
 }
 
 /**
@@ -146,30 +149,32 @@ export async function upsertClient(record, filePath = DEFAULT_CLIENTS_PATH) {
  * @returns {Promise<import('./digest.js').ClientRecord[]>} 更新後の一覧
  */
 export async function upsertClientLicense(clientName, license, companyInfo = {}, filePath = DEFAULT_CLIENTS_PATH) {
-  const clients = await loadClients(filePath);
-  const index = clients.findIndex((c) => c.clientName === clientName);
+  return withFileLock(filePath, async () => {
+    const clients = await loadClients(filePath);
+    const index = clients.findIndex((c) => c.clientName === clientName);
 
-  if (index >= 0) {
-    const client = clients[index];
-    if (companyInfo.fiscalYearEndIso !== undefined) client.fiscalYearEndIso = companyInfo.fiscalYearEndIso;
-    if (companyInfo.contactEmail !== undefined) client.contactEmail = companyInfo.contactEmail;
+    if (index >= 0) {
+      const client = clients[index];
+      if (companyInfo.fiscalYearEndIso !== undefined) client.fiscalYearEndIso = companyInfo.fiscalYearEndIso;
+      if (companyInfo.contactEmail !== undefined) client.contactEmail = companyInfo.contactEmail;
 
-    const licenseIndex = client.licenses.findIndex((l) => l.licenseId === license.licenseId);
-    if (licenseIndex >= 0) {
-      client.licenses[licenseIndex] = license;
+      const licenseIndex = client.licenses.findIndex((l) => l.licenseId === license.licenseId);
+      if (licenseIndex >= 0) {
+        client.licenses[licenseIndex] = license;
+      } else {
+        client.licenses.push(license);
+      }
     } else {
-      client.licenses.push(license);
+      /** @type {import('./digest.js').ClientRecord} */
+      const newClient = { clientName, licenses: [license] };
+      if (companyInfo.fiscalYearEndIso !== undefined) newClient.fiscalYearEndIso = companyInfo.fiscalYearEndIso;
+      if (companyInfo.contactEmail !== undefined) newClient.contactEmail = companyInfo.contactEmail;
+      clients.push(newClient);
     }
-  } else {
-    /** @type {import('./digest.js').ClientRecord} */
-    const newClient = { clientName, licenses: [license] };
-    if (companyInfo.fiscalYearEndIso !== undefined) newClient.fiscalYearEndIso = companyInfo.fiscalYearEndIso;
-    if (companyInfo.contactEmail !== undefined) newClient.contactEmail = companyInfo.contactEmail;
-    clients.push(newClient);
-  }
 
-  await saveClients(clients, filePath);
-  return clients;
+    await saveClients(clients, filePath);
+    return clients;
+  });
 }
 
 /**
@@ -180,8 +185,10 @@ export async function upsertClientLicense(clientName, license, companyInfo = {},
  * @returns {Promise<import('./digest.js').ClientRecord[]>} 更新後の一覧
  */
 export async function removeClient(clientName, filePath = DEFAULT_CLIENTS_PATH) {
-  const clients = await loadClients(filePath);
-  const filtered = clients.filter((c) => c.clientName !== clientName);
-  await saveClients(filtered, filePath);
-  return filtered;
+  return withFileLock(filePath, async () => {
+    const clients = await loadClients(filePath);
+    const filtered = clients.filter((c) => c.clientName !== clientName);
+    await saveClients(filtered, filePath);
+    return filtered;
+  });
 }

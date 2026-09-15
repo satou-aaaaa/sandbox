@@ -1044,6 +1044,36 @@ jsdomを使うのは、レンダリング不要な静的HTML構造の検査（�
 `npm run test:coverage:html`でistanbul形式のHTMLレポート
 （`coverage/index.html`。`.gitignore`対象）を生成できるようにした。
 
+### 7.7 負荷テスト（autocannon。2026年9月導入）
+
+本ツールは現状「発注者本人がローカルで動かす」単一利用者ツールだが、
+将来ローカル限定ではなくなる可能性があるという前提の変化を踏まえ、
+「同時に複数リクエストが来ても壊れずに応答できるか」の最低限のベースラインを
+[autocannon](https://github.com/mcollina/autocannon)（`load/web-server.load.js`・
+`npm run test:load`）で確立した。具体的な性能要件が定まっていないため、
+厳密な閾値判定（目標レイテンシ・スループット）は行わず、「同時リクエスト下で
+エラー・タイムアウト・5xxが発生しないこと」の確認に留める。詳細な設計判断は
+ADR-0013参照。
+
+### 7.8 カオスエンジニアリング（アプリケーション層の障害注入。2026年9月導入）
+
+分散インフラ向けのChaos Monkey等は単一プロセスのローカルツールに適合しない
+ため、依存先（ファイルシステム）の障害・同時実行の競合を直接注入する
+`test/chaos.test.js`を追加した。この作成過程で、`clientStore.js`・
+`draftStore.js`の`upsertXxx`系関数に実際の競合状態バグ（同時書き込みによる
+lost update。片方の登録が完全に失われる）を発見し、
+`src/core/reminders/fileLock.js`（プロセス内の簡易ミューテックス）を
+新設して修正した。詳細はADR-0013参照。
+
+### 7.9 契約テスト（JSON Schema + ajv。2026年9月導入）
+
+外部のAPI消費者を持たないためPact等の消費者駆動契約テストの相手がいないが、
+将来`data/clients.json`の形（`ClientRecord`/`LicenseEntry`）をAPIとして
+公開する可能性を見込み、`schemas/client-record.schema.json`として
+明文化し[ajv](https://ajv.js.org/)で検証する`test/contract.test.js`を
+追加した。許可種別固有の追加フィールドはコアが許可種別を知らないという
+設計原則に従い`additionalProperties: true`で許容する。詳細はADR-0013参照。
+
 ## 8. 非機能設計
 
 - **機密データの扱い**: `ApplicantProfile` には顧客の氏名・住所・財務情報が
