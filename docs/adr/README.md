@@ -36,3 +36,4 @@ Architecture Decision Record（ADR）を管理する。
 | [0008](0008-multi-license-client-model.md) | クライアントが複数の許可を保有できるデータモデルへ変更する | Accepted |
 | [0009](0009-keishin-scope-documents-only.md) | 経営事項審査（経審）対応は書類準備支援に限定し、点数計算は対象外とする | Accepted |
 | [0010](0010-financial-statements-scope-kansei-kouji-genka-only.md) | 財務諸表対応は完成工事原価報告書のみに限定する | Accepted |
+| [0011](0011-mutation-and-property-based-testing.md) | ミューテーションテスト（Stryker）とProperty-based testing（fast-check）の導入 | Accepted |

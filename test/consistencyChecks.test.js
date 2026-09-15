@@ -90,7 +90,38 @@ test("FR-6.2: officeNameが未入力の専任技術者の年数エラーは「n�
   ];
   const warnings = checkConsistency(profile);
   const target = warnings.find((w) => w.key === "senninGijutsushaList[0].yearsOfGeneralExperience");
-  assert.match(target.message, /1件目の営業所/);
+  // 前方一致で確認する（`index + 1` を `index - 1` に書き換えても「-1件目の営業所」が
+  // 部分文字列として`/1件目の営業所/`にマッチしてしまい見逃すため、境界を明示する）。
+  assert.match(target.message, /専任技術者（1件目の営業所）/);
+  assert.doesNotMatch(target.message, /-1件目/);
+});
+
+test("FR-6.2: officeNameが設定されている場合は「{officeName}（n件目）」形式でラベル表示する", () => {
+  const profile = buildSampleApplicantProfile();
+  profile.senninGijutsushaList = [
+    {
+      officeName: "本店",
+      personName: "佐藤 一郎",
+      licenseType: "一般",
+      hasNationalLicense: true,
+      isDesignatedCourseGraduate: false,
+      educationLevel: null,
+      yearsOfPracticalExperience: 0,
+      yearsOfGeneralExperience: -1,
+      yearsOfSupervisoryExperience: 0,
+    },
+  ];
+  const warnings = checkConsistency(profile);
+  const target = warnings.find((w) => w.key === "senninGijutsushaList[0].yearsOfGeneralExperience");
+  assert.match(target.message, /専任技術者（本店（1件目））/);
+  assert.doesNotMatch(target.message, /-1件目/);
+});
+
+test("FR-6.2: 数値でない値（文字列等）は入力ミスの疑いとして扱わない（typeofチェックの分岐網羅）", () => {
+  const profile = buildSampleApplicantProfile();
+  profile.keieiGyomuKanri.yearsAsResponsibleOfficer = "10"; // 数値ではなく文字列
+  const warnings = checkConsistency(profile);
+  assert.equal(warnings.filter((w) => w.key === "keieiGyomuKanri.yearsAsResponsibleOfficer").length, 0);
 });
 
 test("FR-6.3: 同一人物が異なる2営業所の専任技術者として登録されていると警告が出る", () => {
