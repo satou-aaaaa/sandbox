@@ -16,7 +16,7 @@ import {
   buildLabeledTable,
   orNotEntered,
   writeDocxFile,
-} from "./common.js";
+} from "../core/documents/common.js";
 
 /**
  * ApplicantProfile から役員一覧の表示行（役員1名につき3行のラベル・値）を解決する。

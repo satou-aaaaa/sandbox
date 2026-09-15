@@ -29,7 +29,7 @@ import {
   buildBulletList,
   orNotEntered,
   writeDocxFile,
-} from "./common.js";
+} from "../core/documents/common.js";
 
 const TABLE_HEADERS = ["業種", "元請/下請", "注文者", "工事名", "請負代金の額", "工期", "配置技術者"];
 

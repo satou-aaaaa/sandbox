@@ -23,7 +23,7 @@ import {
   buildBulletList,
   orNotEntered,
   writeDocxFile,
-} from "./common.js";
+} from "../core/documents/common.js";
 
 /**
  * ApplicantProfile から営業所ごとのセクション情報（基本情報行・判定結果）を解決する。

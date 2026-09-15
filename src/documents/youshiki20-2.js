@@ -23,7 +23,7 @@ import {
   buildBulletList,
   orNotEntered,
   writeDocxFile,
-} from "./common.js";
+} from "../core/documents/common.js";
 
 /**
  * ApplicantProfile から誓約書サマリーの基本情報行と、

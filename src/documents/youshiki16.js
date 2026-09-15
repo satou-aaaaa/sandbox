@@ -31,7 +31,7 @@ import {
   buildBulletList,
   orNotEntered,
   writeDocxFile,
-} from "./common.js";
+} from "../core/documents/common.js";
 
 /**
  * 金額（円）を表示用文字列に整形する（3桁区切り）。
