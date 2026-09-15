@@ -258,7 +258,7 @@ export function buildReminderMailtoUrl(alert) {
   const body = [
     `${alert.clientName} 様`,
     "",
-    "建設業許可に関するご連絡です。",
+    "許可に関するご連絡です。",
     // 複数許可を保有するクライアントの場合、どの許可に対する連絡かを
     // 本文にも明記する（FR-5.4）。
     alert.licenseId ? `対象の許可: ${alert.licenseId}` : null,

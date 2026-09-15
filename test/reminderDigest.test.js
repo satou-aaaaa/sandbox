@@ -9,12 +9,14 @@ import {
   REMINDER_RANGES,
 } from "../src/core/reminders/digest.js";
 import { registerConstructionLicense } from "../src/licenses/construction/index.js";
+import { registerKobutsuLicense } from "../src/licenses/kobutsu/index.js";
 
 // buildReminderDigest はlicenseCategory省略時に"construction"として扱い、
 // scheduleTypes.jsのレジストリ経由でスケジュール計算関数を呼び出す
 // （docs/DESIGN_kobutsu-core.md 5.3節）。このファイルの各テストはlicenseCategoryを
 // 指定しないため、事前に建設業許可アドオンを登録しておく必要がある。
 registerConstructionLicense();
+registerKobutsuLicense();
 
 test("buildReminderDigest: 許可日から早期検討・更新準備・最終締切の3件を計算する（決算変更届の指定なし）", () => {
   const alerts = buildReminderDigest(
@@ -235,6 +237,27 @@ test("buildReminderMailtoUrl: licenseIdがあれば本文に対象の許可を�
   );
   const url = buildReminderMailtoUrl(alert);
   assert.match(decodeURIComponent(url), /対象の許可: 般-建築工事業/);
+});
+
+test("buildReminderMailtoUrl: 古物商許可のリマインドでも本文に「建設業許可」と固定表示しない（コアの許可種別非依存の原則）", () => {
+  const [alert] = buildReminderDigest(
+    [
+      {
+        clientName: "テスト古物商",
+        contactEmail: "info@example.com",
+        licenses: [
+          {
+            licenseId: "古物商-既定",
+            licenseCategory: "kobutsu",
+            kobutsuDetail: { lastRecordedChangeDateIso: "2026-08-01" },
+          },
+        ],
+      },
+    ],
+    "2026-09-01"
+  );
+  const url = buildReminderMailtoUrl(alert);
+  assert.doesNotMatch(decodeURIComponent(url), /建設業許可/);
 });
 
 /** @param {number} daysUntil @returns {import('../src/core/reminders/digest.js').ReminderAlert} */
