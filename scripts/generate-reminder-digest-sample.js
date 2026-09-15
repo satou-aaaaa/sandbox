@@ -1,9 +1,12 @@
-import { buildReminderDigest, formatReminderDigest } from "../src/reminders/reminderDigest.js";
+import { buildReminderDigest, formatReminderDigest } from "../src/core/reminders/digest.js";
+import { registerConstructionLicense } from "../src/licenses/construction/index.js";
+
+registerConstructionLicense();
 
 /**
  * 複数クライアントのダミー許可情報。実在の顧客データは絶対に使用しない（NFR-5）。
  * 「ダミー電気工事店」は一般・特定の2許可を保有する例（M7・ADR-0008）。
- * @type {import('../src/reminders/reminderDigest.js').ClientRecord[]}
+ * @type {import('../src/core/reminders/digest.js').ClientRecord[]}
  */
 const sampleClients = [
   {

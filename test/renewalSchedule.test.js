@@ -5,7 +5,7 @@ import {
   calcRenewalSchedule,
   calcKessanHenkoDeadline,
   daysUntil,
-} from "../src/reminders/renewalSchedule.js";
+} from "../src/licenses/construction/reminders/renewalSchedule.js";
 
 test("許可満了日は許可日の5年後の前日", () => {
   assert.equal(calcLicenseExpiry("2024-04-01"), "2029-03-31");

@@ -7,7 +7,14 @@ import {
   buildReminderMailtoUrl,
   bucketizeAlerts,
   REMINDER_RANGES,
-} from "../src/reminders/reminderDigest.js";
+} from "../src/core/reminders/digest.js";
+import { registerConstructionLicense } from "../src/licenses/construction/index.js";
+
+// buildReminderDigest はlicenseCategory省略時に"construction"として扱い、
+// scheduleTypes.jsのレジストリ経由でスケジュール計算関数を呼び出す
+// （docs/DESIGN_kobutsu-core.md 5.3節）。このファイルの各テストはlicenseCategoryを
+// 指定しないため、事前に建設業許可アドオンを登録しておく必要がある。
+registerConstructionLicense();
 
 test("buildReminderDigest: 許可日から早期検討・更新準備・最終締切の3件を計算する（決算変更届の指定なし）", () => {
   const alerts = buildReminderDigest(
@@ -230,7 +237,7 @@ test("buildReminderMailtoUrl: licenseIdがあれば本文に対象の許可を�
   assert.match(decodeURIComponent(url), /対象の許可: 般-建築工事業/);
 });
 
-/** @param {number} daysUntil @returns {import('../src/reminders/reminderDigest.js').ReminderAlert} */
+/** @param {number} daysUntil @returns {import('../src/core/reminders/digest.js').ReminderAlert} */
 function makeTestAlert(daysUntil) {
   return {
     clientName: `テスト社(${daysUntil})`,

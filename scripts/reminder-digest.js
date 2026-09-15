@@ -6,7 +6,10 @@
  * 実クライアントの登録・削除は scripts/add-client.js / remove-client.js を使う。
  */
 import { loadClients } from "../src/reminders/clientStore.js";
-import { buildReminderDigest, filterDueAlerts, formatReminderDigest, buildReminderMailtoUrl } from "../src/reminders/reminderDigest.js";
+import { buildReminderDigest, filterDueAlerts, formatReminderDigest, buildReminderMailtoUrl } from "../src/core/reminders/digest.js";
+import { registerConstructionLicense } from "../src/licenses/construction/index.js";
+
+registerConstructionLicense();
 
 const clients = await loadClients();
 

@@ -78,19 +78,11 @@ export function calcKessanHenkoDeadline(fiscalYearEndIso) {
   return toIsoDate(deadline);
 }
 
-/**
- * ある基準日時点で、指定日までの残り日数を計算する。
- * 通知バッチ処理（例: 「残り30日を切ったらリマインドを送る」）で使う想定。
- *
- * @param {string} targetDateIso
- * @param {string} [fromDateIso] 省略時は本日
- * @returns {number} 残り日数（負の場合は既に過ぎている）
- */
-export function daysUntil(targetDateIso, fromDateIso) {
-  const target = parseIsoDate(targetDateIso);
-  const from = fromDateIso ? parseIsoDate(fromDateIso) : new Date(toIsoDate(new Date()));
-  return Math.round((target.getTime() - from.getTime()) / DAY_MS);
-}
+// daysUntilは許可種別に依存しない純粋な日数計算のため、
+// src/core/reminders/dateUtils.js へ実体を移し、ここでは再エクスポートのみ
+// 行う（既存の呼び出し元 `from "./renewalSchedule.js"` を壊さないため。
+// docs/DESIGN_kobutsu-core.md 5.3節参照）。
+export { daysUntil } from "../../../core/reminders/dateUtils.js";
 
 /** @param {string} iso */
 function parseIsoDate(iso) {
