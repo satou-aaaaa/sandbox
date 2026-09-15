@@ -21,7 +21,9 @@ jobs:
   test:
     runs-on: ${{ matrix.os }}
     # まれなハング状態でActions利用時間を無駄に消費するのを防ぐ。
-    timeout-minutes: 10
+    # ubuntu・22.xのセルはPlaywrightのブラウザインストールが加わり時間が
+    # 伸びるため、他セルより若干余裕を持たせている。
+    timeout-minutes: 15
     strategy:
       # 1つのOS/Node.jsバージョンで失敗しても、他の組み合わせの結果も
       # 確認できるよう最後まで実行する（診断のしやすさを優先）。
@@ -87,3 +89,13 @@ jobs:
       - name: npmパッケージ署名の検証
         if: matrix.os == 'ubuntu-latest' && matrix.node-version == '22.x'
         run: npm audit signatures
+      # E2Eテスト（Playwright）。ブラウザバイナリのダウンロードを伴い実行時間も
+      # 長いため、他の「OS非依存」チェックと同じくubuntu・22.xの1系統のみで
+      # 実行する（アプリ側はOS依存の分岐が無いHTTPサーバーのため、複数OSで
+      # 重複実行する価値は薄いと判断。ADR-0012参照）。
+      - name: Playwrightブラウザのインストール
+        if: matrix.os == 'ubuntu-latest' && matrix.node-version == '22.x'
+        run: npx playwright install --with-deps chromium
+      - name: E2Eテスト
+        if: matrix.os == 'ubuntu-latest' && matrix.node-version == '22.x'
+        run: npm run test:e2e

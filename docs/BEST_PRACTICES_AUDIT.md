@@ -52,15 +52,19 @@ Martin Fowler・OWASP・Google Cloud DORAチーム等の公開資料を出典と
 
 | 項目 | 状態 | 補足 |
 |---|---|---|
-| ユニットテスト | ✅ | `node --test`（Node.js標準機能）。321件全通過 |
+| ユニットテスト | ✅ | `node --test`（Node.js標準機能）。326件全通過 |
 | CI（push/PR時の自動テスト） | ✅ | `.github/workflows/test.yml`。Node.js 20.x/22.x × ubuntu-latest/windows-latest の計4通りで実行（2026年9月にWindows環境を追加。開発機がWindowsであり、過去に改行コード関連の問題が実際に発生した経緯を踏まえた対応） |
 | CIの実行効率・堅牢性 | ✅ | 2026年9月追加。`concurrency`設定で同一ブランチ・PRへの連続pushの古い実行を自動キャンセル、`timeout-minutes: 10`でハング時のActions利用時間浪費を防止、`fail-fast: false`でOS/Node.jsバージョンの組み合わせごとの結果を最後まで確認できるようにした |
 | CI実行結果のサマリー表示 | ✅ | 2026年9月追加。テスト件数・カバレッジ数値を`$GITHUB_STEP_SUMMARY`に出力し、ログを展開しなくてもActionsの実行画面で概要を確認できるようにした |
-| テストカバレッジ計測 | ✅ | `npm run test:coverage`（`--experimental-test-coverage`）。CIでは22.xのジョブでのみ表示（Node 20系に既知の不具合があるため）。現在ライン網羅率 約99.7%・分岐網羅率 約92%（2026年9月、法定要件判定ロジック・エラーレスポンス系ルートの分岐網羅を重点強化） |
+| テストカバレッジ計測 | ✅ | `npm run test:coverage`（`--experimental-test-coverage`）。CIでは22.xのジョブでのみ表示（Node 20系に既知の不具合があるため）。現在ライン網羅率 約99.9%・分岐網羅率 約99.2%（2026年9月、分岐カバレッジの網羅的拡充を実施）。`npm run test:coverage:html`（c8）でドリルダウン可能なHTMLレポートも生成できる（`coverage/index.html`） |
 | カバレッジの閾値強制 | ⛔ | `--test-coverage-lines` 等で閾値未達を失敗にする設定は未導入。個人開発でカバレッジ数値そのものを目的化しないため、情報表示に留めている |
+| ミューテーションテスト | ✅ | 2026年9月追加。Stryker Mutatorで要件判定・欠格事由判定・日付/金額計算・CSV相互変換に対象を絞って導入（`npm run test:mutation`）。カバレッジでは検出できないアサーション不足の実バグを複数発見・修正した。詳細は[ADR-0011](adr/0011-mutation-and-property-based-testing.md) |
+| Property-based testing | ✅ | 2026年9月追加。fast-checkで日付計算・CSV往復変換・HTMLエスケープにランダム入力での性質検証を追加。[ADR-0011](adr/0011-mutation-and-property-based-testing.md) |
+| アクセシビリティテスト | ✅ | 2026年9月追加。axe-core + jsdomで`src/web/*Page.js`の4画面を検証（`test/accessibility.test.js`）。導入初回でラベル欠落（critical）等の実際の不具合を発見・修正した。[ADR-0012](adr/0012-accessibility-e2e-sast-coverage-tooling.md) |
+| 静的セキュリティ解析（SAST） | ✅ | 2026年9月追加。`eslint-plugin-security`を`npm run lint`に追加。検出精度の限界（ベンチマークで27.5%程度）を認識した上での「無いよりはまし」という位置づけ。[ADR-0012](adr/0012-accessibility-e2e-sast-coverage-tooling.md) |
 | ブランチ保護ルール（必須レビュー等） | 🟡 | GitHub側のリポジトリ設定（Settings > Branches）で有効化可能。単独開発のためレビュー必須は現実的でないが、「CIが通るまでマージ不可」の設定は検討の余地あり。コードからは変更できないため、必要なら発注者（あなた）がGitHub UIで設定すること |
 | 型チェック（JSDoc + `tsconfig.json` の `checkJs`） | ✅ | 独立したタスクとして着手し導入済み。`npm run typecheck`（`tsc --noEmit`）をCIに追加。対象は`src/`・`scripts/`のみ（`test/`は対象外。ダミーデータ主体でstrictモードとの相性が悪いため）。導入時に判明した既存コードの型不備（暗黙のany、`err.code`アクセス時のunknown型、`req.url`のundefined未考慮等）は修正済み。詳細は[ADR-0007](adr/0007-checkjs-type-checking.md) |
-| テストピラミッド構成の明文化 | ✅ | DESIGN.md 7章に追記。単体テストを主体とし、`web.test.js`のような結合テストは最小限。外部連携・UI遷移がないためE2Eテストは対象外と明記 |
+| テストピラミッド構成の明文化 | ✅ | DESIGN.md 7章に追記。単体テストを主体とし、`web.test.js`のような結合テストは最小限。E2Eテスト（Playwright）は2026年9月に導入し、golden pathの疎通確認に限定（ubuntu・Node22.xの1系統のみCIで実行）。[ADR-0012](adr/0012-accessibility-e2e-sast-coverage-tooling.md) |
 | テストが実装ではなく振る舞いを検証しているか | ✅ | 既存テストは公開関数（`checkKeieiGyomuKanri`、`buildYoushiki1Document`等）の入出力を検証しており、プライベートな内部実装には依存していない。新規踏襲すべきパターンとして継続する |
 
 ## コードレビュー（単独開発におけるセルフレビュー運用）

@@ -884,9 +884,13 @@ Webの `GET /clients.csv`（読み取り専用のダウンロードのみ。登�
 - 「テストピラミッド」（Martin Fowler）の考え方に沿い、大半を高速な単体テスト
   （判定ロジック・日付計算・docx生成の純粋関数部分）とし、`test/web.test.js`
   のような結合テスト（実際にHTTPサーバーを起動しリクエストを送る）は
-  最小限に絞る。本ツールには外部サービスとの連携やUI操作を伴う画面遷移が
-  ないため、ブラウザを実際に起動するE2Eテストは導入していない
-  （`docs/BEST_PRACTICES_AUDIT.md` 参照）。
+  最小限に絞る。実ブラウザを起動するE2Eテスト（Playwright）は、当初
+  「本ツールには外部サービスとの連携やUI操作を伴う画面遷移が無いため」
+  として導入していなかったが、2026年9月に発注者の判断で方針を見直し
+  導入した（7.4節・ADR-0012参照）。ピラミッドの頂点として位置づけ、
+  「実際にブラウザで入力→送信→表示確認という一連の操作が壊れていないか」
+  の疎通確認に限定し、個々の判定ロジックの網羅は引き続き単体テスト・
+  ミューテーションテストに委ねる。
 - 例外として、`src/web/formPage.js` のフォーム画面が生成する `<script>` 内の
   ブラウザ側JavaScript（`buildProfile()` 等）だけは、`test/formPageClient.test.js`
   で `jsdom`（devDependency）を使い、実際にそのコードを実行して検証する。
@@ -972,6 +976,73 @@ Webの `GET /clients.csv`（読み取り専用のダウンロードのみ。登�
   （CSVを壊しうる特殊文字を含む任意の文字列でもデータが保持されること）
 - `test/htmlUtils.test.js`: `escapeHtml`が任意の入力に対して生の
   `< > " '` を出力に残さないこと（XSS対策の本質的な性質）
+
+### 7.3 アクセシビリティテスト（axe-core。2026年9月導入）
+
+`src/web/*Page.js` が生成するHTMLは実際に発注者本人がブラウザで操作する
+画面であり、「その画面が実際に使えるか」という観点の検証が抜けていた。
+[axe-core](https://github.com/dequelabs/axe-core)（業界標準のアクセシビリティ
+検査エンジン）を`test/accessibility.test.js`に導入し、jsdom上で各画面の
+HTMLをWCAG等準拠のルールに照らして検証する。実ブラウザ（7.4節）ではなく
+jsdomを使うのは、レンダリング不要な静的HTML構造の検査（ラベル関連付け・
+見出し構造・ランドマーク・テーブル構造等）であればjsdomで十分軽量に
+検証できるため。**既知の制約**として、jsdomはレンダリングエンジンを
+持たないため`color-contrast`（文字色と背景色のコントラスト比）ルールは
+無効化しており、色のコントラスト確認は実際にブラウザで目視する運用に委ねる。
+
+導入時の初回実行で、実際のアクセシビリティ上の不具合3件（役員追加行の
+入力欄にラベルが無い（重要度critical）、4画面すべてで`<main>`等の
+ランドマークが無い（moderate）、下書き一覧の操作列見出しが空（minor））が
+見つかり、`src/web/formPage.js`・`resultPage.js`・`reminderPage.js`・
+`draftsPage.js`を修正した。
+
+### 7.4 E2Eテスト（Playwright。2026年9月導入）
+
+上記のjsdomベースのテスト（アクセシビリティ検証・`test/formPageClient.test.js`の
+ブラウザ側JS検証）はいずれも実ブラウザを介さない。「実際にブラウザで
+クリック・入力して操作したときに動くか」という最後の1点を確認するため、
+[Playwright](https://playwright.dev/)を`playwright.config.js`・`e2e/`配下に
+導入した（ADR-0012。当初の「E2E非導入」方針からの転換）。
+
+- **配置**: `node --test`はデフォルトで`test/`という名前のディレクトリ配下の
+  `.js`ファイルを命名規則に関わらず自動検出してしまうため、Playwrightの
+  仕様ファイルを`test/`配下に置くと`npm test`実行時に誤って拾われて
+  エラーになる。この衝突を避けるため、プロジェクト直下の専用ディレクトリ
+  `e2e/`に分離して配置している。
+- **スコープ**: インテイクフォームの実際のブラウザ操作（入力→送信→結果画面
+  確認、下書き保存、行の追加/削除）という「golden path」の疎通確認に
+  限定する。個々の判定ロジックの正しさは既存の単体テスト・ミューテーション
+  テストが担っており、実行が遅く原因切り分けもしづらいE2Eで重複して
+  検証しない。
+- **実データの分離**: `npm run web`（本番相当の起動）は`data/clients.json`・
+  `out/web/`を使うが、E2Eテストは環境変数（`OUT_DIR`/`CLIENTS_PATH`/
+  `DRAFTS_PATH`。`src/web/server.js`参照）で`.e2e-tmp/`配下の一時ファイルを
+  使うよう起動し、実データと混在しないようにしている
+  （`.e2e-tmp/`は`.gitignore`対象）。
+- **ブラウザ**: Chromiumのみを対象とする（複数ブラウザの差異を検証する
+  価値より、CIの実行時間・ローカル環境のディスク使用量を優先）。
+- **実行方法**: `npm run test:e2e`（初回のみ`npx playwright install chromium`が
+  必要）。CIでは他の「OS非依存」チェックと同じくubuntu-latest・Node 22.xの
+  1系統のみで実行する（アプリ側はOS依存の分岐が無いHTTPサーバーのため）。
+
+### 7.5 静的セキュリティ解析（eslint-plugin-security。2026年9月導入）
+
+`npm run lint`（ESLint）に[eslint-plugin-security](https://github.com/eslint-community/eslint-plugin-security)の
+推奨ルールセットを追加した（`eslint.config.js`）。既知のベンチマークでは
+検出率が高くない（詳細はADR-0012参照）が、`eslint-community`組織が保守する
+実績のあるプラグインであり、追加コストがほぼゼロなので導入する。
+このアプリのファイルI/O設計（テスト容易性のため出力先パスを常に引数で
+受け取る）と相性が悪く誤検知が非常に多い`detect-non-literal-fs-filename`
+ルールのみ無効化した（理由は`eslint.config.js`のコメント参照）。
+
+### 7.6 テストカバレッジレポートの可視化（c8。2026年9月導入）
+
+`npm run test:coverage`（Node.js標準の`--experimental-test-coverage`）は
+ターミナルへのテキスト出力のみで、ファイル単位の未カバー行をブラウザで
+一覧・ドリルダウンする手段が無かった。[c8](https://github.com/bcoe/c8)
+（V8カバレッジをそのまま活用する軽量ツール）を追加し、
+`npm run test:coverage:html`でistanbul形式のHTMLレポート
+（`coverage/index.html`。`.gitignore`対象）を生成できるようにした。
 
 ## 8. 非機能設計
 
