@@ -116,6 +116,11 @@ M11（`docs/DESIGN_kobutsu-core.md`）で、許可種別に依存しない共通
 - 古物商許可のWebフォーム対応（`src/web/`は建設業許可専用のまま）・
   整合性チェック（建設業許可の`consistencyChecks.js`相当）・法人申請対応
   （`docs/DESIGN_kobutsu-core.md` 9章「今後の拡張ポイント」参照）
+- `scripts/add-client.js`（`npm run client:add`）が古物商許可の
+  `kobutsuDetail`（書換申請・返納リマインドの起点日）の登録に未対応。
+  現状は `data/clients.json` を直接編集するしかない
+  （`src/core/reminders/clientCsv.js`もCSV列としては意図的に持たせていない。
+  `docs/DESIGN_kobutsu-core.md` 5.5節参照）
 - Webフォーム（M3）は単一プロセス・単一ユーザーのローカル利用を想定した最小構成。
   クライアント情報は単一JSONファイル（`data/clients.json`）で管理しており、
   本格的なデータベース・認証・複数ユーザー対応は範囲外

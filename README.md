@@ -83,7 +83,7 @@ npm run gen:kobutsu-rirekisho    # 略歴書サマリーのdocx生成サンプ�
 ### 実クライアントのリマインドを管理する
 
 ```bash
-npm run client:add "サンプル建設株式会社" 2021-10-21 2026-08-31 info@example.com  # 登録・更新
+npm run client:add "サンプル建設株式会社" -- --license-id 般-建築工事業 --grant-date 2021-10-21 --fiscal-year-end 2026-08-31 --contact-email info@example.com  # 登録・更新（建設業許可）
 npm run client:remove "サンプル建設株式会社"                                       # 削除
 npm run reminders                                                                   # ダイジェストを表示
 npm run client:export                          # out/clients-export.csv へCSV出力（バックアップ用）
@@ -92,6 +92,11 @@ npm run client:import out/clients-export.csv   # CSVから一括登録・更新
 
 データは `data/clients.json`（コミット対象外）にローカル保存される。外部への送信は行わない。
 `npm run web` 起動中はブラウザの `/reminders` からも同じ内容を確認できる（表示専用）。
+
+古物商許可のクライアント（書換申請・返納リマインド用の `kobutsuDetail`）は、
+`add-client.js` がまだ対応していないため、`data/clients.json` を直接編集して
+`licenseCategory: "kobutsu"` と `kobutsuDetail`（`lastRecordedChangeDateIso`・
+`closureDateIso`）を追加すること（`docs/ARCHITECTURE.md` 既知の未実装参照）。
 連絡先メールアドレスを登録したクライアントについては、期限が近いリマインドに
 「メール下書きを開く」リンクが表示される（クリックすると既定のメールソフトで
 下書きが開くだけで、このツール自体がメールを送信することはない）。
