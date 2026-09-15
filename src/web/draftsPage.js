@@ -13,7 +13,7 @@ export function renderDraftsPage({ drafts }) {
     drafts.length === 0
       ? `<p>保存済みの下書きはありません。</p>`
       : `<table>
-    <thead><tr><th>申請者名</th><th>保存日時</th><th></th><th></th></tr></thead>
+    <thead><tr><th>申請者名</th><th>保存日時</th><th>入力再開</th><th>削除</th></tr></thead>
     <tbody>
     ${drafts
       .map(
@@ -40,9 +40,11 @@ export function renderDraftsPage({ drafts }) {
 <style>${STYLE}</style>
 </head>
 <body>
+<main>
 <h1>保存済みの下書き</h1>
 ${rows}
 <p><a href="/">← 新規に申請者情報を入力する</a></p>
+</main>
 </body>
 </html>`;
 }

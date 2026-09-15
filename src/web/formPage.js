@@ -57,6 +57,7 @@ export function renderFormPage(options = {}) {
 </header>
 ${errorBlock}
 ${savedNoticeBlock}
+<main>
 <form id="applicantForm" method="POST" action="/submit">
   <input type="hidden" name="profileJson" id="profileJson">
   <input type="hidden" name="draftId" id="draftId" value="${escapeHtml(options.draftId ?? "")}">
@@ -156,12 +157,13 @@ ${savedNoticeBlock}
     <button type="submit" formaction="/drafts" formnovalidate class="secondary">下書きとして保存</button>
   </div>
 </form>
+</main>
 
 <template id="officerRowTemplate">
   <div class="row officer-row">
-    <input type="text" class="officer-name" placeholder="氏名">
-    <input type="text" class="officer-title" placeholder="役名（例: 代表取締役）">
-    <input type="date" class="officer-birthDate">
+    <input type="text" class="officer-name" placeholder="氏名" aria-label="役員の氏名">
+    <input type="text" class="officer-title" placeholder="役名（例: 代表取締役）" aria-label="役員の役名">
+    <input type="date" class="officer-birthDate" aria-label="役員の生年月日">
     <button type="button" class="removeRowBtn">削除</button>
   </div>
 </template>

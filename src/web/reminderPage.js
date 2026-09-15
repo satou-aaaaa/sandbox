@@ -62,6 +62,7 @@ ${mailtoItems
 <style>${STYLE}</style>
 </head>
 <body>
+<main>
 <h1>更新リマインド・ダイジェスト</h1>
 ${filterNav}
 <p class="notice">
@@ -73,6 +74,7 @@ ${filterNav}
 <pre>${escapeHtml(report)}</pre>
 ${mailtoSection}
 <p><a href="/">← 申請者情報インテイクに戻る</a></p>
+</main>
 </body>
 </html>`;
 }

@@ -60,12 +60,15 @@
 
 ```bash
 npm install
+npx playwright install chromium   # E2Eテスト用のブラウザバイナリを取得（初回のみ）
 git config core.hooksPath hooks   # シークレット混入チェックのpre-commitフックを有効化（初回のみ）
 npm run typecheck           # JSDocの型チェック（tsc --noEmit。ビルドは行わない）
-npm run lint                # ESLintによる静的チェック
-npm test                    # ユニットテストを実行
+npm run lint                # ESLintによる静的チェック（セキュリティ静的解析を含む）
+npm test                    # ユニットテスト・アクセシビリティテストを実行
 npm run test:coverage       # 行・分岐カバレッジ付きでユニットテストを実行
+npm run test:coverage:html  # カバレッジをブラウザで見れるHTMLレポートとして生成（coverage/index.html）
 npm run test:mutation       # ミューテーションテスト（Stryker。数分〜数十分かかるため随時実行）
+npm run test:e2e            # E2Eテスト（Playwright。実際にブラウザで操作して確認）
 npm run gen:eligibility     # 要件判定のサンプル実行
 npm run gen:youshiki1       # 様式第一号サマリーのdocx生成サンプル
 npm run gen:youshiki2       # 様式第二号（工事経歴書）サマリーのdocx生成サンプル
@@ -136,7 +139,8 @@ src/
                            変更届/書換申請リマインド）
   web/                     インテイク用の簡易Webフォーム（建設業許可のみ。下書き保存含む。
                            ローカルホストのみ）
-test/            node --test で実行するユニットテスト
+test/            node --test で実行するユニットテスト（アクセシビリティテスト含む）
+e2e/             Playwrightで実行するE2Eテスト（実ブラウザでの操作確認）
 scripts/         動作確認用サンプルスクリプト
 docs/            設計方針・アーキテクチャドキュメント
 ```

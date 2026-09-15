@@ -81,14 +81,16 @@ docs/          設計方針・アーキテクチャドキュメント（下記�
   未知のクエリパラメータで全件表示にフォールバック）。ただし判定ロジックの
   合否そのものを曖昧にフォールバックさせない。
 
-## テスト（詳細は ADR-0011, `docs/DESIGN.md` 7章）
+## テスト（詳細は ADR-0011・ADR-0012, `docs/DESIGN.md` 7章）
 
 ```bash
-npm test              # node --test。コミット前に必ず通すこと
-npm run test:coverage # 行・分岐カバレッジ付き
-npm run test:mutation # Stryker（数分〜数十分。CIには含まれない。大きな変更の節目で手動実行）
-npm run typecheck     # tsc --noEmit（JSDoc型チェック）
-npm run lint          # ESLint
+npm test                    # node --test（ユニット・アクセシビリティ）。コミット前に必ず通すこと
+npm run test:coverage       # 行・分岐カバレッジ付き（テキスト出力）
+npm run test:coverage:html  # カバレッジHTMLレポート生成（coverage/index.html。すぐ見たい時はこちら）
+npm run test:mutation       # Stryker（数分〜数十分。CIには含まれない。大きな変更の節目で手動実行）
+npm run test:e2e            # Playwright（実ブラウザ。初回は npx playwright install chromium が必要）
+npm run typecheck           # tsc --noEmit（JSDoc型チェック）
+npm run lint                # ESLint（eslint-plugin-securityによる静的セキュリティ解析を含む）
 ```
 
 - テストは `test/` に1モジュール1ファイル対応で配置し、`node --test` で実行する
@@ -99,6 +101,12 @@ npm run lint          # ESLint
 - ミューテーションテストの対象は要件判定・欠格事由判定・日付/金額計算・CSV変換など
   「間違えると実害が大きい」ロジックのみ（`stryker.config.mjs` 参照）。
   書類生成・Web表示は対象外（branch coverage拡充で個別対応する前提）。
+- アクセシビリティテスト（`test/accessibility.test.js`）はaxe-core + jsdomで
+  `src/web/*Page.js` のHTMLを検証する。
+- E2Eテスト（Playwright）は `test/` ではなく `e2e/` に配置する
+  （`node --test` が `test/` 配下の.jsファイルを命名規則に関わらず自動検出し
+  衝突するため）。スコープは実ブラウザでの疎通確認（golden path）に限定し、
+  判定ロジックの網羅は単体テスト側に委ねる。
 
 ## Git運用（詳細は `docs/DEVELOPMENT_GUIDE.md` 3章）
 

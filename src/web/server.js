@@ -314,5 +314,14 @@ export function startServer({ port = 3000, outDir, clientsPath, draftsPath } = {
 // 吸収するため、比較には pathToFileURL を使う。
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   const port = Number(process.env.PORT) || 3000;
-  startServer({ port });
+  // OUT_DIR・CLIENTS_PATH・DRAFTS_PATH は、E2Eテスト（Playwright）が実データ
+  // （data/clients.json・data/drafts.json・out/web/配下）を汚さずに一時
+  // ディレクトリへ向けられるようにするための環境変数（playwright.config.mjs参照）。
+  // 通常の `npm run web` 利用時は未設定のままでよく、その場合は既定値が使われる。
+  startServer({
+    port,
+    outDir: process.env.OUT_DIR || undefined,
+    clientsPath: process.env.CLIENTS_PATH || undefined,
+    draftsPath: process.env.DRAFTS_PATH || undefined,
+  });
 }

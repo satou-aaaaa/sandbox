@@ -31,6 +31,7 @@ export function renderResultPage({ profile, result, report, files, sessionId }) 
 <style>${STYLE}</style>
 </head>
 <body>
+<main>
 <h1>要件判定結果 — ${escapeHtml(profile.applicantName || "（未入力）")}</h1>
 <p class="notice">
   ※ この結果は「申請前の一次スクリーニング」です。最終的な適格性の判断・書類内容の確認・
@@ -50,6 +51,7 @@ ${fileRows}
 </ul>
 
 <p><a href="/">← 新しい申請者情報を入力する</a></p>
+</main>
 </body>
 </html>`;
 }

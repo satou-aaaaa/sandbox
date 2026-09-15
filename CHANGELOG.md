@@ -6,6 +6,37 @@
 日付単位のリリースではなく `docs/PROPOSAL.md` のマイルストーン（M1〜）を
 単位として記録する。
 
+## アクセシビリティテスト・E2Eテスト・静的セキュリティ解析・カバレッジ可視化の導入（2026年9月）
+
+「他のタイプのテストがこの世にないのか調査し、あれば導入してほしい」
+「テストカバレッジのレポートをすぐに見れる状態にしてほしい」という依頼を
+受け、一般的なテスト分類を調査した上で4件を導入した。判断根拠は
+ADR-0012参照。`npm test` 321件→326件。
+
+- **アクセシビリティテスト（axe-core + jsdom）**: `test/accessibility.test.js`を
+  新設し、`src/web/*Page.js`の4画面すべてを検証。導入初回の実行で以下3件の
+  実際の不具合を発見・修正した:
+  - 役員追加行（`formPage.js`）の入力欄にラベルが無かった（重要度critical）
+    → 各inputに`aria-label`を付与
+  - 4画面すべてで`<body>`直下のコンテンツが`<main>`等のランドマークに
+    含まれていなかった（moderate）→ `<main>`で囲むよう修正
+  - 下書き一覧（`draftsPage.js`）の操作列見出しが空文字列だった（minor）
+    → 「入力再開」「削除」という見出し文言を追加
+- **E2Eテスト（Playwright）**: `docs/DESIGN.md`が当初「導入しない」として
+  いた方針を、発注者の判断で転換して導入。`e2e/intake-form.spec.js`で
+  インテイクフォームの実ブラウザ操作（入力→送信→結果画面確認、下書き保存、
+  行の追加/削除）を検証。`src/web/server.js`に環境変数
+  （`OUT_DIR`/`CLIENTS_PATH`/`DRAFTS_PATH`）による起動時パス上書きを追加し、
+  E2Eテストが実データ（`data/`・`out/`）を汚さないようにした
+- **静的セキュリティ解析（eslint-plugin-security）**: `npm run lint`に追加。
+  出所不明な高精度プラグイン群（"Interlace Ecosystem"）は
+  サプライチェーンリスクの観点から見送り、実績のある`eslint-community`
+  保守のプラグインを選定した。本アプリのファイルI/O設計と相性が悪く
+  誤検知が多かった`detect-non-literal-fs-filename`ルールは無効化した
+- **テストカバレッジのHTML可視化（c8）**: `npm run test:coverage:html`で
+  `coverage/index.html`にドリルダウン可能なHTMLレポートを生成できるように
+  した
+
 ## ミューテーションテスト・Property-based testingの導入（2026年9月）
 
 「テストパターンは考えられる限り作成し、ミューテーションテスト等さまざまな
