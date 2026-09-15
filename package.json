@@ -12,6 +12,7 @@
   "scripts": {
     "test": "node --test",
     "test:coverage": "node --experimental-test-coverage --test",
+    "test:mutation": "stryker run",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "check-secrets": "node hooks/check-secrets.mjs --all",
@@ -41,8 +42,10 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@stryker-mutator/core": "^9.6.1",
     "@types/node": "^22.20.2",
     "eslint": "^10.10.0",
+    "fast-check": "^4.10.0",
     "globals": "^17.12.0",
     "jsdom": "^26.1.0",
     "typescript": "^7.0.2"

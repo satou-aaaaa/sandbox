@@ -128,6 +128,25 @@ test("upsertClient: 同名クライアントはレコード全体が上書きさ
   }
 });
 
+test("upsertClient: 複数クライアントが登録済みの場合、名前が一致するクライアントだけが更新される（先頭以外を正しく検索できることの確認）", async () => {
+  const { filePath, dir } = await tempClientsPath();
+  try {
+    await upsertClient({ clientName: "A社", licenses: [{ licenseId: "既定", grantDateIso: "2020-04-01" }] }, filePath);
+    await upsertClient({ clientName: "B社", licenses: [{ licenseId: "既定", grantDateIso: "2020-04-01" }] }, filePath);
+    const clients = await upsertClient(
+      { clientName: "B社", licenses: [{ licenseId: "既定", grantDateIso: "2025-01-01" }] },
+      filePath
+    );
+    assert.equal(clients.length, 2);
+    const a = clients.find((c) => c.clientName === "A社");
+    const b = clients.find((c) => c.clientName === "B社");
+    assert.equal(a.licenses[0].grantDateIso, "2020-04-01"); // A社は変更されていない
+    assert.equal(b.licenses[0].grantDateIso, "2025-01-01"); // B社のみ更新される
+  } finally {
+    await fs.rm(dir, { recursive: true, force: true });
+  }
+});
+
 test("upsertClientLicense: 新規クライアントに許可を1件追加する", async () => {
   const { filePath, dir } = await tempClientsPath();
   try {
@@ -140,6 +159,10 @@ test("upsertClientLicense: 新規クライアントに許可を1件追加する"
     assert.equal(clients.length, 1);
     assert.equal(clients[0].clientName, "A社");
     assert.deepEqual(clients[0].licenses, [{ licenseId: "般-建築工事業", grantDateIso: "2024-04-01" }]);
+    // companyInfoを指定しない新規クライアントには、fiscalYearEndIso/contactEmailの
+    // キー自体が存在しないはず（undefinedを明示代入しない）。
+    assert.equal("fiscalYearEndIso" in clients[0], false);
+    assert.equal("contactEmail" in clients[0], false);
   } finally {
     await fs.rm(dir, { recursive: true, force: true });
   }
@@ -159,6 +182,22 @@ test("upsertClientLicense: 既存クライアントに新しいlicenseIdの許�
     assert.equal(clients[0].licenses.length, 2); // 許可は2件に増える
     assert.ok(clients[0].licenses.some((l) => l.licenseId === "般-建築工事業"));
     assert.ok(clients[0].licenses.some((l) => l.licenseId === "特-とび土工工事業"));
+  } finally {
+    await fs.rm(dir, { recursive: true, force: true });
+  }
+});
+
+test("upsertClientLicense: 複数クライアントが登録済みの場合、名前が一致するクライアントだけが更新される（先頭以外を正しく検索できることの確認）", async () => {
+  const { filePath, dir } = await tempClientsPath();
+  try {
+    await upsertClientLicense("A社", { licenseId: "既定", grantDateIso: "2020-04-01" }, {}, filePath);
+    await upsertClientLicense("B社", { licenseId: "既定", grantDateIso: "2020-04-01" }, {}, filePath);
+    const clients = await upsertClientLicense("B社", { licenseId: "既定", grantDateIso: "2025-01-01" }, {}, filePath);
+    assert.equal(clients.length, 2);
+    const a = clients.find((c) => c.clientName === "A社");
+    const b = clients.find((c) => c.clientName === "B社");
+    assert.equal(a.licenses[0].grantDateIso, "2020-04-01"); // A社は変更されていない
+    assert.equal(b.licenses[0].grantDateIso, "2025-01-01"); // B社のみ更新される
   } finally {
     await fs.rm(dir, { recursive: true, force: true });
   }
@@ -269,7 +308,10 @@ test("loadClients: 配列でないJSONの場合はエラーを投げる", async 
   try {
     await fs.mkdir(path.dirname(filePath), { recursive: true });
     await fs.writeFile(filePath, JSON.stringify({ not: "an array" }), "utf8");
-    await assert.rejects(() => loadClients(filePath));
+    // メッセージまで確認する（`Array.isArray`チェック自体が壊れて素通りしても、
+    // その後の`.map`呼び出しで別のエラーが投げられてしまい、単なる
+    // assert.rejects(fn)だけでは検出できないため）。
+    await assert.rejects(() => loadClients(filePath), /の内容が配列ではありません/);
   } finally {
     await fs.rm(dir, { recursive: true, force: true });
   }

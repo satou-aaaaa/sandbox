@@ -9,7 +9,7 @@ import globals from "globals";
  * 型に関するルールは扱わず、素のJavaScriptの一般的な誤りの検出に留める。
  */
 export default [
-  { ignores: ["node_modules/**", "out/**", "data/**", "coverage/**"] },
+  { ignores: ["node_modules/**", "out/**", "data/**", "coverage/**", ".stryker-tmp/**", "reports/**"] },
   js.configs.recommended,
   {
     languageOptions: {

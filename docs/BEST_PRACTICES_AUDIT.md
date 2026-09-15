@@ -52,7 +52,7 @@ Martin Fowler・OWASP・Google Cloud DORAチーム等の公開資料を出典と
 
 | 項目 | 状態 | 補足 |
 |---|---|---|
-| ユニットテスト | ✅ | `node --test`（Node.js標準機能）。292件全通過 |
+| ユニットテスト | ✅ | `node --test`（Node.js標準機能）。321件全通過 |
 | CI（push/PR時の自動テスト） | ✅ | `.github/workflows/test.yml`。Node.js 20.x/22.x × ubuntu-latest/windows-latest の計4通りで実行（2026年9月にWindows環境を追加。開発機がWindowsであり、過去に改行コード関連の問題が実際に発生した経緯を踏まえた対応） |
 | CIの実行効率・堅牢性 | ✅ | 2026年9月追加。`concurrency`設定で同一ブランチ・PRへの連続pushの古い実行を自動キャンセル、`timeout-minutes: 10`でハング時のActions利用時間浪費を防止、`fail-fast: false`でOS/Node.jsバージョンの組み合わせごとの結果を最後まで確認できるようにした |
 | CI実行結果のサマリー表示 | ✅ | 2026年9月追加。テスト件数・カバレッジ数値を`$GITHUB_STEP_SUMMARY`に出力し、ログを展開しなくてもActionsの実行画面で概要を確認できるようにした |
