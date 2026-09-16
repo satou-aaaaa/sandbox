@@ -180,13 +180,14 @@ M11（`docs/DESIGN_kobutsu-core.md`）で、許可種別に依存しない共通
 - 古物商許可のWebフォーム対応（`src/web/`は建設業許可専用のまま）・
   整合性チェック（建設業許可の`consistencyChecks.js`相当）・法人申請対応
   （`docs/DESIGN_kobutsu-core.md` 9章「今後の拡張ポイント」参照）
-- `scripts/add-client.js`（`npm run client:add`）が古物商許可の
-  `kobutsuDetail`（書換申請・返納リマインドの起点日）・産廃許可の
-  `sanpaiDetail`（有効期間・講習修了証発行日）・民泊届出の`minpakuDetail`
-  （届出日）・技人国ビザの`gijinkokuDetail`（在留期限・在留期間区分）の
-  登録に未対応。現状は `data/clients.json` を直接編集するしかない
-  （`src/core/reminders/clientCsv.js`もCSV列としては意図的に持たせていない。
-  `docs/DESIGN_kobutsu-core.md` 5.5節参照）
+- `src/core/reminders/clientCsv.js`は各種`<種別>Detail`をCSV列としては
+  意図的に持たせていない（`docs/DESIGN_kobutsu-core.md` 5.5節参照）。CSV
+  エクスポート/インポートでは`<種別>Detail`が失われるため、これらを使う
+  クライアントはCSVではなく`scripts/add-client.js`または
+  `data/clients.json`の直接編集で管理すること
+  （2026年9月・`scripts/add-client.js`が`--license-category`と
+  種別ごとの詳細フラグに対応済み。`npm run client:add -- --help`相当は
+  無いため、スクリプト冒頭のコメントで使い方を確認すること）
 - 産廃許可の優良認定（`sanpaiDetail.validityYears`が7年になる基準。環境省令）
   そのものの判定機能は無く、利用者が別途確認して入力する前提の参考値である
   （`docs/DESIGN_sanpai-core.md` 4.3節参照）

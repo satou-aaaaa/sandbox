@@ -143,17 +143,17 @@ npm run client:import out/clients-export.csv   # CSVから一括登録・更新
 データは `data/clients.json`（コミット対象外）にローカル保存される。外部への送信は行わない。
 `npm run web` 起動中はブラウザの `/reminders` からも同じ内容を確認できる（表示専用）。
 
-古物商許可のクライアント（書換申請・返納リマインド用の `kobutsuDetail`）・
-産廃許可のクライアント（更新・講習修了証期限リマインド用の `sanpaiDetail`）・
-民泊届出のクライアント（定期報告リマインド用の `minpakuDetail`）・
-技人国ビザのクライアント（在留期間満了リマインド用の `gijinkokuDetail`）は、
-`add-client.js` がまだ対応していないため、`data/clients.json` を直接編集して
-`licenseCategory: "kobutsu"` と `kobutsuDetail`（`lastRecordedChangeDateIso`・
-`closureDateIso`）、`licenseCategory: "sanpai"` と `sanpaiDetail`
-（`validityYears`・`koushuCompletionDateIso`）、`licenseCategory: "minpaku"` と
-`minpakuDetail`（`notificationDateIso`）、または `licenseCategory: "gijinkoku"` と
-`gijinkokuDetail`（`expiryDateIso`・`periodType`）を追加すること
-（`docs/ARCHITECTURE.md` 既知の未実装参照）。
+古物商許可・産廃許可・民泊届出・技人国ビザのクライアント（各`<種別>Detail`が
+リマインド計算の起点になる）は、`add-client.js` の `--license-category` と
+種別ごとの詳細フラグ（`--kobutsu-*`・`--sanpai-*`・`--minpaku-*`・
+`--gijinkoku-*`。使い方はスクリプト冒頭のコメント参照）で登録できる。
+建設業許可以外を指定する場合、`--grant-date` は種別によっては不要
+（建設業許可・産廃許可のみ必須。他の種別は`<種別>Detail`の日付が
+リマインドの起点のため）。
+
+```bash
+npm run client:add -- "サンプル質店" --license-id 古物商 --license-category kobutsu --kobutsu-last-change-date 2026-09-01
+```
 連絡先メールアドレスを登録したクライアントについては、期限が近いリマインドに
 「メール下書きを開く」リンクが表示される（クリックすると既定のメールソフトで
 下書きが開くだけで、このツール自体がメールを送信することはない）。
