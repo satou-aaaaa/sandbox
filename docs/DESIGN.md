@@ -900,29 +900,35 @@ Webの `GET /clients.csv`（読み取り専用のダウンロードのみ。登�
   ロジックの重複を避けている。E2Eテスト（実ブラウザ起動）とは異なり、
   HTTPサーバー・実ブラウザは介さない単体テストの一種という位置づけ。
 - テストファイルは1モジュール（またはモジュール内の1関心事）に1ファイルの
-  粒度で分割している（2026年9月時点で計200件、13ファイル）:
-  `test/eligibility.test.js`（32件。法定5要件の各判定ルート・境界値を
+  粒度で分割している。正確な件数は変更のたびに増減し本書を追従させ続ける
+  コストが見合わないため、ここでは意図的に記載しない
+  （`npm test`・`npm run test:coverage`の実行結果が常に正確な最新値。
+  2026年9月時点でのおおまかな規模は`CHANGELOG.md`の各エントリを参照）。
+  代表的なテストファイルの観点は以下の通り:
+  `test/eligibility.test.js`（法定5要件の各判定ルート・境界値を
   `evaluateEligibility` 経由でカバー。`formatEligibilityReport`のCLIレポート
   整形も含む）、`test/prefectureRules.test.js`
-  （6件。都道府県固有ルールの登録・合成・未登録時のフォールバックを検証。
+  （都道府県固有ルールの登録・合成・未登録時のフォールバックを検証。
   実在の都道府県の要件は含まず架空データのみ使用）、
-  `test/renewalSchedule.test.js`（8件。うるう年境界を含む）、
-  `test/documents.test.js`（34件。様式生成モジュールの「未入力」フォールバック・
-  判定ロジック再利用・docx出力の3観点をカバー）、`test/documentsCommon.test.js`
-  （14件。全様式共通の`buildLabeledTable`等のヘルパーを直接検証）、
-  `test/consistencyChecks.test.js`（10件。入力内容の整合性チェックを検証）、
-  `test/web.test.js`（27件。ランダムポートでサーバーを起動し `fetch` で
-  結合テストする。ダウンロードのパストラバーサル拒否・存在しないダウンロード
-  ファイルの404、`/reminders`・`/clients.csv`・`/drafts` 系ルートの表示・保存・
-  削除・404、`startServer()`の起動確認を検証）、
-  `test/formPageClient.test.js`（8件。上記のjsdomによるブラウザ側JS検証）、
-  `test/htmlUtils.test.js`（8件。XSS対策の要である`escapeHtml`を直接検証）、
-  `test/reminderDigest.test.js`（24件。期限超過判定・複数クライアントの
-  ソート順・区分別フォーマット・mailto:リンク生成を検証）、
-  `test/clientStore.test.js`（12件。ファイル未存在時の空配列返却・保存/読込の
-  往復・追加/更新/削除を検証）、`test/clientCsv.test.js`（10件。特殊文字の
-  エスケープ・往復変換・不正行のスキップを検証）、`test/draftStore.test.js`
-  （7件。clientStore.test.jsと同様の観点を下書きデータに対して検証）
+  `test/renewalSchedule.test.js`（うるう年境界を含む）、
+  `test/documents.test.js`（建設業許可の様式生成モジュールの「未入力」
+  フォールバック・判定ロジック再利用・docx出力の3観点をカバー）、
+  `test/documentsCommon.test.js`（全様式共通の`buildLabeledTable`等の
+  ヘルパーを直接検証）、`test/consistencyChecks.test.js`（入力内容の
+  整合性チェックを検証）、`test/web.test.js`（ランダムポートでサーバーを
+  起動し `fetch` で結合テストする。ダウンロードのパストラバーサル拒否・
+  存在しないダウンロードファイルの404、`/reminders`・`/clients.csv`・
+  `/drafts` 系ルートの表示・保存・削除・404、`startServer()`の起動確認・
+  リクエストボディ上限超過時の切断を検証）、`test/formPageClient.test.js`
+  （上記のjsdomによるブラウザ側JS検証）、`test/htmlUtils.test.js`
+  （XSS対策の要である`escapeHtml`を直接検証。property-based testing含む）、
+  `test/reminderDigest.test.js`（期限超過判定・複数クライアントのソート順・
+  区分別フォーマット・mailto:リンク生成を検証）、`test/clientStore.test.js`・
+  `test/clientCsv.test.js`・`test/draftStore.test.js`（ファイル未存在時の
+  空配列返却・保存/読込の往復・追加/更新/削除・特殊文字のエスケープ・
+  往復変換・不正行のスキップを検証）、`test/kobutsu*.test.js`（古物商許可
+  アドオンの要件判定・書類生成・リマインドを検証）、`test/accessibility.test.js`・
+  `test/chaos.test.js`・`test/contract.test.js`（7.3節・7.8節・7.9節参照）
 - 新規モジュールを追加する場合、最低限次のケースをカバーすること
   - 正常系（すべての条件を満たすケース）
   - 境界値（年数・金額等の基準値ちょうど、基準値-1）
