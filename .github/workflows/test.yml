@@ -35,6 +35,14 @@ jobs:
         # 対応が必要になった経緯を踏まえた対応）。
         os: [ubuntu-latest, windows-latest]
         node-version: [20.x, 22.x]
+        # 【2026年9月・ベストプラクティス監査第7回】Windows runnerはUbuntuの
+        # 2倍の課金倍率。Windows環境を含める目的（OS依存バグの検出）は
+        # Node.jsのメジャーバージョンにはほぼ依存しないため、windows-latest
+        # は22.xの1系統のみに絞り、20.x分を除外してActions利用時間を削減する
+        # （発注者の判断により対応。docs/BEST_PRACTICES_AUDIT.md §6参照）。
+        exclude:
+          - os: windows-latest
+            node-version: 20.x
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7

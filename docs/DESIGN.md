@@ -3,6 +3,16 @@
 version: 0.1 / 2026-09 作成
 対応する要件: `docs/REQUIREMENTS.md`
 
+> **パス表記についての注意（2026年9月・ベストプラクティス監査で判明）**:
+> 本書はM1〜M10の開発過程をそのまま記録した歴史的経緯を含むドキュメントであり、
+> §4以降の`src/eligibility/`・`src/reminders/`（`reminderDigest.js`含む）への
+> パス参照は、M11のコア抽出（`docs/DESIGN_kobutsu-core.md`）以前の当時のパスの
+> ままにしている（歴史的記述を書き換えるとその節が成立した経緯が分かりにくく
+> なるため、意図的に残置）。現在の実際のパスは
+> `src/licenses/construction/eligibility/`・`src/core/reminders/`
+> （`reminderDigest.js`は`digest.js`に改名の上コアへ移動）であり、§3
+> （2026年9月更新済み）または`src/`を直接確認すること。
+
 ## 1. 設計原則
 
 開発を委託する上で、以下の原則は**変更してはならない前提**として扱うこと。
@@ -39,20 +49,49 @@ version: 0.1 / 2026-09 作成
 
 ## 3. ディレクトリ構成
 
+> **2026年9月更新**: M11のコア抽出（`docs/DESIGN_kobutsu-core.md`）により、
+> 本章が長らく反映していなかったコア抽出後の実際のパスに更新した。
+> 本書は建設業許可アドオンのモジュール詳細設計を扱うスコープのため、
+> 古物商許可・産廃・民泊・技人国ビザの各アドオン、BtoB下請けポータルの
+> 詳細は `docs/ARCHITECTURE.md`（全体構成の要約）・各
+> `docs/DESIGN_<種別>-core.md` を参照すること。
+
 ```
 src/
-  eligibility/
-    types.js          申請者データのJSDoc型定義（唯一の情報源）
-    engine.js          5要件（＋登録済みの都道府県固有要件）をまとめて判定し、総合結果とレポートを生成
-    prefectureRules.js 都道府県固有の追加要件を登録・合成する仕組み（M6の土台。具体的な要件は未登録）
-    rules/
-      keieiGyomuKanri.js    要件1: 経営業務管理体制
-      senninGijutsusha.js   要件2: 専任技術者（営業所単位）
-      zaisanKiso.js         要件3: 財産的基礎
-      kekkaku.js             要件4: 欠格要件
-      seijitsusei.js         要件5: 誠実性
-  documents/
-    common.js           様式生成モジュール共通のdocxヘルパー（見出し・注記・表・箇条書き）
+  core/                 許可種別に依存しない共通コア（M11で抽出）
+    eligibility/
+      types.js           RequirementCheckResult等、許可種別非依存の共通型
+      aggregate.js        個別のRequirementCheckResultから総合判定を集約する共通ロジック
+    documents/
+      common.js           様式生成モジュール共通のdocxヘルパー（見出し・注記・表・箇条書き）
+    reminders/
+      scheduleTypes.js     許可種別ごとのリマインド計算関数を登録・取得するレジストリ
+      dateUtils.js          daysUntil等、許可種別非依存の日付計算
+      expirySchedule.js     満了日ベースのリマインド計算（有効期間を引数化。建設業許可・産廃許可が共用）
+      digest.js             複数クライアントのリマインドを集計・整形（M4の土台。送信は行わない）
+      clientStore.js        クライアント情報をdata/clients.jsonへ読み書きするローカル永続化層
+      clientCsv.js          クライアント一覧とCSVの相互変換（バックアップ・一括登録用）
+      fileLock.js           read-modify-write操作を直列化する簡易ミューテックス（同時書き込みのlost update対策）
+  licenses/
+    construction/       建設業許可アドオン（本書のスコープ）
+      eligibility/
+        types.js           申請者データのJSDoc型定義（唯一の情報源）
+        engine.js           5要件（＋登録済みの都道府県固有要件）をまとめて判定し、総合結果とレポートを生成
+        prefectureRules.js  都道府県固有の追加要件を登録・合成する仕組み（M6の土台。具体的な要件は未登録）
+        consistencyChecks.js 入力内容のルールベース整合性チェック（M7。合否には影響しない付加情報）
+        rules/
+          keieiGyomuKanri.js    要件1: 経営業務管理体制
+          senninGijutsusha.js   要件2: 専任技術者（営業所単位）
+          zaisanKiso.js         要件3: 財産的基礎
+          kekkaku.js             要件4: 欠格要件
+          seijitsusei.js         要件5: 誠実性
+      reminders/
+        renewalSchedule.js  5年更新（`core/reminders/expirySchedule.js`の薄いラッパー）・決算変更届の期限計算
+      index.js              `registerConstructionLicense()`でコアへ登録するエントリポイント
+    kobutsu/, sanpai/, minpaku/, gijinkoku/  他の許可種別アドオン（`docs/ARCHITECTURE.md`参照）
+  documents/            様式（youshiki*.js）生成モジュール（建設業許可分。M11以降も意図的に
+                        `licenses/construction/`配下へは移していない。既存の呼び出し元・
+                        テストへの影響を避けるための判断）
     youshiki1.js        様式第一号のdocx生成
     youshiki2.js        様式第二号（工事経歴書）のdocx生成（M8）
     youshiki6.js        様式第六号（役員等の一覧表）のdocx生成
@@ -61,11 +100,7 @@ src/
     youshiki16.js       様式第十六号の一部（完成工事原価報告書）のdocx生成（M10）
     youshiki20-2.js     様式第二十号の二（誓約書）のdocx生成
     youshiki25-14.js    様式第二十五号の十四（経営規模等評価申請書等）のdocx生成（M9）
-  reminders/
-    renewalSchedule.js  5年更新・決算変更届の期限計算
-    reminderDigest.js   複数クライアントのリマインドを集計・整形（M4の土台。送信は行わない）
-    clientStore.js      クライアント情報をdata/clients.jsonへ読み書きするローカル永続化層
-    clientCsv.js        クライアント一覧とCSVの相互変換（バックアップ・一括登録用）
+  portal/               BtoB下請けケース管理ポータル（許可種別アドオンではない独立ドメイン。`docs/DESIGN_uketsuke-portal.md`参照）
   web/
     server.js           インテイク用の簡易Webフォーム（M3）のHTTPサーバー
     formPage.js          入力フォーム画面（HTML/CSS/JS。下書きからの事前入力・未入力チェックを含む）
@@ -74,44 +109,29 @@ src/
     draftsPage.js          保存済み下書きの一覧画面
     draftStore.js          インテイクフォームの下書きをdata/drafts.jsonへ読み書きする永続化層
     htmlUtils.js          HTMLエスケープ等の共通ヘルパー
-test/
-  eligibility.test.js    要件判定エンジンのユニットテスト
-  prefectureRules.test.js 都道府県固有ルール合成の仕組みのユニットテスト（架空の都道府県のみ使用）
-  renewalSchedule.test.js 期限計算のユニットテスト
-  reminderDigest.test.js  リマインド・ダイジェストのユニットテスト
-  clientStore.test.js     クライアント永続化層のユニットテスト
-  clientCsv.test.js       クライアントCSV変換のユニットテスト
-  draftStore.test.js      下書き永続化層のユニットテスト
-  documents.test.js      書類生成モジュール（様式第一号・六号・七号・八号・二十号の二）のユニットテスト
-  web.test.js            Webフォームサーバーの結合テスト
-scripts/
-  sampleProfile.js                書類生成サンプル共通のダミー ApplicantProfile
-  generate-eligibility-sample.js  要件判定のサンプル実行
-  generate-youshiki1-sample.js    様式第一号サマリーのdocx生成サンプル
-  generate-youshiki6-sample.js    様式第六号サマリーのdocx生成サンプル
-  generate-youshiki7-sample.js    様式第七号サマリーのdocx生成サンプル
-  generate-youshiki8-sample.js    様式第八号サマリーのdocx生成サンプル
-  generate-youshiki20-2-sample.js 様式第二十号の二サマリーのdocx生成サンプル
-  generate-reminder-digest-sample.js 複数クライアントのリマインド・ダイジェスト出力サンプル（ダミーデータ）
-  add-client.js                   実クライアントをdata/clients.jsonへ登録・更新するCLI
-  remove-client.js                実クライアントをdata/clients.jsonから削除するCLI
-  reminder-digest.js               data/clients.jsonの実クライアントについてダイジェストを表示するCLI
-  export-clients-csv.js            data/clients.jsonをCSVへ書き出すCLI
-  import-clients-csv.js            CSVからdata/clients.jsonへ一括登録・更新するCLI
-docs/
-  ARCHITECTURE.md   アーキテクチャ方針の要約（本書のダイジェスト版）
-  PROPOSAL.md       ビジネス背景・ロードマップ
-  REQUIREMENTS.md   要件定義書
-  DESIGN.md         本書
-  DEVELOPMENT_GUIDE.md  開発環境構築・コーディング規約・Git運用
+test/            node --testで実行するユニットテスト（1モジュール1ファイル対応が基本。
+                 許可種別ごとに<種別><対象>.test.jsの命名で分かれており、正確な
+                 ファイル数・一覧はtest/を直接確認すること。ハードコードした
+                 件数はメンテナンス負荷が高いため本書では意図的に列挙しない
+                 〈§7と同じ方針〉）
+scripts/         動作確認用サンプル・CLIスクリプト。命名規約は
+                 generate-<様式名>-sample.js（docxサンプル生成）・
+                 sample<種別>Profile.js（ダミーデータ）・
+                 <操作>-client.js/<種別固有のCLI>（実データ操作）。
+                 一覧はpackage.jsonのnpm scripts（gen:*, client:*, portal:*等）
+                 またはscripts/を直接確認すること
+docs/            設計方針・アーキテクチャドキュメント一式。本書は建設業許可分の
+                 モジュール詳細設計を扱う（全体構成の要約はARCHITECTURE.md、
+                 他の許可種別・ポータルの詳細設計は各DESIGN_<種別>.md）。
+                 完全な索引はCLAUDE.mdの「ドキュメント索引」を参照
 ```
 
 ## 4. データモデル
 
-すべての型は `src/eligibility/types.js` にJSDoc `@typedef` として定義されている。
-**この型定義がデータモデルの唯一の正（single source of truth）であり、
-様式生成モジュールを含む全モジュールがこの型を再利用する。様式ごとに
-個別の入力型を新設しないこと**（FR-2.7 に対応）。
+すべての型は `src/licenses/construction/eligibility/types.js` にJSDoc `@typedef`
+として定義されている。**この型定義がデータモデルの唯一の正
+（single source of truth）であり、様式生成モジュールを含む全モジュールが
+この型を再利用する。様式ごとに個別の入力型を新設しないこと**（FR-2.7 に対応）。
 
 ### 4.1 ApplicantProfile（申請者の総合入力データ）
 
