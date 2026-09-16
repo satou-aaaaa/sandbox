@@ -31,7 +31,7 @@ cd kensetsu-kyoka-toolkit   # または実際のディレクトリ名
 npm install
 npm run typecheck           # JSDocの型チェック（tsc --noEmit。ビルドは行わない）
 npm run lint                # ESLintによる静的チェック
-npm test                    # 全テスト（現時点で340件）が成功することを確認
+npm test                    # 全テストが成功することを確認（正確な件数は実行結果を参照）
 npm run gen:eligibility     # 要件判定のサンプル実行
 npm run gen:youshiki1       # 様式第一号サマリーのdocx生成サンプル
 npm run web                 # インテイク用Webフォームを起動（任意）
