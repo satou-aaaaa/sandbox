@@ -30,6 +30,8 @@
  *     [--nouchi-article 4条|5条] [--nouchi-grant-date <YYYY-MM-DD>]
  *     [--nouchi-construction-start-deadline <YYYY-MM-DD>] [--nouchi-construction-start-reported true|false]
  *     [--nouchi-completion-report-deadline <YYYY-MM-DD>] [--nouchi-completion-reported true|false]
+ *     [--inshokuten-municipality-name <自治体名>] [--inshokuten-grant-date <YYYY-MM-DD>]
+ *     [--inshokuten-validity-years 5|6|7|8] [--inshokuten-responsible-person-name <氏名>]
  *
  * --grant-date は建設業許可・産廃許可（license.grantDateIsoをリマインド計算に
  * 使う種別）のみ必須。古物商許可・民泊届出・技人国ビザは各<種別>Detailの
@@ -58,17 +60,29 @@
  *
  * 例（農地転用許可。工事着手期限を記録。既存の建設業許可クライアントに追加する想定）:
  *   node scripts/add-client.js "サンプル建設" --license-id 農地転用-資材置場 --license-category nouchi-tenyo --nouchi-article 4条 --nouchi-construction-start-deadline 2027-03-31
+ *
+ * 例（飲食店営業許可。許可証交付後に有効期間年数を記録）:
+ *   node scripts/add-client.js "サンプル食堂" --license-id 飲食店営業-本店 --license-category inshokuten-eigyo --inshokuten-municipality-name 東京都 --inshokuten-grant-date 2026-04-01 --inshokuten-validity-years 6
  */
 import { upsertClientLicense } from "../src/core/reminders/clientStore.js";
 
-const LICENSE_CATEGORIES = ["construction", "kobutsu", "sanpai", "minpaku", "gijinkoku", "keiei-jiko-shinsa", "nouchi-tenyo"];
+const LICENSE_CATEGORIES = [
+  "construction",
+  "kobutsu",
+  "sanpai",
+  "minpaku",
+  "gijinkoku",
+  "keiei-jiko-shinsa",
+  "nouchi-tenyo",
+  "inshokuten-eigyo",
+];
 // license.grantDateIso をリマインド計算にそのまま使う種別のみ必須とする
 // （kobutsu/minpaku/gijinkokuは各<種別>Detailの日付が起点のため不要）。
 const CATEGORIES_REQUIRING_GRANT_DATE = ["construction", "sanpai"];
 
 const USAGE = [
   '使い方: node scripts/add-client.js "<クライアント名>" --license-id <許可ID> ' +
-    "[--license-category construction|kobutsu|sanpai|minpaku|gijinkoku|keiei-jiko-shinsa|nouchi-tenyo] " +
+    "[--license-category construction|kobutsu|sanpai|minpaku|gijinkoku|keiei-jiko-shinsa|nouchi-tenyo|inshokuten-eigyo] " +
     "[--grant-date <許可年月日YYYY-MM-DD>] [--license-type 一般|特定] " +
     "[--fiscal-year-end <事業年度終了日YYYY-MM-DD>] [--contact-email <連絡先メールアドレス>]",
   "種別ごとの追加フラグ:",
@@ -78,6 +92,7 @@ const USAGE = [
   "  gijinkoku: [--gijinkoku-expiry-date <YYYY-MM-DD>] [--gijinkoku-period-type 3月|1年|3年|5年]",
   "  keiei-jiko-shinsa: [--keiei-latest-kijunbi <YYYY-MM-DD>] [--keiei-latest-kekka-tsuchibi <YYYY-MM-DD>] [--keiei-latest-sougou-hyoutei <数値>] [--keiei-target-gyoshu <業種1,業種2,...>] [--keiei-y-bunseki-status 未申請|申請中|結果受領済み]",
   "  nouchi-tenyo: [--nouchi-article 4条|5条] [--nouchi-grant-date <YYYY-MM-DD>] [--nouchi-construction-start-deadline <YYYY-MM-DD>] [--nouchi-construction-start-reported true|false] [--nouchi-completion-report-deadline <YYYY-MM-DD>] [--nouchi-completion-reported true|false]",
+  "  inshokuten-eigyo: [--inshokuten-municipality-name <自治体名>] [--inshokuten-grant-date <YYYY-MM-DD>] [--inshokuten-validity-years 5|6|7|8] [--inshokuten-responsible-person-name <氏名>]",
   "同じ<クライアント名>を指定すると、そのクライアントへの許可の追加・更新になります",
   "（--license-idが既存の許可と一致すれば上書き、一致しなければ追記します）。",
   "--grant-dateは建設業許可・産廃許可のみ必須（他の種別は各Detailの日付が起点のため不要）。",
@@ -196,6 +211,21 @@ if (licenseCategory === "kobutsu") {
   if (options["nouchi-completion-report-deadline"]) detail.completionReportDeadlineIso = options["nouchi-completion-report-deadline"];
   if (options["nouchi-completion-reported"]) detail.completionReported = options["nouchi-completion-reported"] === "true";
   if (Object.keys(detail).length > 0) /** @type {any} */ (license).nouchiTenyoDetail = detail;
+} else if (licenseCategory === "inshokuten-eigyo") {
+  /** @type {import('../src/licenses/inshokuten-eigyo/reminders/koshinSchedule.js').InshokutenLicenseDetail} */
+  const detail = {};
+  if (options["inshokuten-municipality-name"]) detail.municipalityName = options["inshokuten-municipality-name"];
+  if (options["inshokuten-grant-date"]) detail.grantDateIso = options["inshokuten-grant-date"];
+  if (options["inshokuten-validity-years"]) {
+    const years = Number(options["inshokuten-validity-years"]);
+    if (!Number.isInteger(years) || years < 5) {
+      console.error(`--inshokuten-validity-yearsは5以上の整数を指定してください（食品衛生法第55条第3項。指定値: ${options["inshokuten-validity-years"]}）`);
+      process.exit(1);
+    }
+    detail.validityYears = years;
+  }
+  if (options["inshokuten-responsible-person-name"]) detail.responsiblePersonName = options["inshokuten-responsible-person-name"];
+  if (Object.keys(detail).length > 0) /** @type {any} */ (license).inshokutenDetail = detail;
 }
 
 // 他種別向けのフラグが誤って指定されていないか軽く確認する（気づきのための警告に留め、処理は止めない）。
@@ -206,6 +236,7 @@ const OTHER_CATEGORY_FLAG_PREFIXES = {
   gijinkoku: "gijinkoku-",
   "keiei-jiko-shinsa": "keiei-",
   "nouchi-tenyo": "nouchi-",
+  "inshokuten-eigyo": "inshokuten-",
 };
 for (const [category, prefix] of Object.entries(OTHER_CATEGORY_FLAG_PREFIXES)) {
   if (category === licenseCategory) continue;
