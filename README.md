@@ -41,6 +41,12 @@
   営業所/管理者要件（第13条）の判定、許可申請書・誓約書・略歴書のdocx生成、
   変更届・書換申請・許可証返納のリマインドに対応（CLI/スクリプト操作のみ。
   法人申請・Webフォーム対応は対象外。詳細は`docs/DESIGN_kobutsu-core.md`）
+- **産業廃棄物収集運搬業許可モジュール**: コアの3例目のアドオンとして新規実装。
+  欠格事由（廃棄物処理法第14条第5項第2号）・JWセンター講習修了・経理的基礎
+  （直近期の債務超過チェック）・運搬施設要件の判定、許可申請書・事業計画書
+  （運搬車両一覧）のdocx生成、許可更新（有効期間5年 or 優良認定で7年。
+  施行令第6条の9）・講習修了証期限の2種のリマインドに対応。CLI/スクリプト
+  操作のみ（詳細は`docs/DESIGN_sanpai-core.md`）
 
 詳細な設計方針は [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) を参照。
 
@@ -51,6 +57,7 @@
 - [`docs/DESIGN.md`](docs/DESIGN.md) — 技術設計書（建設業許可分。モジュール詳細設計を含む）
 - [`docs/REQUIREMENTS_kobutsu-core.md`](docs/REQUIREMENTS_kobutsu-core.md) — 要件定義書（許認可自動化コア抽出＋古物商許可モジュール分）
 - [`docs/DESIGN_kobutsu-core.md`](docs/DESIGN_kobutsu-core.md) — 技術設計書（同上）
+- [`docs/REQUIREMENTS_sanpai-core.md`](docs/REQUIREMENTS_sanpai-core.md) / [`docs/DESIGN_sanpai-core.md`](docs/DESIGN_sanpai-core.md) — 要件定義書・技術設計書（産業廃棄物収集運搬業許可モジュール分）
 - [`docs/DEVELOPMENT_GUIDE.md`](docs/DEVELOPMENT_GUIDE.md) — 開発環境構築・コーディング規約・Git運用ガイド
 - [`docs/BEST_PRACTICES_AUDIT.md`](docs/BEST_PRACTICES_AUDIT.md) — セキュリティ・CI・リポジトリ運用の棚卸しと今後の推奨事項
 - [`docs/adr/`](docs/adr/) — アーキテクチャ決定記録（重要な設計判断の背景）
@@ -84,6 +91,9 @@ npm run gen:kobutsu-eligibility  # 古物商許可の要件判定サンプル実
 npm run gen:kobutsu-shinseisho   # 古物商許可申請書サマリーのdocx生成サンプル
 npm run gen:kobutsu-seiyakusho   # 誓約書サマリーのdocx生成サンプル
 npm run gen:kobutsu-rirekisho    # 略歴書サマリーのdocx生成サンプル
+npm run gen:sanpai-eligibility        # 産業廃棄物収集運搬業許可の要件判定サンプル実行
+npm run gen:sanpai-shinseisho         # 許可申請書サマリーのdocx生成サンプル
+npm run gen:sanpai-jigyokeikakusho    # 事業計画書（運搬車両一覧）サマリーのdocx生成サンプル
 ```
 
 ### 実クライアントのリマインドを管理する
@@ -99,10 +109,13 @@ npm run client:import out/clients-export.csv   # CSVから一括登録・更新
 データは `data/clients.json`（コミット対象外）にローカル保存される。外部への送信は行わない。
 `npm run web` 起動中はブラウザの `/reminders` からも同じ内容を確認できる（表示専用）。
 
-古物商許可のクライアント（書換申請・返納リマインド用の `kobutsuDetail`）は、
+古物商許可のクライアント（書換申請・返納リマインド用の `kobutsuDetail`）・
+産廃許可のクライアント（更新・講習修了証期限リマインド用の `sanpaiDetail`）は、
 `add-client.js` がまだ対応していないため、`data/clients.json` を直接編集して
 `licenseCategory: "kobutsu"` と `kobutsuDetail`（`lastRecordedChangeDateIso`・
-`closureDateIso`）を追加すること（`docs/ARCHITECTURE.md` 既知の未実装参照）。
+`closureDateIso`）、または `licenseCategory: "sanpai"` と `sanpaiDetail`
+（`validityYears`・`koushuCompletionDateIso`）を追加すること
+（`docs/ARCHITECTURE.md` 既知の未実装参照）。
 連絡先メールアドレスを登録したクライアントについては、期限が近いリマインドに
 「メール下書きを開く」リンクが表示される（クリックすると既定のメールソフトで
 下書きが開くだけで、このツール自体がメールを送信することはない）。
@@ -138,6 +151,8 @@ src/
                            5年更新リマインド）
     kobutsu/               古物商許可アドオン（欠格事由・営業所/管理者要件・3様式のdocx生成・
                            変更届/書換申請リマインド）
+    sanpai/                産業廃棄物収集運搬業許可アドオン（欠格事由・講習修了・経理的基礎・
+                           運搬施設要件、2様式のdocx生成、更新/講習修了証期限リマインド）
   web/                     インテイク用の簡易Webフォーム（建設業許可のみ。下書き保存含む。
                            ローカルホストのみ）
 test/            node --test で実行するユニットテスト（アクセシビリティ・カオス・契約テスト含む）

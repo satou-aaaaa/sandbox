@@ -58,11 +58,19 @@ import { renderReminderPage } from "./reminderPage.js";
 import { renderDraftsPage } from "./draftsPage.js";
 import { escapeHtml } from "./htmlUtils.js";
 import { registerConstructionLicense } from "../licenses/construction/index.js";
+import { registerKobutsuLicense } from "../licenses/kobutsu/index.js";
+import { registerSanpaiLicense } from "../licenses/sanpai/index.js";
 
-// 建設業許可アドオンをコアへ登録する。/reminders・/clients.csv 等が
+// 各許可種別アドオンをコアへ登録する。/reminders・/clients.csv 等が
 // リマインドを計算する前に必ず実行されている必要があるため、モジュール
 // 読み込み時（トップレベル）で行う（docs/DESIGN_kobutsu-core.md 5.6節）。
+// 【修正】従来はregisterConstructionLicense()のみが呼ばれており、
+// registerKobutsuLicense()の呼び出しが漏れていたため、古物商許可の
+// クライアントは/remindersページに書換申請・返納期限のリマインドが
+// 一切表示されない不具合があった。
 registerConstructionLicense();
+registerKobutsuLicense();
+registerSanpaiLicense();
 
 export const DEFAULT_OUT_DIR = "out/web";
 const MAX_BODY_BYTES = 5 * 1024 * 1024; // 5MB（フォーム入力のみを想定した余裕のある上限）
