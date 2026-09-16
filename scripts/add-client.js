@@ -24,6 +24,9 @@
  *     [--sanpai-validity-years 5|7] [--sanpai-koushu-completion-date <YYYY-MM-DD>]
  *     [--minpaku-notification-date <YYYY-MM-DD>]
  *     [--gijinkoku-expiry-date <YYYY-MM-DD>] [--gijinkoku-period-type 3月|1年|3年|5年]
+ *     [--nouchi-article 4条|5条] [--nouchi-grant-date <YYYY-MM-DD>]
+ *     [--nouchi-construction-start-deadline <YYYY-MM-DD>] [--nouchi-construction-start-reported true|false]
+ *     [--nouchi-completion-report-deadline <YYYY-MM-DD>] [--nouchi-completion-reported true|false]
  *
  * --grant-date は建設業許可・産廃許可（license.grantDateIsoをリマインド計算に
  * 使う種別）のみ必須。古物商許可・民泊届出・技人国ビザは各<種別>Detailの
@@ -46,17 +49,20 @@
  *
  * 例（技人国ビザ。在留カード記載の満了日を記録）:
  *   node scripts/add-client.js "サンプルITソリューションズ" --license-id 技人国-山田 --license-category gijinkoku --gijinkoku-expiry-date 2029-03-31 --gijinkoku-period-type 3年
+ *
+ * 例（農地転用許可。工事着手期限を記録。既存の建設業許可クライアントに追加する想定）:
+ *   node scripts/add-client.js "サンプル建設" --license-id 農地転用-資材置場 --license-category nouchi-tenyo --nouchi-article 4条 --nouchi-construction-start-deadline 2027-03-31
  */
 import { upsertClientLicense } from "../src/core/reminders/clientStore.js";
 
-const LICENSE_CATEGORIES = ["construction", "kobutsu", "sanpai", "minpaku", "gijinkoku"];
+const LICENSE_CATEGORIES = ["construction", "kobutsu", "sanpai", "minpaku", "gijinkoku", "nouchi-tenyo"];
 // license.grantDateIso をリマインド計算にそのまま使う種別のみ必須とする
 // （kobutsu/minpaku/gijinkokuは各<種別>Detailの日付が起点のため不要）。
 const CATEGORIES_REQUIRING_GRANT_DATE = ["construction", "sanpai"];
 
 const USAGE = [
   '使い方: node scripts/add-client.js "<クライアント名>" --license-id <許可ID> ' +
-    "[--license-category construction|kobutsu|sanpai|minpaku|gijinkoku] " +
+    "[--license-category construction|kobutsu|sanpai|minpaku|gijinkoku|nouchi-tenyo] " +
     "[--grant-date <許可年月日YYYY-MM-DD>] [--license-type 一般|特定] " +
     "[--fiscal-year-end <事業年度終了日YYYY-MM-DD>] [--contact-email <連絡先メールアドレス>]",
   "種別ごとの追加フラグ:",
@@ -64,6 +70,7 @@ const USAGE = [
   "  sanpai:  [--sanpai-validity-years 5|7] [--sanpai-koushu-completion-date <YYYY-MM-DD>]",
   "  minpaku: [--minpaku-notification-date <YYYY-MM-DD>]",
   "  gijinkoku: [--gijinkoku-expiry-date <YYYY-MM-DD>] [--gijinkoku-period-type 3月|1年|3年|5年]",
+  "  nouchi-tenyo: [--nouchi-article 4条|5条] [--nouchi-grant-date <YYYY-MM-DD>] [--nouchi-construction-start-deadline <YYYY-MM-DD>] [--nouchi-construction-start-reported true|false] [--nouchi-completion-report-deadline <YYYY-MM-DD>] [--nouchi-completion-reported true|false]",
   "同じ<クライアント名>を指定すると、そのクライアントへの許可の追加・更新になります",
   "（--license-idが既存の許可と一致すれば上書き、一致しなければ追記します）。",
   "--grant-dateは建設業許可・産廃許可のみ必須（他の種別は各Detailの日付が起点のため不要）。",
@@ -141,6 +148,23 @@ if (licenseCategory === "kobutsu") {
     detail.periodType = /** @type {"3月" | "1年" | "3年" | "5年"} */ (options["gijinkoku-period-type"]);
   }
   if (Object.keys(detail).length > 0) /** @type {any} */ (license).gijinkokuDetail = detail;
+} else if (licenseCategory === "nouchi-tenyo") {
+  /** @type {import('../src/licenses/nouchi-tenyo/reminders/conditionDeadlineSchedule.js').NouchiTenyoLicenseDetail} */
+  const detail = {};
+  if (options["nouchi-article"]) {
+    const validArticles = ["4条", "5条"];
+    if (!validArticles.includes(options["nouchi-article"])) {
+      console.error(`--nouchi-articleは${validArticles.join("、")}のいずれかを指定してください`);
+      process.exit(1);
+    }
+    detail.article = /** @type {"4条" | "5条"} */ (options["nouchi-article"]);
+  }
+  if (options["nouchi-grant-date"]) detail.grantDateIso = options["nouchi-grant-date"];
+  if (options["nouchi-construction-start-deadline"]) detail.constructionStartDeadlineIso = options["nouchi-construction-start-deadline"];
+  if (options["nouchi-construction-start-reported"]) detail.constructionStartReported = options["nouchi-construction-start-reported"] === "true";
+  if (options["nouchi-completion-report-deadline"]) detail.completionReportDeadlineIso = options["nouchi-completion-report-deadline"];
+  if (options["nouchi-completion-reported"]) detail.completionReported = options["nouchi-completion-reported"] === "true";
+  if (Object.keys(detail).length > 0) /** @type {any} */ (license).nouchiTenyoDetail = detail;
 }
 
 // 他種別向けのフラグが誤って指定されていないか軽く確認する（気づきのための警告に留め、処理は止めない）。
@@ -149,6 +173,7 @@ const OTHER_CATEGORY_FLAG_PREFIXES = {
   sanpai: "sanpai-",
   minpaku: "minpaku-",
   gijinkoku: "gijinkoku-",
+  "nouchi-tenyo": "nouchi-",
 };
 for (const [category, prefix] of Object.entries(OTHER_CATEGORY_FLAG_PREFIXES)) {
   if (category === licenseCategory) continue;

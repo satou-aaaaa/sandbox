@@ -136,6 +136,22 @@ M11（`docs/DESIGN_kobutsu-core.md`）で、許可種別に依存しない共通
 - `index.js` — `registerGijinkokuModule()`でコアの`scheduleTypes.js`へ登録するエントリポイント
 - 所属機関カテゴリーの区分基準自体は法令ではなく行政上の運用要領に基づくため自動判定はせず、利用者の手入力を前提とする。情報処理技術の資格保有等による学歴/実務経験要件の免除規定（法務大臣告示）は一次資料で検証できないため対象外（`docs/REQUIREMENTS_gijinkoku-core.md` 4.5節・FR-G1.2）
 
+### 農地転用許可アドオン（`src/licenses/nouchi-tenyo/`。コアの7例目）
+
+建設業許可・産廃許可の既存クライアント層との重なりが大きい分野。農地転用
+許可には他の許可種別のような「更新（有効期限）」の概念が無く、代わりに
+許可条件として個別の期限（工事着手期限・完了報告期限等）が付されることが
+多い、という他の許可種別とは異なる構造を持つ。
+
+- `eligibility/types.js` — `NouchiTenyoApplicantProfile`等のJSDoc型定義
+- `eligibility/ricchiKijun.js` — 立地基準（農地区分：農用地区域内農地・甲種農地・第1種農地・第2種農地・第3種農地）の判定。**農地区分の最終認定は農業委員会・都道府県が行うものであり、本判定は自己申告に基づく形式的な一次判定に過ぎない旨を必ずwarningsに含める**（NFR-N1）
+- `eligibility/ippanKijun.js` — 一般基準（転用の確実性・周辺農地への被害防除措置）の判定
+- `eligibility/engine.js` — 上記2要件をまとめて判定（集約部分はコアの`aggregate.js`を再利用）
+- `documents/shinseisho.js`（許可申請書）・`jigyokeikakusho.js`（事業計画書。資金調達内訳を`buildHeaderedTable`で表形式出力） — 各様式のdocx自動生成
+- `reminders/conditionDeadlineSchedule.js` — **条件履行期限型（第5のリマインドパターン）**。許可証に個別記載された期限日（工事着手期限・完了報告期限）をそのまま入力として受け取り、履行済みフラグが記録されるとリマインドが自動的に消える。期限超過時のラベル文言に許可取消し（農地法第51条）リスクの注記を常に含める設計とし、`ScheduleFn`のシグネチャ（今日の日付を引数に取らない）は変更していない
+- `index.js` — `registerNouchiTenyoLicense()`でコアの`scheduleTypes.js`へ登録するエントリポイント
+- 市街化区域内の届出案件・農地法第3条許可・農振除外手続・一時転用の農地復元期限管理は対象外（`docs/REQUIREMENTS_nouchi-tenyo-core.md` 4.6節）
+
 ### BtoB下請けケース管理ポータル（`src/portal/`。許可種別アドオンではない独立ドメイン）
 
 事業提案の柱（A）「BtoB下請け」（他の行政書士から書類作成業務を受注する側の
