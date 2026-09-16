@@ -53,6 +53,14 @@
   見積書・請求書のdocx生成、納期リマインドに対応。コアの許可レジストリ
   （`registerScheduleFn`）は使わず、docx共通ヘルパーとリマインド表示関数
   （`bucketizeAlerts`等）のみを再利用する設計（詳細は`docs/DESIGN_uketsuke-portal.md`）
+- **在留資格「技術・人文知識・国際業務」申請支援モジュール**: コアの5例目の
+  アドオン。事業提案の柱（C）「外国人材関連」の第一弾で、他の4モジュールより
+  専門性・リスクが高い分野を扱う（申請取次には別途行政書士の届出・研修が
+  必要）。学歴・実務経験要件（入管法基準省令）・報酬要件の判定、専攻/職務
+  内容の関連性（機械判定せず自己申告＋警告）、認定証明書交付申請書・添付
+  書類チェックリストのdocx生成、在留期間満了（3月/1年/3年/5年の可変期間）
+  リマインドに対応。判定結果・生成書類のすべてに一次スクリーニングの強調
+  文言を付与（詳細は`docs/DESIGN_gijinkoku-core.md`）
 - **住宅宿泊事業（民泊）届出モジュール**: コアの4例目のアドオンとして新規実装。
   届出制のため要件判定は「欠格事由（住宅宿泊事業法第4条）の確認」「必要書類の
   充足チェックリスト」「家主居住/不在型の確認」が中心。届出書・誓約書・
@@ -73,6 +81,7 @@
 - [`docs/REQUIREMENTS_sanpai-core.md`](docs/REQUIREMENTS_sanpai-core.md) / [`docs/DESIGN_sanpai-core.md`](docs/DESIGN_sanpai-core.md) — 要件定義書・技術設計書（産業廃棄物収集運搬業許可モジュール分）
 - [`docs/REQUIREMENTS_minpaku-core.md`](docs/REQUIREMENTS_minpaku-core.md) / [`docs/DESIGN_minpaku-core.md`](docs/DESIGN_minpaku-core.md) — 要件定義書・技術設計書（住宅宿泊事業届出モジュール分）
 - [`docs/REQUIREMENTS_uketsuke-portal.md`](docs/REQUIREMENTS_uketsuke-portal.md) / [`docs/DESIGN_uketsuke-portal.md`](docs/DESIGN_uketsuke-portal.md) — 要件定義書・技術設計書（BtoB下請けケース管理ポータル分）
+- [`docs/REQUIREMENTS_gijinkoku-core.md`](docs/REQUIREMENTS_gijinkoku-core.md) / [`docs/DESIGN_gijinkoku-core.md`](docs/DESIGN_gijinkoku-core.md) — 要件定義書・技術設計書（在留資格「技術・人文知識・国際業務」申請支援モジュール分）
 - [`docs/DEVELOPMENT_GUIDE.md`](docs/DEVELOPMENT_GUIDE.md) — 開発環境構築・コーディング規約・Git運用ガイド
 - [`docs/BEST_PRACTICES_AUDIT.md`](docs/BEST_PRACTICES_AUDIT.md) — セキュリティ・CI・リポジトリ運用の棚卸しと今後の推奨事項
 - [`docs/adr/`](docs/adr/) — アーキテクチャ決定記録（重要な設計判断の背景）
@@ -116,6 +125,9 @@ npm run gen:minpaku-checklist    # 必要書類チェックリストのdocx生�
 npm run gen:mitsumorisho             # 下請けポータル: 見積書サマリーのdocx生成サンプル
 npm run gen:seikyusho                # 下請けポータル: 請求書サマリーのdocx生成サンプル
 npm run gen:portal-reminder-digest   # 下請けポータル: 案件納期リマインドのダイジェスト出力サンプル
+npm run gen:gijinkoku-eligibility        # 技人国ビザの要件判定サンプル実行
+npm run gen:gijinkoku-ninteishinseisho   # 認定証明書交付申請書サマリーのdocx生成サンプル
+npm run gen:gijinkoku-checklist          # 添付書類チェックリストのdocx生成サンプル
 ```
 
 ### 実クライアントのリマインドを管理する
@@ -133,13 +145,15 @@ npm run client:import out/clients-export.csv   # CSVから一括登録・更新
 
 古物商許可のクライアント（書換申請・返納リマインド用の `kobutsuDetail`）・
 産廃許可のクライアント（更新・講習修了証期限リマインド用の `sanpaiDetail`）・
-民泊届出のクライアント（定期報告リマインド用の `minpakuDetail`）は、
+民泊届出のクライアント（定期報告リマインド用の `minpakuDetail`）・
+技人国ビザのクライアント（在留期間満了リマインド用の `gijinkokuDetail`）は、
 `add-client.js` がまだ対応していないため、`data/clients.json` を直接編集して
 `licenseCategory: "kobutsu"` と `kobutsuDetail`（`lastRecordedChangeDateIso`・
 `closureDateIso`）、`licenseCategory: "sanpai"` と `sanpaiDetail`
-（`validityYears`・`koushuCompletionDateIso`）、または
-`licenseCategory: "minpaku"` と `minpakuDetail`（`notificationDateIso`）を
-追加すること（`docs/ARCHITECTURE.md` 既知の未実装参照）。
+（`validityYears`・`koushuCompletionDateIso`）、`licenseCategory: "minpaku"` と
+`minpakuDetail`（`notificationDateIso`）、または `licenseCategory: "gijinkoku"` と
+`gijinkokuDetail`（`expiryDateIso`・`periodType`）を追加すること
+（`docs/ARCHITECTURE.md` 既知の未実装参照）。
 連絡先メールアドレスを登録したクライアントについては、期限が近いリマインドに
 「メール下書きを開く」リンクが表示される（クリックすると既定のメールソフトで
 下書きが開くだけで、このツール自体がメールを送信することはない）。
@@ -197,6 +211,9 @@ src/
                            運搬施設要件、2様式のdocx生成、更新/講習修了証期限リマインド）
     minpaku/               住宅宿泊事業（民泊）届出アドオン（欠格事由・必要書類チェック・
                            家主居住/不在型の確認、3様式のdocx生成、定期報告リマインド）
+    gijinkoku/             在留資格「技術・人文知識・国際業務」申請支援アドオン（学歴/実務経験・
+                           報酬要件の判定、専攻/職務関連性の自己申告確認、2様式のdocx生成、
+                           在留期間満了リマインド。一次スクリーニングの強調文言を全出力に付与）
   portal/                  BtoB下請けケース管理ポータル（許可種別アドオンではない独立ドメイン。
                            元請行政書士/案件の永続化・見積書/請求書のdocx生成・納期リマインド）
   web/                     インテイク用の簡易Webフォーム（建設業許可のみ。下書き保存含む。

@@ -116,6 +116,26 @@ M11（`docs/DESIGN_kobutsu-core.md`）で、許可種別に依存しない共通
 - `index.js` — `registerMinpakuLicense()`でコアの`scheduleTypes.js`へ登録するエントリポイント
 - 電子申請の自動化・住宅宿泊管理業者の選定支援・消防法令適合通知書の取得代行・複数物件の一括管理は対象外（`docs/REQUIREMENTS_minpaku-core.md` 4.5節）
 
+### 在留資格「技術・人文知識・国際業務」申請支援アドオン（`src/licenses/gijinkoku/`。コアの5例目）
+
+事業提案の柱（C）「外国人材関連（中長期）」の第一弾。**他の4モジュールより
+専門性・リスクが高い分野**を扱う（`docs/REQUIREMENTS_gijinkoku-core.md` 1.3節）。
+申請取次（本人に代わり出入国在留管理局窓口へ出頭・提出する行為）には、
+行政書士登録に加えて別途の届出・研修が必要であり、本ツールはあくまで
+書類準備支援に留まる。在留資格変更許可申請・技能実習/特定技能等の他の
+在留資格は対象外（新規招へいの認定証明書交付申請のみ）。
+
+- `eligibility/types.js` — `GijinkokuApplicantProfile`等のJSDoc型定義。外国人本人の旅券番号等の識別情報は含めない（NFR-G1）
+- `eligibility/gakureki.js` — 学歴・実務経験要件の判定。入管法基準省令の項目一（自然科学/人文科学分野。学歴要件または10年の実務経験）・項目二（国際業務区分。原則3年の実務経験。大学卒業者が通訳/翻訳/語学の指導に従事する場合のみ実務経験要件が免除）で判定構造が異なる点を反映
+- `eligibility/hoshu.js` — 報酬要件（日本人が従事する場合と同等額以上）の判定
+- `eligibility/kanrensei.js` — 専攻・職務内容の関連性。審査官の裁量が大きく機械判定が困難なため、建設業許可の`seijitsusei.js`と同様、常に`passed: true`＋人手確認を促す警告のみを返す
+- `eligibility/disclaimer.js` — 一次スクリーニングの強調文言（`GIJINKOKU_SCREENING_NOTICE`）。判定結果・docx出力の両方に付与する（NFR-G2）
+- `eligibility/engine.js` — 上記3要件をまとめて判定し、強調文言を冒頭・末尾に付加した専用フォーマッタ（`formatGijinkokuEligibilityReport`）を提供
+- `documents/ninteiShinseisho.js`（認定証明書交付申請書）・`checklist.js`（所属機関カテゴリー別 添付書類チェックリスト。**カテゴリーごとの詳細な必要書類一覧は行政上の運用要領〈提出書類チェックシートPDF〉に基づく参考情報であり、申請直前に出入国在留管理庁公式サイトで必ず再確認する旨を明記**） — 各様式のdocx自動生成
+- `reminders/zairyuKikanSchedule.js` — 在留期間満了リマインド（**可変期間の有効期限型。第四のリマインドパターン**）。在留期間が3月/1年/3年/5年と可変で許可日から一意に計算できないため、建設業許可・産廃許可と異なり「満了日そのもの」を`gijinkokuDetail.expiryDateIso`として直接入力に受け取る設計。更新申請の特例期間（満了後2ヶ月まで。出入国在留管理庁公式サイトで確認済み）を締切リマインドのラベルに明記
+- `index.js` — `registerGijinkokuModule()`でコアの`scheduleTypes.js`へ登録するエントリポイント
+- 所属機関カテゴリーの区分基準自体は法令ではなく行政上の運用要領に基づくため自動判定はせず、利用者の手入力を前提とする。情報処理技術の資格保有等による学歴/実務経験要件の免除規定（法務大臣告示）は一次資料で検証できないため対象外（`docs/REQUIREMENTS_gijinkoku-core.md` 4.5節・FR-G1.2）
+
 ### BtoB下請けケース管理ポータル（`src/portal/`。許可種別アドオンではない独立ドメイン）
 
 事業提案の柱（A）「BtoB下請け」（他の行政書士から書類作成業務を受注する側の
@@ -163,7 +183,8 @@ M11（`docs/DESIGN_kobutsu-core.md`）で、許可種別に依存しない共通
 - `scripts/add-client.js`（`npm run client:add`）が古物商許可の
   `kobutsuDetail`（書換申請・返納リマインドの起点日）・産廃許可の
   `sanpaiDetail`（有効期間・講習修了証発行日）・民泊届出の`minpakuDetail`
-  （届出日）の登録に未対応。現状は `data/clients.json` を直接編集するしかない
+  （届出日）・技人国ビザの`gijinkokuDetail`（在留期限・在留期間区分）の
+  登録に未対応。現状は `data/clients.json` を直接編集するしかない
   （`src/core/reminders/clientCsv.js`もCSV列としては意図的に持たせていない。
   `docs/DESIGN_kobutsu-core.md` 5.5節参照）
 - 産廃許可の優良認定（`sanpaiDetail.validityYears`が7年になる基準。環境省令）

@@ -61,6 +61,7 @@ import { registerConstructionLicense } from "../licenses/construction/index.js";
 import { registerKobutsuLicense } from "../licenses/kobutsu/index.js";
 import { registerSanpaiLicense } from "../licenses/sanpai/index.js";
 import { registerMinpakuLicense } from "../licenses/minpaku/index.js";
+import { registerGijinkokuModule } from "../licenses/gijinkoku/index.js";
 
 // 各許可種別アドオンをコアへ登録する。/reminders・/clients.csv 等が
 // リマインドを計算する前に必ず実行されている必要があるため、モジュール
@@ -73,6 +74,7 @@ registerConstructionLicense();
 registerKobutsuLicense();
 registerSanpaiLicense();
 registerMinpakuLicense();
+registerGijinkokuModule();
 
 export const DEFAULT_OUT_DIR = "out/web";
 const MAX_BODY_BYTES = 5 * 1024 * 1024; // 5MB（フォーム入力のみを想定した余裕のある上限）
