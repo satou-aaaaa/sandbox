@@ -110,8 +110,8 @@ Googleのeng-practicesが挙げる12のレビュー観点（設計・機能性�
 | CONTRIBUTING.md | ⛔ | 外部コントリビューターを募集する予定がなく、DEVELOPMENT_GUIDE.mdが実質的に同じ役割を果たしているため不要 |
 | SECURITY.md（脆弱性報告手順） | ⛔ | 非公開の個人プロジェクトであり、外部からの脆弱性報告を受け付ける想定がないため不要 |
 | CODEOWNERS | ⛔ | 単独開発のため不要 |
-| Issueテンプレート | 🟡 | 自分用のバグ管理にIssueを使うなら検討の余地あり。現状は口頭・Obsidian Vaultで管理していると想定し見送り |
-| GitHub Releases（マイルストーンごとのリリースノート） | 🟡 | `CHANGELOG.md` で代替できるため必須ではないが、区切りが欲しければ `git tag` + GitHub Releasesの活用を検討してもよい |
+| Issueテンプレート | ✅ | `.github/ISSUE_TEMPLATE/`（バグ報告・機能要望の2種）を新設。第8回監査で発注者の判断により追加 |
+| GitHub Releases（マイルストーンごとのリリースノート） | ✅ | `CHANGELOG.md`が一次情報源である点は変わらないが、区切りを付けたい場合の`git tag` + GitHub Releases運用を`docs/DEVELOPMENT_GUIDE.md` 3.5節に明文化。毎回のマイルストーンで機械的に打つ運用までは求めない |
 | アーキテクチャ決定記録（ADR） | ✅ | `docs/adr/` を新設・継続運用中。件数は増え続けるため本表には列挙しない（正確な一覧は`docs/adr/`を直接確認すること。過去に本行へ件数をハードコードしていたが、新規ADR追加のたびに更新漏れで陳腐化するため第7回監査で撤廃した） |
 
 ## DevOps・CI/CD・運用
