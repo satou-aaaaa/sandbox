@@ -74,19 +74,23 @@ src/
   documents/                     様式（youshiki*.js）生成モジュール（建設業許可分）
   web/                           インテイク用Webフォーム（建設業許可のみ・ローカルホスト限定）
 test/          node --test のユニットテスト（1ファイル1モジュール対応が基本）
-scripts/       動作確認用サンプル・CLIスクリプト（gen:*, client:*, reminders）
+scripts/       動作確認用サンプル・CLIスクリプト（gen:*, client:*, reminders。
+               portal/incorporation/succession等の独立ドメインは
+               `<ドメイン>:case-add` / `<ドメイン>:reminders` 系で統一）
 docs/          設計方針・アーキテクチャドキュメント（下記参照）
 ```
 
 ## ドキュメント索引
 
 - [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — アーキテクチャ方針の要約
-- [`docs/DESIGN.md`](docs/DESIGN.md) — 技術設計書（建設業許可）。モジュール詳細設計の一次情報源
-- [`docs/DESIGN_kobutsu-core.md`](docs/DESIGN_kobutsu-core.md) — 技術設計書（コア抽出＋古物商許可）
-- [`docs/REQUIREMENTS.md`](docs/REQUIREMENTS.md) / [`docs/REQUIREMENTS_kobutsu-core.md`](docs/REQUIREMENTS_kobutsu-core.md) — 要件定義書
+- [`docs/DESIGN.md`](docs/DESIGN.md) / [`docs/REQUIREMENTS.md`](docs/REQUIREMENTS.md) — 技術設計書・要件定義書（建設業許可）。モジュール詳細設計の一次情報源
+- 他の許可種別・独立ドメインは `docs/DESIGN_<モジュール名>.md` / `docs/REQUIREMENTS_<モジュール名>.md`
+  の対で用意されている（`ls docs/DESIGN_*.md` で最新一覧を確認すること。新モジュール追加のたびに
+  本ファイルへ個別に列挙すると陳腐化するため、ここでは列挙しない）
 - [`docs/DEVELOPMENT_GUIDE.md`](docs/DEVELOPMENT_GUIDE.md) — 環境構築・コーディング規約・Git運用（本ファイルはこの要点集）
 - [`docs/adr/`](docs/adr/) — アーキテクチャ決定記録。「なぜそう決めたか」はここを見る
 - [`docs/BEST_PRACTICES_AUDIT.md`](docs/BEST_PRACTICES_AUDIT.md) — セキュリティ・CI運用の棚卸し
+- [`SECURITY.md`](SECURITY.md) — 脆弱性の報告手順（GitHub Private vulnerability reporting経由。公開Issueにしない）
 - [`CHANGELOG.md`](CHANGELOG.md) — マイルストーン単位の変更履歴
 
 ## コーディング規約（要点。詳細は `docs/DEVELOPMENT_GUIDE.md` 2章）
@@ -105,6 +109,10 @@ docs/          設計方針・アーキテクチャドキュメント（下記�
   スキップ／フォールバックして処理を続ける（例: CSV不正行のスキップ、
   未知のクエリパラメータで全件表示にフォールバック）。ただし判定ロジックの
   合否そのものを曖昧にフォールバックさせない。
+- リマインドの起点パターンを追加する場合、`registerScheduleFn`（`ScheduleFn =
+  (license) => ScheduleItem[]`）の契約自体は変更しないことを先に検討する。
+  満了日固定・変更トリガー型・満了日可変・満了日直接入力・暦日固定反復の
+  5パターンまでは契約を変えずに実装側だけで対応できている（ADR-0014）。
 
 ## テスト（詳細は ADR-0011〜0013, `docs/DESIGN.md` 7章）
 
