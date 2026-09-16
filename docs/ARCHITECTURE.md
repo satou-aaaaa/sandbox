@@ -88,6 +88,19 @@ M11（`docs/DESIGN_kobutsu-core.md`）で、許可種別に依存しない共通
 - `index.js` — `registerKobutsuLicense()`でコアの`scheduleTypes.js`へ登録するエントリポイント
 - 法人申請・Webフォーム対応・整合性チェックは対象外（`docs/REQUIREMENTS_kobutsu-core.md` 4.6節）
 
+### 産業廃棄物収集運搬業許可アドオン（`src/licenses/sanpai/`。コアの3例目）
+
+- `eligibility/types.js` — `SanpaiApplicantProfile`等、産廃許可固有のJSDoc型定義
+- `eligibility/kekkaku.js` — 廃棄物処理法第14条第5項第2号の欠格事由（第7条第5項第4号イ〜チを包含）の判定
+- `eligibility/koushu.js` — JWセンター講習修了証の有効性（発行日から5年以内）の判定
+- `eligibility/keiriKiso.js` — 経理的基礎（直近期の債務超過のみの簡易判定）の判定
+- `eligibility/shisetsu.js` — 運搬施設（車両・容器等）の飛散・流出・悪臭防止措置の判定（自己申告＋人手確認警告）
+- `eligibility/engine.js` — 上記4要件をまとめて判定（集約部分はコアの`aggregate.js`を再利用）
+- `documents/shinseisho.js`（許可申請書）・`jigyokeikakusho.js`（事業計画書。運搬車両一覧を表形式で出力） — 各様式のdocx自動生成
+- `reminders/renewalAndKoushuSchedule.js` — 許可更新（有効期間5年 or 優良認定で7年。施行令第6条の9）・講習修了証期限（発行日から5年）の2種のリマインド計算。月単位丸め計算の実体は建設業許可と共有する`src/core/reminders/expirySchedule.js`
+- `index.js` — `registerSanpaiLicense()`でコアの`scheduleTypes.js`へ登録するエントリポイント
+- 特別管理産業廃棄物・積替え保管を伴う許可・複数都道府県同時申請は対象外（`docs/REQUIREMENTS_sanpai-core.md` 4.6節）
+
 ### Web・共通
 
 - `src/web/server.js` — インテイク用の簡易Webフォーム（M3。建設業許可のみ対応）＋リマインド表示・残日数フィルタ（`/reminders`、M7）＋下書き保存（`/drafts`）＋CSVダウンロード（`/clients.csv`）。node:http のみで実装し、127.0.0.1のみで待受
@@ -117,10 +130,14 @@ M11（`docs/DESIGN_kobutsu-core.md`）で、許可種別に依存しない共通
   整合性チェック（建設業許可の`consistencyChecks.js`相当）・法人申請対応
   （`docs/DESIGN_kobutsu-core.md` 9章「今後の拡張ポイント」参照）
 - `scripts/add-client.js`（`npm run client:add`）が古物商許可の
-  `kobutsuDetail`（書換申請・返納リマインドの起点日）の登録に未対応。
+  `kobutsuDetail`（書換申請・返納リマインドの起点日）・産廃許可の
+  `sanpaiDetail`（有効期間・講習修了証発行日）の登録に未対応。
   現状は `data/clients.json` を直接編集するしかない
   （`src/core/reminders/clientCsv.js`もCSV列としては意図的に持たせていない。
   `docs/DESIGN_kobutsu-core.md` 5.5節参照）
+- 産廃許可の優良認定（`sanpaiDetail.validityYears`が7年になる基準。環境省令）
+  そのものの判定機能は無く、利用者が別途確認して入力する前提の参考値である
+  （`docs/DESIGN_sanpai-core.md` 4.3節参照）
 - Webフォーム（M3）は単一プロセス・単一ユーザーのローカル利用を想定した最小構成。
   クライアント情報は単一JSONファイル（`data/clients.json`）で管理しており、
   本格的なデータベース・認証・複数ユーザー対応は範囲外

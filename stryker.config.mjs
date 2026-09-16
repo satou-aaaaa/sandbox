@@ -66,6 +66,10 @@ export default {
     "src/licenses/kobutsu/eligibility/**/*.js",
     "src/licenses/kobutsu/reminders/**/*.js",
     "src/licenses/kobutsu/index.js",
+    "src/core/reminders/expirySchedule.js",
+    "src/licenses/sanpai/eligibility/**/*.js",
+    "src/licenses/sanpai/reminders/**/*.js",
+    "src/licenses/sanpai/index.js",
   ],
   // ignoreStatic は coverageAnalysis: "off"（command runner使用時の制約）と
   // 併用できないため設定しない。静的に一度しか評価されない箇所のミュータントも

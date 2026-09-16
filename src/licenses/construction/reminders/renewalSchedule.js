@@ -8,9 +8,17 @@
  *
  * 参照: 国土交通省「建設産業・不動産業：許可の要件」
  * https://www.mlit.go.jp/totikensangyo/const/1_6_bt_000082.html
+ *
+ * 月単位丸め計算・満了日ベースのリマインド計算の実体は、産業廃棄物収集運搬業
+ * 許可の実装（有効期間が5年固定ではなく5/7年で変動する）にあわせて
+ * `src/core/reminders/expirySchedule.js` へ切り出した。本モジュールの
+ * `calcLicenseExpiry`・`calcRenewalSchedule` は有効期間5年固定でその関数を
+ * 呼び出す薄いラッパーであり、既存の呼び出し元・出力値に変更はない
+ * （docs/DESIGN_sanpai-core.md 4.3節参照）。
  */
+import { calcExpiry, calcExpirySchedule } from "../../../core/reminders/expirySchedule.js";
 
-const DAY_MS = 24 * 60 * 60 * 1000;
+const VALIDITY_YEARS = 5;
 
 /**
  * 日付に「月単位」でオフセットを加算する。対象月に同じ日が存在しない場合
@@ -39,10 +47,7 @@ function addMonthsClamped(date, months) {
  * @returns {string} 満了日（YYYY-MM-DD）
  */
 export function calcLicenseExpiry(grantDateIso) {
-  const grant = parseIsoDate(grantDateIso);
-  const fiveYearsLater = addMonthsClamped(grant, 60);
-  const expiry = new Date(fiveYearsLater.getTime() - DAY_MS);
-  return toIsoDate(expiry);
+  return calcExpiry(grantDateIso, VALIDITY_YEARS);
 }
 
 /**
@@ -57,12 +62,7 @@ export function calcLicenseExpiry(grantDateIso) {
  * @returns {{ expiryDate: string, earlyNoticeDate: string, recommendedStartDate: string, hardDeadline: string }}
  */
 export function calcRenewalSchedule(grantDateIso) {
-  const expiryDate = calcLicenseExpiry(grantDateIso);
-  const expiry = parseIsoDate(expiryDate);
-  const hardDeadline = toIsoDate(new Date(expiry.getTime() - 30 * DAY_MS));
-  const recommendedStartDate = toIsoDate(new Date(expiry.getTime() - 60 * DAY_MS));
-  const earlyNoticeDate = toIsoDate(new Date(expiry.getTime() - 180 * DAY_MS));
-  return { expiryDate, earlyNoticeDate, recommendedStartDate, hardDeadline };
+  return calcExpirySchedule(grantDateIso, VALIDITY_YEARS);
 }
 
 /**

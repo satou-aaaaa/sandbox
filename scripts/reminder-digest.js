@@ -8,8 +8,19 @@
 import { loadClients } from "../src/core/reminders/clientStore.js";
 import { buildReminderDigest, filterDueAlerts, formatReminderDigest, buildReminderMailtoUrl } from "../src/core/reminders/digest.js";
 import { registerConstructionLicense } from "../src/licenses/construction/index.js";
+import { registerKobutsuLicense } from "../src/licenses/kobutsu/index.js";
+import { registerSanpaiLicense } from "../src/licenses/sanpai/index.js";
 
+// 各許可種別アドオンをコアへ登録する。リマインドを計算する前に必ず実行する
+// 必要がある（docs/DESIGN_kobutsu-core.md 5.6節）。
+// 【修正】従来はregisterConstructionLicense()のみが呼ばれており、
+// registerKobutsuLicense()の呼び出しが漏れていたため、data/clients.jsonに
+// 古物商許可（kobutsuDetail設定済み）のクライアントを登録していても
+// このCLIでは書換申請・返納期限のリマインドが一切表示されない不具合が
+// あった（実データには影響しないが、機能として欠落していた）。
 registerConstructionLicense();
+registerKobutsuLicense();
+registerSanpaiLicense();
 
 const clients = await loadClients();
 

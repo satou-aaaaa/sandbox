@@ -1,7 +1,11 @@
 import { buildReminderDigest, formatReminderDigest } from "../src/core/reminders/digest.js";
 import { registerConstructionLicense } from "../src/licenses/construction/index.js";
+import { registerKobutsuLicense } from "../src/licenses/kobutsu/index.js";
+import { registerSanpaiLicense } from "../src/licenses/sanpai/index.js";
 
 registerConstructionLicense();
+registerKobutsuLicense();
+registerSanpaiLicense();
 
 /**
  * 複数クライアントのダミー許可情報。実在の顧客データは絶対に使用しない（NFR-5）。
