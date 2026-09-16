@@ -47,6 +47,12 @@
   （運搬車両一覧）のdocx生成、許可更新（有効期間5年 or 優良認定で7年。
   施行令第6条の9）・講習修了証期限の2種のリマインドに対応。CLI/スクリプト
   操作のみ（詳細は`docs/DESIGN_sanpai-core.md`）
+- **BtoB下請けケース管理ポータル**: 許可種別アドオンではなく、他の行政書士から
+  下請けとして受注する業務を管理する独立した業務ドメイン（`src/portal/`）。
+  元請行政書士・案件（受注日・納期・報酬・進捗ステータス）の登録・一覧、
+  見積書・請求書のdocx生成、納期リマインドに対応。コアの許可レジストリ
+  （`registerScheduleFn`）は使わず、docx共通ヘルパーとリマインド表示関数
+  （`bucketizeAlerts`等）のみを再利用する設計（詳細は`docs/DESIGN_uketsuke-portal.md`）
 - **住宅宿泊事業（民泊）届出モジュール**: コアの4例目のアドオンとして新規実装。
   届出制のため要件判定は「欠格事由（住宅宿泊事業法第4条）の確認」「必要書類の
   充足チェックリスト」「家主居住/不在型の確認」が中心。届出書・誓約書・
@@ -66,6 +72,7 @@
 - [`docs/DESIGN_kobutsu-core.md`](docs/DESIGN_kobutsu-core.md) — 技術設計書（同上）
 - [`docs/REQUIREMENTS_sanpai-core.md`](docs/REQUIREMENTS_sanpai-core.md) / [`docs/DESIGN_sanpai-core.md`](docs/DESIGN_sanpai-core.md) — 要件定義書・技術設計書（産業廃棄物収集運搬業許可モジュール分）
 - [`docs/REQUIREMENTS_minpaku-core.md`](docs/REQUIREMENTS_minpaku-core.md) / [`docs/DESIGN_minpaku-core.md`](docs/DESIGN_minpaku-core.md) — 要件定義書・技術設計書（住宅宿泊事業届出モジュール分）
+- [`docs/REQUIREMENTS_uketsuke-portal.md`](docs/REQUIREMENTS_uketsuke-portal.md) / [`docs/DESIGN_uketsuke-portal.md`](docs/DESIGN_uketsuke-portal.md) — 要件定義書・技術設計書（BtoB下請けケース管理ポータル分）
 - [`docs/DEVELOPMENT_GUIDE.md`](docs/DEVELOPMENT_GUIDE.md) — 開発環境構築・コーディング規約・Git運用ガイド
 - [`docs/BEST_PRACTICES_AUDIT.md`](docs/BEST_PRACTICES_AUDIT.md) — セキュリティ・CI・リポジトリ運用の棚卸しと今後の推奨事項
 - [`docs/adr/`](docs/adr/) — アーキテクチャ決定記録（重要な設計判断の背景）
@@ -106,6 +113,9 @@ npm run gen:minpaku-eligibility  # 住宅宿泊事業届出の準備状況確認
 npm run gen:minpaku-todokedesho  # 届出書サマリーのdocx生成サンプル
 npm run gen:minpaku-seiyakusho   # 誓約書サマリーのdocx生成サンプル
 npm run gen:minpaku-checklist    # 必要書類チェックリストのdocx生成サンプル
+npm run gen:mitsumorisho             # 下請けポータル: 見積書サマリーのdocx生成サンプル
+npm run gen:seikyusho                # 下請けポータル: 請求書サマリーのdocx生成サンプル
+npm run gen:portal-reminder-digest   # 下請けポータル: 案件納期リマインドのダイジェスト出力サンプル
 ```
 
 ### 実クライアントのリマインドを管理する
@@ -136,6 +146,24 @@ npm run client:import out/clients-export.csv   # CSVから一括登録・更新
 
 生成された `.docx` は `out/`（コミット対象外）に出力される。Microsoft Word や
 LibreOffice Writer 等で開いて内容を確認すること。
+
+### BtoB下請けケース管理ポータルを使う
+
+他の行政書士から下請けとして受注した書類作成業務を管理する、許可種別とは
+独立した業務ドメイン（`src/portal/`）。許可のリマインド（`npm run reminders`）
+とは別のコマンド・別のデータファイル（`data/partners.json`・`data/cases.json`）
+として扱う。
+
+```bash
+npm run portal:partner-add -- "sample-law-office" "サンプル行政書士法人" --contact-name "田中 次郎" --contact-email tanaka@example.com
+npm run portal:case-add -- "case-001" --partner-id sample-law-office --case-name "○○様 建設業許可新規申請 書類作成" --received-date 2026-09-01 --due-date 2026-10-15 --fee 80000 --license-category construction
+npm run portal:case-status -- "case-001" 作業中   # ステータス更新（受付/作業中/納品待ち/完了/保留）
+npm run portal:reminders                            # 未完了案件の納期リマインドを表示
+```
+
+データは `data/partners.json`・`data/cases.json`（いずれもコミット対象外）に
+ローカル保存される。外部への送信は行わない。見積書・請求書のdocx生成は
+`npm run gen:mitsumorisho`・`npm run gen:seikyusho`（サンプルデータ）を参照。
 
 ### Webフォームを使う
 
@@ -169,6 +197,8 @@ src/
                            運搬施設要件、2様式のdocx生成、更新/講習修了証期限リマインド）
     minpaku/               住宅宿泊事業（民泊）届出アドオン（欠格事由・必要書類チェック・
                            家主居住/不在型の確認、3様式のdocx生成、定期報告リマインド）
+  portal/                  BtoB下請けケース管理ポータル（許可種別アドオンではない独立ドメイン。
+                           元請行政書士/案件の永続化・見積書/請求書のdocx生成・納期リマインド）
   web/                     インテイク用の簡易Webフォーム（建設業許可のみ。下書き保存含む。
                            ローカルホストのみ）
 test/            node --test で実行するユニットテスト（アクセシビリティ・カオス・契約テスト含む）

@@ -41,11 +41,18 @@
     "gen:minpaku-todokedesho": "node scripts/generate-minpaku-todokedesho-sample.js",
     "gen:minpaku-seiyakusho": "node scripts/generate-minpaku-seiyakusho-sample.js",
     "gen:minpaku-checklist": "node scripts/generate-minpaku-checklist-sample.js",
+    "gen:mitsumorisho": "node scripts/generate-mitsumorisho-sample.js",
+    "gen:seikyusho": "node scripts/generate-seikyusho-sample.js",
+    "gen:portal-reminder-digest": "node scripts/generate-portal-reminder-digest-sample.js",
     "client:add": "node scripts/add-client.js",
     "client:remove": "node scripts/remove-client.js",
     "client:export": "node scripts/export-clients-csv.js",
     "client:import": "node scripts/import-clients-csv.js",
     "reminders": "node scripts/reminder-digest.js",
+    "portal:partner-add": "node scripts/portal-add-partner.js",
+    "portal:case-add": "node scripts/portal-add-case.js",
+    "portal:case-status": "node scripts/portal-update-case-status.js",
+    "portal:reminders": "node scripts/portal-case-reminders.js",
     "web": "node src/web/server.js"
   },
   "dependencies": {

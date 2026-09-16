@@ -116,6 +116,22 @@ M11（`docs/DESIGN_kobutsu-core.md`）で、許可種別に依存しない共通
 - `index.js` — `registerMinpakuLicense()`でコアの`scheduleTypes.js`へ登録するエントリポイント
 - 電子申請の自動化・住宅宿泊管理業者の選定支援・消防法令適合通知書の取得代行・複数物件の一括管理は対象外（`docs/REQUIREMENTS_minpaku-core.md` 4.5節）
 
+### BtoB下請けケース管理ポータル（`src/portal/`。許可種別アドオンではない独立ドメイン）
+
+事業提案の柱（A）「BtoB下請け」（他の行政書士から書類作成業務を受注する側の
+業務）を支援するケース管理ツール。柱（B）の許可種別アドオン群とは異なり、
+許可の要件判定（`src/core/eligibility/`）は対象外で、コアが提供する
+「docx共通ヘルパー」「リマインド表示関数（`bucketizeAlerts`・
+`formatReminderDigest`）」のみを再利用する（`docs/DESIGN_uketsuke-portal.md`
+1章）。
+
+- `types.js` — `PartnerRecord`（元請行政書士）・`CaseRecord`（案件）のJSDoc型定義。`ApplicantProfile`・`ClientRecord`とは意図的に型を共有しない（NFR-U2）
+- `caseStore.js` — `data/partners.json`・`data/cases.json`への永続化（`clientStore.js`と同じ設計パターン。`withFileLock`によるread-modify-write直列化を含む）
+- `documents/mitsumorisho.js`（見積書）・`seikyusho.js`（請求書） — 各様式のdocx自動生成。国・自治体が定める「様式」ではないため`buildDisclaimerParagraph`は使わない
+- `reminders/caseDeadlines.js` — 案件の納期から`ReminderAlert`相当を生成。**あえて`registerScheduleFn`（許可のレジストリ）を使わない設計**: 案件を`LicenseEntry`として無理に扱うとコアが許可種別以外の概念を抱え込んでしまうため、表示用の関数（`bucketizeAlerts`等）だけをコアから再利用し、許可のリマインド一覧（`buildReminderDigest`）とは別コマンド・別出力として扱う（`docs/DESIGN_uketsuke-portal.md` 5章）
+- `scripts/portal-*.js` — 元請・案件の登録/一覧/ステータス更新・納期リマインド表示のCLI
+- Web一覧表示・オンライン決済・複数案件の月次請求サマリーは対象外（`docs/REQUIREMENTS_uketsuke-portal.md` 4.6節）
+
 ### Web・共通
 
 - `src/web/server.js` — インテイク用の簡易Webフォーム（M3。建設業許可のみ対応）＋リマインド表示・残日数フィルタ（`/reminders`、M7）＋下書き保存（`/drafts`）＋CSVダウンロード（`/clients.csv`）。node:http のみで実装し、127.0.0.1のみで待受
