@@ -84,6 +84,14 @@
   出資金払込期限のリマインドに対応。設立登記の申請は司法書士の独占業務
   （司法書士法第3条・第73条・第78条）であるため、登記申請書に類する様式は
   一切実装しない（詳細は`docs/DESIGN_kaisha-secchi-support.md`）
+- **相続関連（遺言書・遺産分割協議書）支援モジュール**: 「許可の可否」ではなく
+  「相続財産の分配」を計算する独立した業務ドメイン（`src/succession/`）。
+  民法900条・901条（代襲相続を含む）に基づく法定相続人・法定相続分の自動
+  計算、財産目録・遺産分割協議書・自筆証書遺言文案のdocx生成、相続放棄
+  （3ヶ月）・相続税申告（10ヶ月）・遺留分侵害額請求（1年/10年）の期限
+  リマインドに対応。相続人間の争いの有無・遺留分該当性・同時死亡の推定等の
+  法的評価は自動判定せず、必ず人手確認を促す設計とした。マイナンバー等の
+  機微個人情報は型定義上そもそも保持しない（詳細は`docs/DESIGN_souzoku-support.md`）
 - **在留資格「技術・人文知識・国際業務」申請支援モジュール**: コアの5例目の
   アドオン。事業提案の柱（C）「外国人材関連」の第一弾で、他の4モジュールより
   専門性・リスクが高い分野を扱う（申請取次には別途行政書士の届出・研修が
@@ -113,6 +121,7 @@
 - [`docs/REQUIREMENTS_minpaku-core.md`](docs/REQUIREMENTS_minpaku-core.md) / [`docs/DESIGN_minpaku-core.md`](docs/DESIGN_minpaku-core.md) — 要件定義書・技術設計書（住宅宿泊事業届出モジュール分）
 - [`docs/REQUIREMENTS_uketsuke-portal.md`](docs/REQUIREMENTS_uketsuke-portal.md) / [`docs/DESIGN_uketsuke-portal.md`](docs/DESIGN_uketsuke-portal.md) — 要件定義書・技術設計書（BtoB下請けケース管理ポータル分）
 - [`docs/REQUIREMENTS_kaisha-secchi-support.md`](docs/REQUIREMENTS_kaisha-secchi-support.md) / [`docs/DESIGN_kaisha-secchi-support.md`](docs/DESIGN_kaisha-secchi-support.md) — 要件定義書・技術設計書（会社設立サポートモジュール分）
+- [`docs/REQUIREMENTS_souzoku-support.md`](docs/REQUIREMENTS_souzoku-support.md) / [`docs/DESIGN_souzoku-support.md`](docs/DESIGN_souzoku-support.md) — 要件定義書・技術設計書（相続関連支援モジュール分）
 - [`docs/REQUIREMENTS_gijinkoku-core.md`](docs/REQUIREMENTS_gijinkoku-core.md) / [`docs/DESIGN_gijinkoku-core.md`](docs/DESIGN_gijinkoku-core.md) — 要件定義書・技術設計書（在留資格「技術・人文知識・国際業務」申請支援モジュール分）
 - [`docs/REQUIREMENTS_keiei-jiko-shinsa-core.md`](docs/REQUIREMENTS_keiei-jiko-shinsa-core.md) / [`docs/DESIGN_keiei-jiko-shinsa-core.md`](docs/DESIGN_keiei-jiko-shinsa-core.md) — 要件定義書・技術設計書（経営事項審査申請支援モジュール分）
 - [`docs/REQUIREMENTS_nouchi-tenyo-core.md`](docs/REQUIREMENTS_nouchi-tenyo-core.md) / [`docs/DESIGN_nouchi-tenyo-core.md`](docs/DESIGN_nouchi-tenyo-core.md) — 要件定義書・技術設計書（農地転用許可モジュール分）
@@ -163,6 +172,8 @@ npm run gen:portal-reminder-digest   # 下請けポータル: 案件納期リマ
 npm run gen:incorporation-teikan             # 会社設立サポート: 定款サマリー（株式会社・合同会社）のdocx生成サンプル
 npm run gen:incorporation-hokininketteisho   # 会社設立サポート: 発起人決定書サマリーのdocx生成サンプル
 npm run gen:incorporation-reminder-digest    # 会社設立サポート: 定款認証予約日/払込期限リマインドのダイジェスト出力サンプル
+npm run gen:succession-heirs                 # 相続支援: 法定相続人・法定相続分の試算サンプル実行
+npm run gen:succession-documents             # 相続支援: 財産目録/遺産分割協議書/自筆証書遺言文案のdocx生成サンプル
 npm run gen:gijinkoku-eligibility        # 技人国ビザの要件判定サンプル実行
 npm run gen:gijinkoku-ninteishinseisho   # 認定証明書交付申請書サマリーのdocx生成サンプル
 npm run gen:gijinkoku-checklist          # 添付書類チェックリストのdocx生成サンプル
@@ -245,6 +256,24 @@ npm run incorporation:reminders                     # 未完了案件の定款�
 `npm run gen:incorporation-teikan`・`npm run gen:incorporation-hokininketteisho`
 （サンプルデータ）を参照。
 
+### 相続関連（遺言書・遺産分割協議書）支援モジュールを使う
+
+法定相続人・法定相続分の自動計算（民法900条・901条）、財産目録・遺産
+分割協議書・自筆証書遺言文案のdocx生成、相続放棄・相続税申告・遺留分
+侵害額請求の期限リマインドを行う、許可種別とは独立した業務ドメイン
+（`src/succession/`）。**相続人間の争いの有無は自動判定しません**。
+必ず人手で確認した結果を`--has-dispute`で記録してください。
+
+```bash
+npm run succession:case-add -- "case-001" --death-date 2026-06-01 --case-label "サンプル家 相続手続き" --has-spouse true --spouse-alive true --child "child-1:長男:生存" --child "child-2:長女:生存"
+npm run succession:reminders                        # 未完了案件の相続放棄/相続税申告/遺留分侵害額請求の期限リマインドを表示
+```
+
+データは `data/succession-cases.json`（コミット対象外）にローカル保存
+される。外部への送信は行わない。マイナンバー等の機微個人情報は入力
+データモデル自体に存在しない。財産目録・協議書・自筆証書遺言文案の
+docx生成は `npm run gen:succession-documents`（サンプルデータ）を参照。
+
 ### Webフォームを使う
 
 ```bash
@@ -293,6 +322,11 @@ src/
   incorporation/           会社設立サポート（許可種別アドオンではない独立ドメイン。定款/
                            発起人決定書サマリーのdocx生成・定款認証予約日/払込期限リマインド。
                            登記申請〈司法書士の独占業務〉に類する様式は一切実装しない）
+  succession/              相続関連（遺言書・遺産分割協議書）支援（許可種別アドオンでも
+                           要件判定でもない独立ドメイン。法定相続人・法定相続分の自動計算
+                           〈民法900条・901条〉、財産目録/協議書/自筆証書遺言文案のdocx生成、
+                           相続放棄/相続税申告/遺留分侵害額請求の期限リマインド。争いの
+                           有無等の法的評価は自動判定しない）
   web/                     インテイク用の簡易Webフォーム（建設業許可のみ。下書き保存含む。
                            ローカルホストのみ）
 test/            node --test で実行するユニットテスト（アクセシビリティ・カオス・契約テスト含む）
