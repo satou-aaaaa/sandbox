@@ -142,6 +142,19 @@ Microsoft Word、LibreOffice Writer等で開いて内容を確認すること。
   マイルストーン単位（例: M2完了時点）でまとめてPRを作成し、
   `docs/REQUIREMENTS.md` 7章の受け入れ基準に沿って発注者がレビューする想定。
 
+### 3.5 リリース（`git tag` + GitHub Releases）
+
+- 変更履歴の一次情報源は`CHANGELOG.md`であり、原則これで十分（区切りが
+  欲しい場合の任意運用）。マイルストーン完了等、区切りを付けたい場合のみ
+  以下を行う:
+  - `package.json`の`version`を更新し、`git tag vX.Y.Z`を付与して
+    `git push origin vX.Y.Z`でpush
+  - GitHub Releasesで当該タグに対応するリリースを作成し、本文には
+    `CHANGELOG.md`の該当セクションを転記する（実データ・実クライアント名を
+    含めないこと。6章参照）
+- 毎回のマイルストーンで機械的にタグを打つ運用は求めない
+  （`docs/BEST_PRACTICES_AUDIT.md`参照。CHANGELOG.mdでの記録を基本とする）。
+
 ## 4. 進め方・コミュニケーション
 
 - マイルストーン単位（`docs/PROPOSAL.md` 6章のM1〜M6）で区切って開発を進める。
