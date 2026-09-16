@@ -77,6 +77,13 @@
   見積書・請求書のdocx生成、納期リマインドに対応。コアの許可レジストリ
   （`registerScheduleFn`）は使わず、docx共通ヘルパーとリマインド表示関数
   （`bucketizeAlerts`等）のみを再利用する設計（詳細は`docs/DESIGN_uketsuke-portal.md`）
+- **会社設立サポートモジュール**: 許可の可否を判定する業務ではないため、
+  BtoB下請けポータルと同じく要件判定エンジン・許可レジストリのいずれにも
+  依存しない独立した業務ドメイン（`src/incorporation/`）。株式会社・合同
+  会社の定款・発起人決定書の記載内容サマリーのdocx生成、定款認証予約日・
+  出資金払込期限のリマインドに対応。設立登記の申請は司法書士の独占業務
+  （司法書士法第3条・第73条・第78条）であるため、登記申請書に類する様式は
+  一切実装しない（詳細は`docs/DESIGN_kaisha-secchi-support.md`）
 - **在留資格「技術・人文知識・国際業務」申請支援モジュール**: コアの5例目の
   アドオン。事業提案の柱（C）「外国人材関連」の第一弾で、他の4モジュールより
   専門性・リスクが高い分野を扱う（申請取次には別途行政書士の届出・研修が
@@ -105,6 +112,7 @@
 - [`docs/REQUIREMENTS_sanpai-core.md`](docs/REQUIREMENTS_sanpai-core.md) / [`docs/DESIGN_sanpai-core.md`](docs/DESIGN_sanpai-core.md) — 要件定義書・技術設計書（産業廃棄物収集運搬業許可モジュール分）
 - [`docs/REQUIREMENTS_minpaku-core.md`](docs/REQUIREMENTS_minpaku-core.md) / [`docs/DESIGN_minpaku-core.md`](docs/DESIGN_minpaku-core.md) — 要件定義書・技術設計書（住宅宿泊事業届出モジュール分）
 - [`docs/REQUIREMENTS_uketsuke-portal.md`](docs/REQUIREMENTS_uketsuke-portal.md) / [`docs/DESIGN_uketsuke-portal.md`](docs/DESIGN_uketsuke-portal.md) — 要件定義書・技術設計書（BtoB下請けケース管理ポータル分）
+- [`docs/REQUIREMENTS_kaisha-secchi-support.md`](docs/REQUIREMENTS_kaisha-secchi-support.md) / [`docs/DESIGN_kaisha-secchi-support.md`](docs/DESIGN_kaisha-secchi-support.md) — 要件定義書・技術設計書（会社設立サポートモジュール分）
 - [`docs/REQUIREMENTS_gijinkoku-core.md`](docs/REQUIREMENTS_gijinkoku-core.md) / [`docs/DESIGN_gijinkoku-core.md`](docs/DESIGN_gijinkoku-core.md) — 要件定義書・技術設計書（在留資格「技術・人文知識・国際業務」申請支援モジュール分）
 - [`docs/REQUIREMENTS_keiei-jiko-shinsa-core.md`](docs/REQUIREMENTS_keiei-jiko-shinsa-core.md) / [`docs/DESIGN_keiei-jiko-shinsa-core.md`](docs/DESIGN_keiei-jiko-shinsa-core.md) — 要件定義書・技術設計書（経営事項審査申請支援モジュール分）
 - [`docs/REQUIREMENTS_nouchi-tenyo-core.md`](docs/REQUIREMENTS_nouchi-tenyo-core.md) / [`docs/DESIGN_nouchi-tenyo-core.md`](docs/DESIGN_nouchi-tenyo-core.md) — 要件定義書・技術設計書（農地転用許可モジュール分）
@@ -152,6 +160,9 @@ npm run gen:minpaku-checklist    # 必要書類チェックリストのdocx生�
 npm run gen:mitsumorisho             # 下請けポータル: 見積書サマリーのdocx生成サンプル
 npm run gen:seikyusho                # 下請けポータル: 請求書サマリーのdocx生成サンプル
 npm run gen:portal-reminder-digest   # 下請けポータル: 案件納期リマインドのダイジェスト出力サンプル
+npm run gen:incorporation-teikan             # 会社設立サポート: 定款サマリー（株式会社・合同会社）のdocx生成サンプル
+npm run gen:incorporation-hokininketteisho   # 会社設立サポート: 発起人決定書サマリーのdocx生成サンプル
+npm run gen:incorporation-reminder-digest    # 会社設立サポート: 定款認証予約日/払込期限リマインドのダイジェスト出力サンプル
 npm run gen:gijinkoku-eligibility        # 技人国ビザの要件判定サンプル実行
 npm run gen:gijinkoku-ninteishinseisho   # 認定証明書交付申請書サマリーのdocx生成サンプル
 npm run gen:gijinkoku-checklist          # 添付書類チェックリストのdocx生成サンプル
@@ -216,6 +227,24 @@ npm run portal:reminders                            # 未完了案件の納期�
 ローカル保存される。外部への送信は行わない。見積書・請求書のdocx生成は
 `npm run gen:mitsumorisho`・`npm run gen:seikyusho`（サンプルデータ）を参照。
 
+### 会社設立サポートモジュールを使う
+
+株式会社・合同会社の設立に際して必要な定款・発起人決定書の記載内容
+サマリー生成、定款認証予約日・出資金払込期限のリマインドを行う、
+BtoB下請けポータルと同じく許可種別とは独立した業務ドメイン
+（`src/incorporation/`）。**設立登記の申請は司法書士の独占業務であり、
+本モジュールは対象としない**（登記申請書に類する様式は一切生成しない）。
+
+```bash
+npm run incorporation:case-add -- "case-001" --client-name "サンプル太郎" --company-type 株式会社 --company-name "サンプル商事株式会社" --purpose "ソフトウェアの開発及び販売" --head-office "東京都サンプル区" --capital 3000000 --founder "サンプル太郎:東京都サンプル区1-2-3:3000000:30"
+npm run incorporation:reminders                     # 未完了案件の定款認証予約日/払込期限リマインドを表示
+```
+
+データは `data/incorporation-cases.json`（コミット対象外）にローカル保存
+される。外部への送信は行わない。定款・発起人決定書サマリーのdocx生成は
+`npm run gen:incorporation-teikan`・`npm run gen:incorporation-hokininketteisho`
+（サンプルデータ）を参照。
+
 ### Webフォームを使う
 
 ```bash
@@ -261,6 +290,9 @@ src/
                            許可要件ではなく継続義務である旨を全出力に明記）
   portal/                  BtoB下請けケース管理ポータル（許可種別アドオンではない独立ドメイン。
                            元請行政書士/案件の永続化・見積書/請求書のdocx生成・納期リマインド）
+  incorporation/           会社設立サポート（許可種別アドオンではない独立ドメイン。定款/
+                           発起人決定書サマリーのdocx生成・定款認証予約日/払込期限リマインド。
+                           登記申請〈司法書士の独占業務〉に類する様式は一切実装しない）
   web/                     インテイク用の簡易Webフォーム（建設業許可のみ。下書き保存含む。
                            ローカルホストのみ）
 test/            node --test で実行するユニットテスト（アクセシビリティ・カオス・契約テスト含む）

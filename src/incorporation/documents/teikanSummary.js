@@ -42,6 +42,7 @@ export function checkCapitalConsistency(teikan) {
  */
 export function resolveTeikanSummaryRows(teikan) {
   const isKabu = teikan.companyType === "株式会社";
+  /** @type {[string, string][]} */
   const rows = [
     ["会社形態", teikan.companyType],
     ["商号", orNotEntered(teikan.companyName)],
