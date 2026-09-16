@@ -70,6 +70,9 @@ export default {
     "src/licenses/sanpai/eligibility/**/*.js",
     "src/licenses/sanpai/reminders/**/*.js",
     "src/licenses/sanpai/index.js",
+    "src/licenses/minpaku/eligibility/**/*.js",
+    "src/licenses/minpaku/reminders/**/*.js",
+    "src/licenses/minpaku/index.js",
   ],
   // ignoreStatic は coverageAnalysis: "off"（command runner使用時の制約）と
   // 併用できないため設定しない。静的に一度しか評価されない箇所のミュータントも

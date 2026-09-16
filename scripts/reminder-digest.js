@@ -10,6 +10,7 @@ import { buildReminderDigest, filterDueAlerts, formatReminderDigest, buildRemind
 import { registerConstructionLicense } from "../src/licenses/construction/index.js";
 import { registerKobutsuLicense } from "../src/licenses/kobutsu/index.js";
 import { registerSanpaiLicense } from "../src/licenses/sanpai/index.js";
+import { registerMinpakuLicense } from "../src/licenses/minpaku/index.js";
 
 // 各許可種別アドオンをコアへ登録する。リマインドを計算する前に必ず実行する
 // 必要がある（docs/DESIGN_kobutsu-core.md 5.6節）。
@@ -21,6 +22,7 @@ import { registerSanpaiLicense } from "../src/licenses/sanpai/index.js";
 registerConstructionLicense();
 registerKobutsuLicense();
 registerSanpaiLicense();
+registerMinpakuLicense();
 
 const clients = await loadClients();
 
