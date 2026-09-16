@@ -101,6 +101,21 @@ M11（`docs/DESIGN_kobutsu-core.md`）で、許可種別に依存しない共通
 - `index.js` — `registerSanpaiLicense()`でコアの`scheduleTypes.js`へ登録するエントリポイント
 - 特別管理産業廃棄物・積替え保管を伴う許可・複数都道府県同時申請は対象外（`docs/REQUIREMENTS_sanpai-core.md` 4.6節）
 
+### 住宅宿泊事業（民泊）届出アドオン（`src/licenses/minpaku/`。コアの4例目）
+
+届出制のため、他の許可種別のような裁量的な合否判定ではなく「届出の準備が
+整っているか」の確認が中心（`docs/REQUIREMENTS_minpaku-core.md` 1.2節）。
+
+- `eligibility/types.js` — `MinpakuApplicantProfile`等、民泊届出固有のJSDoc型定義
+- `eligibility/kekkaku.js` — 住宅宿泊事業法第4条の欠格事由の判定
+- `eligibility/documentChecklist.js` — 必要書類（登記事項証明書・図面・消防法令適合通知書 等）の充足チェックリスト（合否判定ではなく準備状況の可視化）
+- `eligibility/residentType.js` — 家主居住型/家主不在型の確認（家主不在型で管理業者未確定なら警告。常に合否には影響しない）
+- `eligibility/engine.js` — 上記3項目をまとめて確認（集約部分はコアの`aggregate.js`を再利用）
+- `documents/todokedesho.js`（届出書）・`seiyakusho.js`（誓約書）・`checklist.js`（必要書類チェックリスト） — 各様式のdocx自動生成
+- `reminders/periodicReportSchedule.js` — 定期報告（宿泊実績）の次回期限計算。**暦日固定型（新パターン）**: 施行規則第12条第2項により、報告実績・届出日に依存せず、毎年2/4/6/8/10/12月15日のうち直近で到来する日が次回期限になる。既存の「満了日ベース」（建設業許可・産廃許可）・「変更トリガー型」（古物商許可）とは異なる第3のリマインド方式だが、`ScheduleFn`契約自体（`(license) => ScheduleItem[]`）は変更せず、関数内部で`new Date()`により本日を取得することで対応できることを実証した
+- `index.js` — `registerMinpakuLicense()`でコアの`scheduleTypes.js`へ登録するエントリポイント
+- 電子申請の自動化・住宅宿泊管理業者の選定支援・消防法令適合通知書の取得代行・複数物件の一括管理は対象外（`docs/REQUIREMENTS_minpaku-core.md` 4.5節）
+
 ### Web・共通
 
 - `src/web/server.js` — インテイク用の簡易Webフォーム（M3。建設業許可のみ対応）＋リマインド表示・残日数フィルタ（`/reminders`、M7）＋下書き保存（`/drafts`）＋CSVダウンロード（`/clients.csv`）。node:http のみで実装し、127.0.0.1のみで待受
@@ -131,8 +146,8 @@ M11（`docs/DESIGN_kobutsu-core.md`）で、許可種別に依存しない共通
   （`docs/DESIGN_kobutsu-core.md` 9章「今後の拡張ポイント」参照）
 - `scripts/add-client.js`（`npm run client:add`）が古物商許可の
   `kobutsuDetail`（書換申請・返納リマインドの起点日）・産廃許可の
-  `sanpaiDetail`（有効期間・講習修了証発行日）の登録に未対応。
-  現状は `data/clients.json` を直接編集するしかない
+  `sanpaiDetail`（有効期間・講習修了証発行日）・民泊届出の`minpakuDetail`
+  （届出日）の登録に未対応。現状は `data/clients.json` を直接編集するしかない
   （`src/core/reminders/clientCsv.js`もCSV列としては意図的に持たせていない。
   `docs/DESIGN_kobutsu-core.md` 5.5節参照）
 - 産廃許可の優良認定（`sanpaiDetail.validityYears`が7年になる基準。環境省令）
