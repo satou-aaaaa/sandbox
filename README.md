@@ -47,6 +47,14 @@
   （運搬車両一覧）のdocx生成、許可更新（有効期間5年 or 優良認定で7年。
   施行令第6条の9）・講習修了証期限の2種のリマインドに対応。CLI/スクリプト
   操作のみ（詳細は`docs/DESIGN_sanpai-core.md`）
+- **経営事項審査（経審）申請支援モジュール**: 建設業許可の既存クライアントへの
+  クロスセルという位置づけの6例目のアドオン。前提条件（建設業許可の保有・
+  決算変更届の提出状況）確認、評価項目5要素（X1〜W）の入力完備性チェック
+  （評点計算はしない）、経営規模等評価申請書・経営状況分析申請書・必要
+  書類チェックリストのdocx生成、有効期限（審査基準日から1年7ヶ月）を
+  切らさないための年次反復型リマインドに対応。同一クライアントレコード内の
+  建設業許可`LicenseEntry`を参照する初めてのアドオン間連携（詳細は
+  `docs/DESIGN_keiei-jiko-shinsa-core.md`）
 - **農地転用許可モジュール**: 建設業許可・産廃許可の既存クライアント層との
   重なりが大きい7例目のアドオン。農地区分に基づく立地基準（あくまで
   自己申告に基づく一次判定であり、最終認定は農業委員会が行う旨を必ず
@@ -90,6 +98,7 @@
 - [`docs/REQUIREMENTS_minpaku-core.md`](docs/REQUIREMENTS_minpaku-core.md) / [`docs/DESIGN_minpaku-core.md`](docs/DESIGN_minpaku-core.md) — 要件定義書・技術設計書（住宅宿泊事業届出モジュール分）
 - [`docs/REQUIREMENTS_uketsuke-portal.md`](docs/REQUIREMENTS_uketsuke-portal.md) / [`docs/DESIGN_uketsuke-portal.md`](docs/DESIGN_uketsuke-portal.md) — 要件定義書・技術設計書（BtoB下請けケース管理ポータル分）
 - [`docs/REQUIREMENTS_gijinkoku-core.md`](docs/REQUIREMENTS_gijinkoku-core.md) / [`docs/DESIGN_gijinkoku-core.md`](docs/DESIGN_gijinkoku-core.md) — 要件定義書・技術設計書（在留資格「技術・人文知識・国際業務」申請支援モジュール分）
+- [`docs/REQUIREMENTS_keiei-jiko-shinsa-core.md`](docs/REQUIREMENTS_keiei-jiko-shinsa-core.md) / [`docs/DESIGN_keiei-jiko-shinsa-core.md`](docs/DESIGN_keiei-jiko-shinsa-core.md) — 要件定義書・技術設計書（経営事項審査申請支援モジュール分）
 - [`docs/REQUIREMENTS_nouchi-tenyo-core.md`](docs/REQUIREMENTS_nouchi-tenyo-core.md) / [`docs/DESIGN_nouchi-tenyo-core.md`](docs/DESIGN_nouchi-tenyo-core.md) — 要件定義書・技術設計書（農地転用許可モジュール分）
 - [`docs/DEVELOPMENT_GUIDE.md`](docs/DEVELOPMENT_GUIDE.md) — 開発環境構築・コーディング規約・Git運用ガイド
 - [`docs/BEST_PRACTICES_AUDIT.md`](docs/BEST_PRACTICES_AUDIT.md) — セキュリティ・CI・リポジトリ運用の棚卸しと今後の推奨事項
@@ -137,6 +146,10 @@ npm run gen:portal-reminder-digest   # 下請けポータル: 案件納期リマ
 npm run gen:gijinkoku-eligibility        # 技人国ビザの要件判定サンプル実行
 npm run gen:gijinkoku-ninteishinseisho   # 認定証明書交付申請書サマリーのdocx生成サンプル
 npm run gen:gijinkoku-checklist          # 添付書類チェックリストのdocx生成サンプル
+npm run gen:keiei-jiko-shinsa-eligibility  # 経審の準備状況確認サンプル実行
+npm run gen:keiei-jiko-shinsa-keieikibo    # 経営規模等評価申請書サマリーのdocx生成サンプル
+npm run gen:keiei-jiko-shinsa-bunseki      # 経営状況分析申請書サマリーのdocx生成サンプル
+npm run gen:keiei-jiko-shinsa-checklist    # 必要書類チェックリストのdocx生成サンプル
 npm run gen:nouchi-tenyo-eligibility      # 農地転用許可の要件判定サンプル実行
 npm run gen:nouchi-tenyo-shinseisho       # 許可申請書サマリーのdocx生成サンプル
 npm run gen:nouchi-tenyo-jigyokeikakusho  # 事業計画書（資金調達内訳）サマリーのdocx生成サンプル
@@ -226,6 +239,9 @@ src/
     gijinkoku/             在留資格「技術・人文知識・国際業務」申請支援アドオン（学歴/実務経験・
                            報酬要件の判定、専攻/職務関連性の自己申告確認、2様式のdocx生成、
                            在留期間満了リマインド。一次スクリーニングの強調文言を全出力に付与）
+    keiei-jiko-shinsa/     経営事項審査（経審）申請支援アドオン（建設業許可保有の確認、
+                           評価項目の入力完備性チェック〈評点計算はしない〉、3様式のdocx生成、
+                           年次反復型の有効期限リマインド。同一クライアントの建設業許可を参照する）
     nouchi-tenyo/          農地転用許可アドオン（立地基準/一般基準の判定、2様式のdocx生成、
                            工事着手/完了報告期限を追跡する「条件履行期限型」リマインド）
   portal/                  BtoB下請けケース管理ポータル（許可種別アドオンではない独立ドメイン。

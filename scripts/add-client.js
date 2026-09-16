@@ -17,13 +17,16 @@
  *
  * 使い方:
  *   node scripts/add-client.js "<クライアント名>" --license-id <許可ID>
- *     [--license-category construction|kobutsu|sanpai|minpaku|gijinkoku]
+ *     [--license-category construction|kobutsu|sanpai|minpaku|gijinkoku|keiei-jiko-shinsa]
  *     [--grant-date <許可年月日YYYY-MM-DD>] [--license-type 一般|特定]
  *     [--fiscal-year-end <事業年度終了日YYYY-MM-DD>] [--contact-email <連絡先メールアドレス>]
  *     [--kobutsu-grant-date <YYYY-MM-DD>] [--kobutsu-last-change-date <YYYY-MM-DD>] [--kobutsu-closure-date <YYYY-MM-DD>]
  *     [--sanpai-validity-years 5|7] [--sanpai-koushu-completion-date <YYYY-MM-DD>]
  *     [--minpaku-notification-date <YYYY-MM-DD>]
  *     [--gijinkoku-expiry-date <YYYY-MM-DD>] [--gijinkoku-period-type 3月|1年|3年|5年]
+ *     [--keiei-latest-kijunbi <YYYY-MM-DD>] [--keiei-latest-kekka-tsuchibi <YYYY-MM-DD>]
+ *     [--keiei-latest-sougou-hyoutei <数値>] [--keiei-target-gyoshu <業種1,業種2,...>]
+ *     [--keiei-y-bunseki-status 未申請|申請中|結果受領済み]
  *     [--nouchi-article 4条|5条] [--nouchi-grant-date <YYYY-MM-DD>]
  *     [--nouchi-construction-start-deadline <YYYY-MM-DD>] [--nouchi-construction-start-reported true|false]
  *     [--nouchi-completion-report-deadline <YYYY-MM-DD>] [--nouchi-completion-reported true|false]
@@ -50,19 +53,22 @@
  * 例（技人国ビザ。在留カード記載の満了日を記録）:
  *   node scripts/add-client.js "サンプルITソリューションズ" --license-id 技人国-山田 --license-category gijinkoku --gijinkoku-expiry-date 2029-03-31 --gijinkoku-period-type 3年
  *
+ * 例（経審。既存の建設業許可クライアントに追加する想定。直近の審査基準日を記録）:
+ *   node scripts/add-client.js "サンプル建設" --license-id 経審 --license-category keiei-jiko-shinsa --keiei-latest-kijunbi 2025-03-31 --keiei-target-gyoshu とび・土工工事業,管工事業 --keiei-y-bunseki-status 結果受領済み
+ *
  * 例（農地転用許可。工事着手期限を記録。既存の建設業許可クライアントに追加する想定）:
  *   node scripts/add-client.js "サンプル建設" --license-id 農地転用-資材置場 --license-category nouchi-tenyo --nouchi-article 4条 --nouchi-construction-start-deadline 2027-03-31
  */
 import { upsertClientLicense } from "../src/core/reminders/clientStore.js";
 
-const LICENSE_CATEGORIES = ["construction", "kobutsu", "sanpai", "minpaku", "gijinkoku", "nouchi-tenyo"];
+const LICENSE_CATEGORIES = ["construction", "kobutsu", "sanpai", "minpaku", "gijinkoku", "keiei-jiko-shinsa", "nouchi-tenyo"];
 // license.grantDateIso をリマインド計算にそのまま使う種別のみ必須とする
 // （kobutsu/minpaku/gijinkokuは各<種別>Detailの日付が起点のため不要）。
 const CATEGORIES_REQUIRING_GRANT_DATE = ["construction", "sanpai"];
 
 const USAGE = [
   '使い方: node scripts/add-client.js "<クライアント名>" --license-id <許可ID> ' +
-    "[--license-category construction|kobutsu|sanpai|minpaku|gijinkoku|nouchi-tenyo] " +
+    "[--license-category construction|kobutsu|sanpai|minpaku|gijinkoku|keiei-jiko-shinsa|nouchi-tenyo] " +
     "[--grant-date <許可年月日YYYY-MM-DD>] [--license-type 一般|特定] " +
     "[--fiscal-year-end <事業年度終了日YYYY-MM-DD>] [--contact-email <連絡先メールアドレス>]",
   "種別ごとの追加フラグ:",
@@ -70,10 +76,12 @@ const USAGE = [
   "  sanpai:  [--sanpai-validity-years 5|7] [--sanpai-koushu-completion-date <YYYY-MM-DD>]",
   "  minpaku: [--minpaku-notification-date <YYYY-MM-DD>]",
   "  gijinkoku: [--gijinkoku-expiry-date <YYYY-MM-DD>] [--gijinkoku-period-type 3月|1年|3年|5年]",
+  "  keiei-jiko-shinsa: [--keiei-latest-kijunbi <YYYY-MM-DD>] [--keiei-latest-kekka-tsuchibi <YYYY-MM-DD>] [--keiei-latest-sougou-hyoutei <数値>] [--keiei-target-gyoshu <業種1,業種2,...>] [--keiei-y-bunseki-status 未申請|申請中|結果受領済み]",
   "  nouchi-tenyo: [--nouchi-article 4条|5条] [--nouchi-grant-date <YYYY-MM-DD>] [--nouchi-construction-start-deadline <YYYY-MM-DD>] [--nouchi-construction-start-reported true|false] [--nouchi-completion-report-deadline <YYYY-MM-DD>] [--nouchi-completion-reported true|false]",
   "同じ<クライアント名>を指定すると、そのクライアントへの許可の追加・更新になります",
   "（--license-idが既存の許可と一致すれば上書き、一致しなければ追記します）。",
   "--grant-dateは建設業許可・産廃許可のみ必須（他の種別は各Detailの日付が起点のため不要）。",
+  "keiei-jiko-shinsaは建設業許可（licenseCategory: \"construction\"）を既に保有するクライアントへの追加を前提とします。",
 ].join("\n");
 
 const [, , clientName, ...rest] = process.argv;
@@ -148,6 +156,29 @@ if (licenseCategory === "kobutsu") {
     detail.periodType = /** @type {"3月" | "1年" | "3年" | "5年"} */ (options["gijinkoku-period-type"]);
   }
   if (Object.keys(detail).length > 0) /** @type {any} */ (license).gijinkokuDetail = detail;
+} else if (licenseCategory === "keiei-jiko-shinsa") {
+  /** @type {import('../src/licenses/keiei-jiko-shinsa/reminders/annualCycleSchedule.js').KeieiJikoShinsaDetail} */
+  const detail = {};
+  if (options["keiei-latest-kijunbi"]) detail.latestKijunbiIso = options["keiei-latest-kijunbi"];
+  if (options["keiei-latest-kekka-tsuchibi"]) detail.latestKekkaTsuchibiIso = options["keiei-latest-kekka-tsuchibi"];
+  if (options["keiei-latest-sougou-hyoutei"]) {
+    const hyoutei = Number(options["keiei-latest-sougou-hyoutei"]);
+    if (Number.isNaN(hyoutei)) {
+      console.error(`--keiei-latest-sougou-hyouteiは数値を指定してください（指定値: ${options["keiei-latest-sougou-hyoutei"]}）`);
+      process.exit(1);
+    }
+    detail.latestSougouHyoutei = hyoutei;
+  }
+  if (options["keiei-target-gyoshu"]) detail.targetGyoshu = options["keiei-target-gyoshu"].split(",");
+  if (options["keiei-y-bunseki-status"]) {
+    const validStatuses = ["未申請", "申請中", "結果受領済み"];
+    if (!validStatuses.includes(options["keiei-y-bunseki-status"])) {
+      console.error(`--keiei-y-bunseki-statusは${validStatuses.join("、")}のいずれかを指定してください`);
+      process.exit(1);
+    }
+    detail.yBunsekiStatus = /** @type {"未申請" | "申請中" | "結果受領済み"} */ (options["keiei-y-bunseki-status"]);
+  }
+  if (Object.keys(detail).length > 0) /** @type {any} */ (license).keieiJikoShinsaDetail = detail;
 } else if (licenseCategory === "nouchi-tenyo") {
   /** @type {import('../src/licenses/nouchi-tenyo/reminders/conditionDeadlineSchedule.js').NouchiTenyoLicenseDetail} */
   const detail = {};
@@ -173,6 +204,7 @@ const OTHER_CATEGORY_FLAG_PREFIXES = {
   sanpai: "sanpai-",
   minpaku: "minpaku-",
   gijinkoku: "gijinkoku-",
+  "keiei-jiko-shinsa": "keiei-",
   "nouchi-tenyo": "nouchi-",
 };
 for (const [category, prefix] of Object.entries(OTHER_CATEGORY_FLAG_PREFIXES)) {

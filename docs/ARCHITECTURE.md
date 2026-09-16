@@ -136,6 +136,22 @@ M11（`docs/DESIGN_kobutsu-core.md`）で、許可種別に依存しない共通
 - `index.js` — `registerGijinkokuModule()`でコアの`scheduleTypes.js`へ登録するエントリポイント
 - 所属機関カテゴリーの区分基準自体は法令ではなく行政上の運用要領に基づくため自動判定はせず、利用者の手入力を前提とする。情報処理技術の資格保有等による学歴/実務経験要件の免除規定（法務大臣告示）は一次資料で検証できないため対象外（`docs/REQUIREMENTS_gijinkoku-core.md` 4.5節・FR-G1.2）
 
+### 経営事項審査（経審）申請支援アドオン（`src/licenses/keiei-jiko-shinsa/`。コアの6例目）
+
+これまでのモジュールと異なり「新しい許可種別への横展開」ではなく、
+**既存の建設業許可クライアントへのクロスセル**という位置づけ。経審は
+建設業許可を受けていることが前提条件であり、本モジュールは初めて
+**同一`ClientRecord`内の他の`LicenseEntry`（`licenseCategory: "construction"`）
+を読む**アドオン間連携を行う（コア側の型・関数は無変更）。
+
+- `eligibility/prerequisite.js` — `checkKeieiJikoShinsaPrerequisite(input, clientRecord)`。他モジュールと異なり`ClientRecord`全体を受け取り、建設業許可の保有・決算変更届の提出状況・業種区分の選択を確認する
+- `eligibility/inputCompleteness.js`・`yStatus.js` — X1・X2・Z・Wの入力完備性チェック、Y（経営状況分析）の申請状況チェック。**評点（X1〜W・総合評定値P）そのものは計算しない**（国土交通省の評点テーブルは毎年度改定され得るため精密な再現は対象外。docs/DESIGN_keiei-jiko-shinsa-core.md 1章）
+- `eligibility/engine.js` — 上記3項目をまとめて「準備状況」として確認（合否判定ではなく産廃・民泊と同様の可視化パターン）
+- `documents/keieikiboHyouka.js`（経営規模等評価申請書）・`keieijoukyouBunseki.js`（経営状況分析申請書）・`checklist.js`（必要書類チェックリスト） — 各様式のdocx自動生成
+- `reminders/annualCycleSchedule.js` — **年次反復型（第4のリマインドパターン）**。有効期限（施行規則で確認済み: 審査基準日から1年7ヶ月）を切らさないよう、直近の審査基準日から翌年の審査基準日を推定し、決算変更届提出期限・再受審推奨時期・現行結果の有効期限の3件を算出する
+- `index.js` — `registerKeieiJikoShinsaLicense()`でコアの`scheduleTypes.js`へ登録するエントリポイント
+- 評点・総合評定値の計算、登録経営状況分析機関の選定支援は対象外（`docs/REQUIREMENTS_keiei-jiko-shinsa-core.md` 4.6節）
+
 ### 農地転用許可アドオン（`src/licenses/nouchi-tenyo/`。コアの7例目）
 
 建設業許可・産廃許可の既存クライアント層との重なりが大きい分野。農地転用
