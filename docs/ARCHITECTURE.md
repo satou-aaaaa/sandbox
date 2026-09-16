@@ -199,6 +199,29 @@ M11（`docs/DESIGN_kobutsu-core.md`）で、許可種別に依存しない共通
 - `scripts/portal-*.js` — 元請・案件の登録/一覧/ステータス更新・納期リマインド表示のCLI
 - Web一覧表示・オンライン決済・複数案件の月次請求サマリーは対象外（`docs/REQUIREMENTS_uketsuke-portal.md` 4.6節）
 
+### 会社設立サポート（`src/incorporation/`。許可種別アドオンではない独立ドメイン）
+
+株式会社・合同会社の設立に際して必要な定款・付随書類の作成支援を行う。
+BtoB下請けポータルと同じく「許可の可否を判定する」業務ではないため、
+要件判定エンジン（`src/core/eligibility/`）・許可レジストリ
+（`registerScheduleFn`）のいずれにも依存せず、コアが提供する
+「docx共通ヘルパー」「リマインド表示関数（`bucketizeAlerts`・
+`formatReminderDigest`）」のみを再利用する（`docs/DESIGN_kaisha-secchi-support.md`
+1章・NFR-I2）。
+
+- **職域境界の担保（設計原則）**: 設立登記の申請・登記申請書の作成は
+  司法書士の独占業務（司法書士法第3条・第73条・第78条。e-Gov法令検索で
+  確認済み・2026年9月）であるため、`documents/`配下に登記申請書または
+  それに類する様式（就任承諾書〈登記添付書類としてのもの〉等）を一切
+  実装しない（NFR-I3）
+- `types.js` — `FounderInput`・`TeikanInput`（定款作成データ）・`IncorporationCaseRecord`のJSDoc型定義。`ApplicantProfile`・`ClientRecord`・`CaseRecord`（portal）とは意図的に型を共有しない
+- `caseStore.js` — `data/incorporation-cases.json`への永続化（`clientStore.js`・`portal/caseStore.js`と同じ設計パターン。`withFileLock`によるread-modify-write直列化を含む）
+- `documents/teikanSummary.js`（定款サマリー。会社形態〈株式会社/合同会社〉により出力項目が分岐。出資額合計の整合性チェックも含む）・`hokininKetteisho.js`（発起人決定書サマリー。株式会社のみ。合同会社を指定するとエラー） — 各様式のdocx自動生成
+- **合同会社の絶対的記載事項は6項目**（会社法第576条第1項第5号「社員が無限責任社員又は有限責任社員のいずれであるかの別」が株式会社〈第27条・5項目〉側に対応項目のない追加事項として存在する。同条第4項により合同会社では内容が固定されるため、`teikanSummary.js`で定型文の行として出力する。当初提案書の「両形態とも5項目」という誤りをe-Gov法令検索で発見・修正した経緯は`docs/DESIGN_kaisha-secchi-support.md` 3.1節参照）
+- `reminders/incorporationSchedule.js` — 定款認証予約日（株式会社のみ）・出資金払込期限から`ReminderAlert`相当を生成。**あえて`registerScheduleFn`を使わない設計**（案件ごとに一度きりの単発の期日であり、`LicenseEntry`として扱う必然性が薄いため。`docs/DESIGN_uketsuke-portal.md`と同じ設計判断）。許可のリマインド一覧・BtoB下請け案件の納期一覧とは別コマンド・別出力として扱う
+- `scripts/incorporation-*.js` — 案件の登録・納期リマインド表示のCLI
+- 設立登記の申請書類作成・募集設立・株式会社以外の機関設計の詳細な定款条項生成・一般社団法人等の他法人形態・会社設立後の税務署等への届出書類作成は対象外（`docs/REQUIREMENTS_kaisha-secchi-support.md` 4.7節）
+
 ### Web・共通
 
 - `src/web/server.js` — インテイク用の簡易Webフォーム（M3。建設業許可のみ対応）＋リマインド表示・残日数フィルタ（`/reminders`、M7）＋下書き保存（`/drafts`）＋CSVダウンロード（`/clients.csv`）。node:http のみで実装し、127.0.0.1のみで待受

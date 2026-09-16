@@ -74,6 +74,7 @@ export default {
     "src/licenses/minpaku/reminders/**/*.js",
     "src/licenses/minpaku/index.js",
     "src/portal/reminders/caseDeadlines.js",
+    "src/incorporation/reminders/incorporationSchedule.js",
     "src/licenses/gijinkoku/eligibility/**/*.js",
     "src/licenses/gijinkoku/reminders/**/*.js",
     "src/licenses/gijinkoku/index.js",

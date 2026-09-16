@@ -57,6 +57,9 @@
     "gen:inshokuten-eigyo-eligibility": "node scripts/generate-inshokuten-eigyo-eligibility-sample.js",
     "gen:inshokuten-eigyo-shinseisho": "node scripts/generate-inshokuten-eigyo-shinseisho-sample.js",
     "gen:inshokuten-eigyo-checklist": "node scripts/generate-inshokuten-eigyo-checklist-sample.js",
+    "gen:incorporation-teikan": "node scripts/generate-incorporation-teikan-sample.js",
+    "gen:incorporation-hokininketteisho": "node scripts/generate-incorporation-hokininketteisho-sample.js",
+    "gen:incorporation-reminder-digest": "node scripts/generate-incorporation-reminder-digest-sample.js",
     "client:add": "node scripts/add-client.js",
     "client:remove": "node scripts/remove-client.js",
     "client:export": "node scripts/export-clients-csv.js",
@@ -66,6 +69,8 @@
     "portal:case-add": "node scripts/portal-add-case.js",
     "portal:case-status": "node scripts/portal-update-case-status.js",
     "portal:reminders": "node scripts/portal-case-reminders.js",
+    "incorporation:case-add": "node scripts/incorporation-case-add.js",
+    "incorporation:reminders": "node scripts/incorporation-reminders.js",
     "web": "node src/web/server.js"
   },
   "dependencies": {
