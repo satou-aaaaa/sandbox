@@ -168,6 +168,21 @@ M11（`docs/DESIGN_kobutsu-core.md`）で、許可種別に依存しない共通
 - `index.js` — `registerNouchiTenyoLicense()`でコアの`scheduleTypes.js`へ登録するエントリポイント
 - 市街化区域内の届出案件・農地法第3条許可・農振除外手続・一時転用の農地復元期限管理は対象外（`docs/REQUIREMENTS_nouchi-tenyo-core.md` 4.6節）
 
+### 飲食店営業許可アドオン（`src/licenses/inshokuten-eigyo/`。コアの8例目）
+
+一般消費者からの依頼が多い分野。HACCPに沿った衛生管理は許可要件では
+なく継続義務という区別が要点（1.3節参照）。
+
+- `eligibility/types.js` — `InshokutenApplicantProfile`等のJSDoc型定義。HACCP関連フィールドは意図的に持たせない
+- `eligibility/disclaimer.js` — **e-Gov法令検索で確認済み（2026年9月）**。食品衛生法第55条第2項の許可拒否事由にHACCP実施状況は含まれず、同法第51条に基づく別個の継続的遵守義務であることを`HACCP_CONTINUING_OBLIGATION_NOTICE`として明文化
+- `eligibility/shisetsuKijun.js` — 施設基準（シンク数・手洗い設備の構造・材質・換気・給排水）の判定。令和3年改正で明確化された「洗浄後の手指の再汚染防止構造」を必須項目に含める
+- `eligibility/sekininsha.js` — 食品衛生責任者の設置要件の判定
+- `eligibility/engine.js` — 上記2要件をまとめて判定（HACCPは判定対象に含めない）
+- `documents/shinseishoSummary.js`（営業許可申請書サマリー）・`tenpuChecklist.js`（添付書類チェックリスト＋事前相談→実地検査→許可証交付の標準的な流れの案内） — 各様式のdocx自動生成
+- `reminders/koshinSchedule.js` — **可変期間型の一般化**。建設業許可・産廃許可が確立した「許可年月日＋有効期間年数」から満了日を計算するコア共通ロジック（`src/core/reminders/expirySchedule.js`の`calcExpirySchedule`）を、産廃許可の「5年or7年の2択」からさらに一般化し、自治体・施設の立入検査結果で個別に決まる可変の年数（5〜8年が目安。食品衛生法第55条第3項は「5年を下らない」とのみ定め上限を定めていない）に対応。`validityYears`が未入力（＝許可証交付前）の場合は空配列を返す
+- `index.js` — `registerInshokutenEigyoLicense()`でコアの`scheduleTypes.js`へ登録するエントリポイント
+- 深夜酒類提供飲食店営業届出・風俗営業許可（風俗営業法）、酒類販売業免許（酒税法）、飲食店営業以外の食品衛生法上の許可業種、自治体ごとの施設基準条例の網羅的データベース化は対象外（`docs/REQUIREMENTS_inshokuten-eigyo-core.md` 4.6節）
+
 ### BtoB下請けケース管理ポータル（`src/portal/`。許可種別アドオンではない独立ドメイン）
 
 事業提案の柱（A）「BtoB下請け」（他の行政書士から書類作成業務を受注する側の

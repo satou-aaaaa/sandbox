@@ -14,6 +14,7 @@ import { registerMinpakuLicense } from "../src/licenses/minpaku/index.js";
 import { registerGijinkokuModule } from "../src/licenses/gijinkoku/index.js";
 import { registerKeieiJikoShinsaLicense } from "../src/licenses/keiei-jiko-shinsa/index.js";
 import { registerNouchiTenyoLicense } from "../src/licenses/nouchi-tenyo/index.js";
+import { registerInshokutenEigyoLicense } from "../src/licenses/inshokuten-eigyo/index.js";
 
 // 各許可種別アドオンをコアへ登録する。リマインドを計算する前に必ず実行する
 // 必要がある（docs/DESIGN_kobutsu-core.md 5.6節）。
@@ -29,6 +30,7 @@ registerMinpakuLicense();
 registerGijinkokuModule();
 registerKeieiJikoShinsaLicense();
 registerNouchiTenyoLicense();
+registerInshokutenEigyoLicense();
 
 const clients = await loadClients();
 
