@@ -55,6 +55,14 @@
   切らさないための年次反復型リマインドに対応。同一クライアントレコード内の
   建設業許可`LicenseEntry`を参照する初めてのアドオン間連携（詳細は
   `docs/DESIGN_keiei-jiko-shinsa-core.md`）
+- **農地転用許可モジュール**: 建設業許可・産廃許可の既存クライアント層との
+  重なりが大きい7例目のアドオン。農地区分に基づく立地基準（あくまで
+  自己申告に基づく一次判定であり、最終認定は農業委員会が行う旨を必ず
+  明記）・一般基準（転用の確実性・被害防除措置）の判定、許可申請書・
+  事業計画書（資金調達内訳の表を含む）のdocx生成、許可条件として付される
+  工事着手期限・完了報告期限を追跡する「条件履行期限型」リマインド
+  （履行済みを記録すると自動的に消える）に対応。CLI/スクリプト操作のみ
+  （詳細は`docs/DESIGN_nouchi-tenyo-core.md`）
 - **BtoB下請けケース管理ポータル**: 許可種別アドオンではなく、他の行政書士から
   下請けとして受注する業務を管理する独立した業務ドメイン（`src/portal/`）。
   元請行政書士・案件（受注日・納期・報酬・進捗ステータス）の登録・一覧、
@@ -91,6 +99,7 @@
 - [`docs/REQUIREMENTS_uketsuke-portal.md`](docs/REQUIREMENTS_uketsuke-portal.md) / [`docs/DESIGN_uketsuke-portal.md`](docs/DESIGN_uketsuke-portal.md) — 要件定義書・技術設計書（BtoB下請けケース管理ポータル分）
 - [`docs/REQUIREMENTS_gijinkoku-core.md`](docs/REQUIREMENTS_gijinkoku-core.md) / [`docs/DESIGN_gijinkoku-core.md`](docs/DESIGN_gijinkoku-core.md) — 要件定義書・技術設計書（在留資格「技術・人文知識・国際業務」申請支援モジュール分）
 - [`docs/REQUIREMENTS_keiei-jiko-shinsa-core.md`](docs/REQUIREMENTS_keiei-jiko-shinsa-core.md) / [`docs/DESIGN_keiei-jiko-shinsa-core.md`](docs/DESIGN_keiei-jiko-shinsa-core.md) — 要件定義書・技術設計書（経営事項審査申請支援モジュール分）
+- [`docs/REQUIREMENTS_nouchi-tenyo-core.md`](docs/REQUIREMENTS_nouchi-tenyo-core.md) / [`docs/DESIGN_nouchi-tenyo-core.md`](docs/DESIGN_nouchi-tenyo-core.md) — 要件定義書・技術設計書（農地転用許可モジュール分）
 - [`docs/DEVELOPMENT_GUIDE.md`](docs/DEVELOPMENT_GUIDE.md) — 開発環境構築・コーディング規約・Git運用ガイド
 - [`docs/BEST_PRACTICES_AUDIT.md`](docs/BEST_PRACTICES_AUDIT.md) — セキュリティ・CI・リポジトリ運用の棚卸しと今後の推奨事項
 - [`docs/adr/`](docs/adr/) — アーキテクチャ決定記録（重要な設計判断の背景）
@@ -141,6 +150,9 @@ npm run gen:keiei-jiko-shinsa-eligibility  # 経審の準備状況確認サン�
 npm run gen:keiei-jiko-shinsa-keieikibo    # 経営規模等評価申請書サマリーのdocx生成サンプル
 npm run gen:keiei-jiko-shinsa-bunseki      # 経営状況分析申請書サマリーのdocx生成サンプル
 npm run gen:keiei-jiko-shinsa-checklist    # 必要書類チェックリストのdocx生成サンプル
+npm run gen:nouchi-tenyo-eligibility      # 農地転用許可の要件判定サンプル実行
+npm run gen:nouchi-tenyo-shinseisho       # 許可申請書サマリーのdocx生成サンプル
+npm run gen:nouchi-tenyo-jigyokeikakusho  # 事業計画書（資金調達内訳）サマリーのdocx生成サンプル
 ```
 
 ### 実クライアントのリマインドを管理する
@@ -230,6 +242,8 @@ src/
     keiei-jiko-shinsa/     経営事項審査（経審）申請支援アドオン（建設業許可保有の確認、
                            評価項目の入力完備性チェック〈評点計算はしない〉、3様式のdocx生成、
                            年次反復型の有効期限リマインド。同一クライアントの建設業許可を参照する）
+    nouchi-tenyo/          農地転用許可アドオン（立地基準/一般基準の判定、2様式のdocx生成、
+                           工事着手/完了報告期限を追跡する「条件履行期限型」リマインド）
   portal/                  BtoB下請けケース管理ポータル（許可種別アドオンではない独立ドメイン。
                            元請行政書士/案件の永続化・見積書/請求書のdocx生成・納期リマインド）
   web/                     インテイク用の簡易Webフォーム（建設業許可のみ。下書き保存含む。
