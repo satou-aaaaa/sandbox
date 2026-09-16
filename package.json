@@ -60,6 +60,8 @@
     "gen:incorporation-teikan": "node scripts/generate-incorporation-teikan-sample.js",
     "gen:incorporation-hokininketteisho": "node scripts/generate-incorporation-hokininketteisho-sample.js",
     "gen:incorporation-reminder-digest": "node scripts/generate-incorporation-reminder-digest-sample.js",
+    "gen:succession-heirs": "node scripts/generate-succession-heirs-sample.js",
+    "gen:succession-documents": "node scripts/generate-succession-documents-sample.js",
     "client:add": "node scripts/add-client.js",
     "client:remove": "node scripts/remove-client.js",
     "client:export": "node scripts/export-clients-csv.js",
@@ -71,6 +73,8 @@
     "portal:reminders": "node scripts/portal-case-reminders.js",
     "incorporation:case-add": "node scripts/incorporation-case-add.js",
     "incorporation:reminders": "node scripts/incorporation-reminders.js",
+    "succession:case-add": "node scripts/succession-case-add.js",
+    "succession:reminders": "node scripts/succession-reminders.js",
     "web": "node src/web/server.js"
   },
   "dependencies": {

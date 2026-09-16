@@ -222,6 +222,35 @@ BtoB下請けポータルと同じく「許可の可否を判定する」業務�
 - `scripts/incorporation-*.js` — 案件の登録・納期リマインド表示のCLI
 - 設立登記の申請書類作成・募集設立・株式会社以外の機関設計の詳細な定款条項生成・一般社団法人等の他法人形態・会社設立後の税務署等への届出書類作成は対象外（`docs/REQUIREMENTS_kaisha-secchi-support.md` 4.7節）
 
+### 相続関連（遺言書・遺産分割協議書）支援（`src/succession/`。許可種別アドオンでも要件判定エンジンでもない独立ドメイン）
+
+法定相続人・法定相続分の自動計算（民法900条・901条）、財産目録・遺産
+分割協議書・自筆証書遺言文案の作成支援を行う。これまでのアドオン群とも
+BtoB下請けポータル・会社設立サポートとも異なり、判定するのは「合否」
+ではなく「分配」であるため、コアの判定型（`RequirementCheckResult`・
+`EligibilityResult`・`aggregateEligibility`）も使わず、独自の結果型
+`LegalHeirsResult`を新設する（`docs/DESIGN_souzoku-support.md` 1.3節）。
+コアの`registerScheduleFn`（許可レジストリ）も使わず、「docx共通
+ヘルパー」「リマインド表示関数（`bucketizeAlerts`・`formatReminderDigest`）」
+のみを再利用する。
+
+- **e-Gov法令検索で確認済み・2026年9月**: 民法887条（子及びその代襲者等の
+  相続権）・889条（直系尊属及び兄弟姉妹の相続権）・891条〜893条（欠格・
+  廃除）・900条（法定相続分）・901条（代襲相続人の相続分）・915条1項
+  （熟慮期間3ヶ月）・939条（相続放棄の効力）・968条（自筆証書遺言）・
+  1042条（遺留分の割合。直系尊属のみ1/3、それ以外〈兄弟姉妹を除く〉1/2）・
+  1048条（遺留分侵害額請求権の期間制限）、相続税法27条・33条（申告・
+  納付期限10ヶ月）を確認し、提案書の内容が正確であることを検証した
+  （誤りは見つからず、ドキュメント修正PRなしで実装に着手した）
+- `types.js` — `HeirCandidateInput`・`FamilyStructureInput`・`LegalHeirsResult`・`PropertyItem`・`SuccessionCaseRecord`のJSDoc型定義。マイナンバー（個人番号）フィールドは一切持たせない（NFR-S2）。氏名（`label`）は任意項目とし、続柄ラベルのみでも運用できる（NFR-S3）
+- `heirs/fraction.js` — 相続分を`BigInt`による既約分数で扱う内部専用ユーティリティ（浮動小数点の丸め誤差を回避。NFR-S5）
+- `heirs/calcLegalHeirs.js` — **本モジュールの中核**。`resolveLine`という1つの再帰関数（本人が有効なら`share:1`、無効なら代襲相続人を再帰的にたどり、系統内に誰もいなければ空配列）で、相続放棄（代襲なし）・死亡/欠格/廃除＋代襲あり・代襲相続人も全員無効・再代襲の4パターンを統一的に処理する。子の代襲は再代襲まで続く（887条3項）が、兄弟姉妹の代襲は甥姪の1代限り（889条2項は887条3項を準用しない）という非対称性を`allowReRepresentation`フラグで表現する。**実装時に設計書サンプルコードの2箇所の不具合を修正**: (1) 直系尊属の欠格・廃除該当者が除外されていなかった、(2) 兄弟姉妹の代襲相続人（甥姪）自身の欠格・廃除該当性がチェックされていなかった（いずれも891条・892条・893条は続柄を問わず適用されるため、子・兄弟姉妹本人と同様の除外条件が必要）
+- `documents/zaisanMokuroku.js`（財産目録）・`isanBunkatsuKyogisho.js`（遺産分割協議書。`hasDisputeAmongHeirs`が真の案件では職域外警告を強調表示。FR-S2.5）・`jihitsushoshoYuigon.js`（自筆証書遺言文案。本文〈自書必須〉と財産目録部分〈968条2項により自書不要〉を区別し、遺留分の目安チェック〈1042条に基づく近似計算。兄弟姉妹は対象外〉を含む） — 各様式のdocx自動生成
+- `caseStore.js` — `data/succession-cases.json`への永続化。`upsertCase`が`familyStructure`変更のたびに`calcLegalHeirs`を自動再計算し`lastCalculatedResult`を更新する
+- `reminders/souzokuDeadlines.js` — 相続放棄（3ヶ月）・相続税申告（10ヶ月）・遺留分侵害額請求（1年/10年）の期限リマインド。各ラベルに担当すべき専門家（弁護士・司法書士・税理士）を明記し、本モジュールが行うのは期限の「見える化」までであることを担保する（FR-S4.4）
+- `scripts/succession-*.js` — 案件の登録・期限リマインド表示のCLI
+- 数次相続・相続税評価額の算定・相続登記手続き・相続放棄申述書等の家庭裁判所提出書類の作成・遺産分割調停/審判の申立書作成・紛争性がある場合の代理交渉は対象外（`docs/REQUIREMENTS_souzoku-support.md` 4.6節）
+
 ### Web・共通
 
 - `src/web/server.js` — インテイク用の簡易Webフォーム（M3。建設業許可のみ対応）＋リマインド表示・残日数フィルタ（`/reminders`、M7）＋下書き保存（`/drafts`）＋CSVダウンロード（`/clients.csv`）。node:http のみで実装し、127.0.0.1のみで待受
