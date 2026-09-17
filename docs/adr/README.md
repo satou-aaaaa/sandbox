@@ -39,3 +39,5 @@ Architecture Decision Record（ADR）を管理する。
 | [0011](0011-mutation-and-property-based-testing.md) | ミューテーションテスト（Stryker）とProperty-based testing（fast-check）の導入 | Accepted |
 | [0012](0012-accessibility-e2e-sast-coverage-tooling.md) | アクセシビリティテスト・E2Eテスト・静的セキュリティ解析・カバレッジ可視化の導入 | Accepted |
 | [0013](0013-load-chaos-contract-testing.md) | 負荷テスト・カオスエンジニアリング・契約テストの導入 | Accepted |
+| [0014](0014-schedulefn-pattern-generalization.md) | リマインド計算のレジストリ契約（ScheduleFn）を変更せず4パターンに対応させる | Accepted |
+| [0015](0015-schedulefn-pattern-extension-annual-and-condition-deadline.md) | ScheduleFn契約の汎用性の実証を年次反復型・条件履行期限型の2パターンへ拡張 | Accepted |

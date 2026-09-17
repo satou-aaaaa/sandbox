@@ -148,7 +148,7 @@ M11（`docs/DESIGN_kobutsu-core.md`）で、許可種別に依存しない共通
 - `eligibility/inputCompleteness.js`・`yStatus.js` — X1・X2・Z・Wの入力完備性チェック、Y（経営状況分析）の申請状況チェック。**評点（X1〜W・総合評定値P）そのものは計算しない**（国土交通省の評点テーブルは毎年度改定され得るため精密な再現は対象外。docs/DESIGN_keiei-jiko-shinsa-core.md 1章）
 - `eligibility/engine.js` — 上記3項目をまとめて「準備状況」として確認（合否判定ではなく産廃・民泊と同様の可視化パターン）
 - `documents/keieikiboHyouka.js`（経営規模等評価申請書）・`keieijoukyouBunseki.js`（経営状況分析申請書）・`checklist.js`（必要書類チェックリスト） — 各様式のdocx自動生成
-- `reminders/annualCycleSchedule.js` — **年次反復型（第4のリマインドパターン）**。有効期限（施行規則で確認済み: 審査基準日から1年7ヶ月）を切らさないよう、直近の審査基準日から翌年の審査基準日を推定し、決算変更届提出期限・再受審推奨時期・現行結果の有効期限の3件を算出する
+- `reminders/annualCycleSchedule.js` — **年次反復型（第5のリマインドパターン）**。有効期限（施行規則で確認済み: 審査基準日から1年7ヶ月）を切らさないよう、直近の審査基準日から翌年の審査基準日を推定し、決算変更届提出期限・再受審推奨時期・現行結果の有効期限の3件を算出する
 - `index.js` — `registerKeieiJikoShinsaLicense()`でコアの`scheduleTypes.js`へ登録するエントリポイント
 - 評点・総合評定値の計算、登録経営状況分析機関の選定支援は対象外（`docs/REQUIREMENTS_keiei-jiko-shinsa-core.md` 4.6節）
 
@@ -164,7 +164,7 @@ M11（`docs/DESIGN_kobutsu-core.md`）で、許可種別に依存しない共通
 - `eligibility/ippanKijun.js` — 一般基準（転用の確実性・周辺農地への被害防除措置）の判定
 - `eligibility/engine.js` — 上記2要件をまとめて判定（集約部分はコアの`aggregate.js`を再利用）
 - `documents/shinseisho.js`（許可申請書）・`jigyokeikakusho.js`（事業計画書。資金調達内訳を`buildHeaderedTable`で表形式出力） — 各様式のdocx自動生成
-- `reminders/conditionDeadlineSchedule.js` — **条件履行期限型（第5のリマインドパターン）**。許可証に個別記載された期限日（工事着手期限・完了報告期限）をそのまま入力として受け取り、履行済みフラグが記録されるとリマインドが自動的に消える。期限超過時のラベル文言に許可取消し（農地法第51条）リスクの注記を常に含める設計とし、`ScheduleFn`のシグネチャ（今日の日付を引数に取らない）は変更していない
+- `reminders/conditionDeadlineSchedule.js` — **条件履行期限型（第6のリマインドパターン）**。許可証に個別記載された期限日（工事着手期限・完了報告期限）をそのまま入力として受け取り、履行済みフラグが記録されるとリマインドが自動的に消える。期限超過時のラベル文言に許可取消し（農地法第51条）リスクの注記を常に含める設計とし、`ScheduleFn`のシグネチャ（今日の日付を引数に取らない）は変更していない
 - `index.js` — `registerNouchiTenyoLicense()`でコアの`scheduleTypes.js`へ登録するエントリポイント
 - 市街化区域内の届出案件・農地法第3条許可・農振除外手続・一時転用の農地復元期限管理は対象外（`docs/REQUIREMENTS_nouchi-tenyo-core.md` 4.6節）
 
