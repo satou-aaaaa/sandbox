@@ -132,7 +132,7 @@ M11（`docs/DESIGN_kobutsu-core.md`）で、許可種別に依存しない共通
 - `eligibility/kanrensei.js` — 専攻・職務内容の関連性。審査官の裁量が大きく機械判定が困難なため、建設業許可の`seijitsusei.js`と同様、常に`passed: true`＋人手確認を促す警告のみを返す
 - `eligibility/disclaimer.js` — 一次スクリーニングの強調文言（`GIJINKOKU_SCREENING_NOTICE`）。判定結果・docx出力の両方に付与する（NFR-G2）
 - `eligibility/engine.js` — 上記3要件をまとめて判定し、強調文言を冒頭・末尾に付加した専用フォーマッタ（`formatGijinkokuEligibilityReport`）を提供
-- `documents/ninteiShinseisho.js`（認定証明書交付申請書）・`checklist.js`（所属機関カテゴリー別 添付書類チェックリスト。**カテゴリーごとの詳細な必要書類一覧は行政上の運用要領〈提出書類チェックシートPDF〉に基づく参考情報であり、申請直前に出入国在留管理庁公式サイトで必ず再確認する旨を明記**） — 各様式のdocx自動生成
+- `documents/ninteiShinseisho.js`（認定証明書交付申請書。新規招へい用）・`henkoShinseisho.js`（在留資格変更許可申請書。既に日本国内にいる外国人が現に有する在留資格から変更する場合用。入管法20条。2026年9月追加。学歴・報酬要件等の判定ロジックはninteiShinseisho.jsと完全に共有し、書類側のみ「現に有する在留資格」等の項目を追加する）・`checklist.js`（所属機関カテゴリー別 添付書類チェックリスト。**カテゴリーごとの詳細な必要書類一覧は行政上の運用要領〈提出書類チェックシートPDF〉に基づく参考情報であり、申請直前に出入国在留管理庁公式サイトで必ず再確認する旨を明記**） — 各様式のdocx自動生成
 - `reminders/zairyuKikanSchedule.js` — 在留期間満了リマインド（**可変期間の有効期限型。第四のリマインドパターン**）。在留期間が3月/1年/3年/5年と可変で許可日から一意に計算できないため、建設業許可・産廃許可と異なり「満了日そのもの」を`gijinkokuDetail.expiryDateIso`として直接入力に受け取る設計。更新申請の特例期間（満了後2ヶ月まで。出入国在留管理庁公式サイトで確認済み）を締切リマインドのラベルに明記
 - `index.js` — `registerGijinkokuModule()`でコアの`scheduleTypes.js`へ登録するエントリポイント
 - 所属機関カテゴリーの区分基準自体は法令ではなく行政上の運用要領に基づくため自動判定はせず、利用者の手入力を前提とする。情報処理技術の資格保有等による学歴/実務経験要件の免除規定（法務大臣告示）は一次資料で検証できないため対象外（`docs/REQUIREMENTS_gijinkoku-core.md` 4.5節・FR-G1.2）

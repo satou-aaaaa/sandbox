@@ -104,10 +104,11 @@
   アドオン。事業提案の柱（C）「外国人材関連」の第一弾で、他の4モジュールより
   専門性・リスクが高い分野を扱う（申請取次には別途行政書士の届出・研修が
   必要）。学歴・実務経験要件（入管法基準省令）・報酬要件の判定、専攻/職務
-  内容の関連性（機械判定せず自己申告＋警告）、認定証明書交付申請書・添付
-  書類チェックリストのdocx生成、在留期間満了（3月/1年/3年/5年の可変期間）
-  リマインドに対応。判定結果・生成書類のすべてに一次スクリーニングの強調
-  文言を付与（詳細は`docs/DESIGN_gijinkoku-core.md`）
+  内容の関連性（機械判定せず自己申告＋警告）、認定証明書交付申請書（新規
+  招へい）・在留資格変更許可申請書（既に国内にいる外国人向け。入管法20条）・
+  添付書類チェックリストのdocx生成、在留期間満了（3月/1年/3年/5年の可変
+  期間）リマインドに対応。判定結果・生成書類のすべてに一次スクリーニングの
+  強調文言を付与（詳細は`docs/DESIGN_gijinkoku-core.md`）
 - **特定技能1号申請支援モジュール**: 外国人材関連の柱（C）の第2弾。対象19分野
   （介護・ビルクリーニング・工業製品製造業・建設・造船舶用工業・自動車整備・
   航空・宿泊・農業・漁業・飲食料品製造業・外食業・自動車運送業・鉄道・
@@ -198,6 +199,7 @@ npm run gen:succession-heirs                 # 相続支援: 法定相続人・�
 npm run gen:succession-documents             # 相続支援: 財産目録/遺産分割協議書/自筆証書遺言文案のdocx生成サンプル
 npm run gen:gijinkoku-eligibility        # 技人国ビザの要件判定サンプル実行
 npm run gen:gijinkoku-ninteishinseisho   # 認定証明書交付申請書サマリーのdocx生成サンプル
+npm run gen:gijinkoku-henkoshinseisho    # 在留資格変更許可申請書サマリーのdocx生成サンプル
 npm run gen:gijinkoku-checklist          # 添付書類チェックリストのdocx生成サンプル
 npm run gen:keiei-jiko-shinsa-eligibility  # 経審の準備状況確認サンプル実行
 npm run gen:keiei-jiko-shinsa-keieikibo    # 経営規模等評価申請書サマリーのdocx生成サンプル

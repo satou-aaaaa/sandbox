@@ -1,11 +1,21 @@
 /**
- * 在留資格「技術・人文知識・国際業務」認定証明書交付申請（新規招へい）の
- * 要件判定に使うデータ型定義（JSDoc）。在留資格変更許可申請・他の在留資格は
- * 対象外（docs/REQUIREMENTS_gijinkoku-core.md 4.5節スコープ外）。
+ * 在留資格「技術・人文知識・国際業務」の要件判定に使うデータ型定義
+ * （JSDoc）。他の在留資格は対象外（docs/REQUIREMENTS_gijinkoku-core.md
+ * 4.5節スコープ外）。
  *
  * 【重要】本モジュールは他の許可種別モジュールより専門性・リスクが高い
  * 分野を扱う。外国人本人の旅券番号等の識別情報は、書類生成に使わない
  * 情報として型に含めない（NFR-G1）。
+ *
+ * 【2026年9月・e-Gov法令検索で確認済み】学歴・実務経験要件（`gakureki`）・
+ * 報酬要件（`hoshu`）・専攻/職務関連性（`kanrensei`）の判定基準は、
+ * 新規招へい（認定証明書交付申請。入管法7条の2）・在留資格変更許可申請
+ * （入管法20条。既に日本国内にいる外国人が現に有する在留資格から変更する
+ * 場合）のいずれでも同一である（在留資格自体の該当性は申請の経路に
+ * よらないため）。差異は申請書類・手続きの違いのみのため、
+ * `documents/henkoShinseisho.js`（在留資格変更許可申請書）が既存の判定
+ * ロジックをそのまま再利用する形で対応する（`documents/ninteiShinseisho.js`
+ * 〈認定証明書交付申請書〉と対になる書類）。
  */
 
 /**
@@ -41,6 +51,13 @@
  * @property {GakurekiInput} gakureki
  * @property {KanranseiInput} kanrensei
  * @property {HoshuInput} hoshu
+ * @property {string} [currentStatusOfResidence] 在留資格変更許可申請
+ *   （入管法20条）の場合のみ使用。申請人が現に有する在留資格（例:
+ *   "留学"「家族滞在」）。未入力（undefined）の場合は新規招へい
+ *   （認定証明書交付申請）を前提とする
+ * @property {string} [currentZairyuKikanMatsuIso] 在留資格変更許可申請の
+ *   場合のみ使用。現に有する在留資格の在留期限（YYYY-MM-DD）。申請時に
+ *   残存する在留期間の目安として申請書に記載する
  */
 
 export {};

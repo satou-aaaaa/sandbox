@@ -5,6 +5,7 @@ import path from "node:path";
 import fs from "node:fs/promises";
 
 import { resolveNinteiShinseishoRows, writeNinteiShinseishoDocx } from "../src/licenses/gijinkoku/documents/ninteiShinseisho.js";
+import { resolveHenkoShinseishoRows, writeHenkoShinseishoDocx } from "../src/licenses/gijinkoku/documents/henkoShinseisho.js";
 import { resolveChecklistDocuments, writeChecklistDocx } from "../src/licenses/gijinkoku/documents/checklist.js";
 import { buildSampleGijinkokuProfile } from "../scripts/sampleGijinkokuProfile.js";
 
@@ -39,6 +40,36 @@ test("認定証明書交付申請書: 所属機関カテゴリー未確定なら
 
 test("認定証明書交付申請書: docxファイルを生成できる", async () => {
   await assertWrittenDocx(writeNinteiShinseishoDocx, buildSampleGijinkokuProfile());
+});
+
+test("在留資格変更許可申請書: 現に有する在留資格・在留期限が反映される（入管法20条）", () => {
+  const profile = buildSampleGijinkokuProfile();
+  profile.currentStatusOfResidence = "留学";
+  profile.currentZairyuKikanMatsuIso = "2027-03-31";
+  const rows = resolveHenkoShinseishoRows(profile);
+  const map = Object.fromEntries(rows);
+  assert.equal(map["現に有する在留資格"], "留学");
+  assert.equal(map["現に有する在留資格の在留期限"], "2027-03-31");
+  assert.equal(map["変更後の在留資格"], "技術・人文知識・国際業務");
+});
+
+test("在留資格変更許可申請書: 現に有する在留資格が未入力なら（未入力）と表示される", () => {
+  const profile = buildSampleGijinkokuProfile();
+  const rows = resolveHenkoShinseishoRows(profile);
+  const map = Object.fromEntries(rows);
+  assert.equal(map["現に有する在留資格"], "（未入力）");
+});
+
+test("在留資格変更許可申請書: 認定証明書交付申請書と同じ学歴・報酬要件の項目を含む", () => {
+  const profile = buildSampleGijinkokuProfile();
+  const rows = resolveHenkoShinseishoRows(profile);
+  const map = Object.fromEntries(rows);
+  assert.equal(map["提示年収"], "4,500,000円");
+  assert.equal(map["従事する職務内容"], "自社開発システムのソフトウェア設計・プログラミング業務");
+});
+
+test("在留資格変更許可申請書: docxファイルを生成できる", async () => {
+  await assertWrittenDocx(writeHenkoShinseishoDocx, buildSampleGijinkokuProfile());
 });
 
 test("添付書類チェックリスト: カテゴリーごとに異なる書類一覧を返す", () => {
