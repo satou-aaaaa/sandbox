@@ -81,6 +81,43 @@ test("registerNouchiTenyoLicense: 完了報告済みフラグが立てば完了�
   assert.deepEqual(items, []);
 });
 
+test("registerNouchiTenyoLicense: 一時転用の農地復元期限のみ設定されていれば1件返す", () => {
+  clearScheduleFns();
+  registerNouchiTenyoLicense();
+  const scheduleFn = getScheduleFn("nouchi-tenyo");
+  const items = scheduleFn({ licenseId: "既定", nouchiTenyoDetail: { restorationDeadlineIso: "2027-09-01" } });
+  assert.equal(items.length, 1);
+  assert.equal(items[0].type, "restoration-deadline");
+  assert.equal(items[0].dueDateIso, "2027-09-01");
+  assert.ok(items[0].label.includes("農地復元期限"));
+});
+
+test("registerNouchiTenyoLicense: 復元済みフラグが立てば農地復元期限のリマインドが消える", () => {
+  clearScheduleFns();
+  registerNouchiTenyoLicense();
+  const scheduleFn = getScheduleFn("nouchi-tenyo");
+  const items = scheduleFn({
+    licenseId: "既定",
+    nouchiTenyoDetail: { restorationDeadlineIso: "2027-09-01", restored: true },
+  });
+  assert.deepEqual(items, []);
+});
+
+test("registerNouchiTenyoLicense: 工事着手期限・完了報告期限・農地復元期限の3件がすべて設定されていれば3件返す", () => {
+  clearScheduleFns();
+  registerNouchiTenyoLicense();
+  const scheduleFn = getScheduleFn("nouchi-tenyo");
+  const items = scheduleFn({
+    licenseId: "既定",
+    nouchiTenyoDetail: {
+      constructionStartDeadlineIso: "2026-12-01",
+      completionReportDeadlineIso: "2027-06-01",
+      restorationDeadlineIso: "2027-09-01",
+    },
+  });
+  assert.equal(items.length, 3);
+});
+
 test("registerNouchiTenyoLicense: 両方の履行済みフラグが立てば空配列になる", () => {
   clearScheduleFns();
   registerNouchiTenyoLicense();

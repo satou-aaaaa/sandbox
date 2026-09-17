@@ -31,6 +31,15 @@
  * @property {boolean} [constructionStartReported] 着手を行政書士側で確認・記録済みか。trueになった時点で該当リマインドを止める
  * @property {string} [completionReportDeadlineIso] 転用完了・完了報告の期限日（YYYY-MM-DD）。許可条件として付されている場合のみ設定
  * @property {boolean} [completionReported] 完了報告書を提出済みか。trueになった時点で該当リマインドを止める
+ * @property {string} [restorationDeadlineIso] 一時転用の農地復元期限日（YYYY-MM-DD）。
+ *   「一時転用」は農地法4条・5条の条文上の用語ではなく、工事期間中の仮設
+ *   道路・資材置場等、転用後に農地への原状回復を予定している案件で許可条件
+ *   として付される「復元期限」を指す行政運用上の呼称である（2026年9月・
+ *   e-Gov法令検索で農地法の条文中に「一時」を含む用語自体が存在しないことを
+ *   確認済み）。恒久転用と同じ4条・5条の許可の枠組み内で、復元期限という
+ *   条件が付される点が異なるだけのため、既存の「条件履行期限型」パターンを
+ *   そのまま適用できる
+ * @property {boolean} [restored] 農地への原状回復が完了し行政書士側で確認・記録済みか。trueになった時点で該当リマインドを止める
  */
 
 /**
@@ -49,6 +58,10 @@ export function calcNouchiTenyoSchedule(license) {
 
   if (detail.completionReportDeadlineIso && !detail.completionReported) {
     items.push(buildConditionItem("completion-report-deadline", "転用完了・完了報告の期限（許可条件の履行）", detail.completionReportDeadlineIso));
+  }
+
+  if (detail.restorationDeadlineIso && !detail.restored) {
+    items.push(buildConditionItem("restoration-deadline", "一時転用の農地復元期限（許可条件の履行）", detail.restorationDeadlineIso));
   }
 
   return items; // 条件が付されていない、または履行済みの項目が無ければ空配列

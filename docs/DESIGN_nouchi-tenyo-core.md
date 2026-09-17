@@ -536,7 +536,10 @@ M1→M2→M4の順序を踏襲する。
   （`docs/DESIGN_minpaku-core.md` 4.3節）に近いパターンになる見込みだが、
   起点が「直近の報告日」ではなく「完了報告日から起算した複数年間」という
   期間限定つきの反復になる点で単純な流用はできない可能性がある
-- 一時転用（農地復元期限の管理）への対応拡大
+- 一時転用（農地復元期限の管理）への対応拡大: **2026年9月実装済み**。
+  `NouchiTenyoLicenseDetail.restorationDeadlineIso`・`restored`を追加し、
+  既存の条件履行期限型パターン（`conditionDeadlineSchedule.js`）を
+  そのまま適用した
 - 農地転用許可のWebフォーム対応（`src/web/`の拡張）
 - 市街化区域内の届出案件への対応拡大（1.3節でスコープ外とした届出フロー。
   対応する場合、許可とは別の`licenseCategory`（例: `"nouchi-todokede"`）を

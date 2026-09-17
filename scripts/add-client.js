@@ -98,7 +98,7 @@ const USAGE = [
   "  minpaku: [--minpaku-notification-date <YYYY-MM-DD>]",
   "  gijinkoku: [--gijinkoku-expiry-date <YYYY-MM-DD>] [--gijinkoku-period-type 3月|1年|3年|5年]",
   "  keiei-jiko-shinsa: [--keiei-latest-kijunbi <YYYY-MM-DD>] [--keiei-latest-kekka-tsuchibi <YYYY-MM-DD>] [--keiei-latest-sougou-hyoutei <数値>] [--keiei-target-gyoshu <業種1,業種2,...>] [--keiei-y-bunseki-status 未申請|申請中|結果受領済み]",
-  "  nouchi-tenyo: [--nouchi-article 4条|5条] [--nouchi-grant-date <YYYY-MM-DD>] [--nouchi-construction-start-deadline <YYYY-MM-DD>] [--nouchi-construction-start-reported true|false] [--nouchi-completion-report-deadline <YYYY-MM-DD>] [--nouchi-completion-reported true|false]",
+  "  nouchi-tenyo: [--nouchi-article 4条|5条] [--nouchi-grant-date <YYYY-MM-DD>] [--nouchi-construction-start-deadline <YYYY-MM-DD>] [--nouchi-construction-start-reported true|false] [--nouchi-completion-report-deadline <YYYY-MM-DD>] [--nouchi-completion-reported true|false] [--nouchi-restoration-deadline <YYYY-MM-DD>（一時転用の農地復元期限）] [--nouchi-restored true|false]",
   "  inshokuten-eigyo: [--inshokuten-municipality-name <自治体名>] [--inshokuten-grant-date <YYYY-MM-DD>] [--inshokuten-validity-years 5|6|7|8] [--inshokuten-responsible-person-name <氏名>]",
   "  tokutei-ginou: [--tokutei-ginou-field-key <分野キー>] [--tokutei-ginou-expiry-date <YYYY-MM-DD>] [--tokutei-ginou-cumulative-start-date <YYYY-MM-DD>] [--tokutei-ginou-support-outsourced true|false] [--tokutei-ginou-registered-support-org-name <登録支援機関名>]",
   "同じ<クライアント名>を指定すると、そのクライアントへの許可の追加・更新になります",
@@ -218,6 +218,8 @@ if (licenseCategory === "kobutsu") {
   if (options["nouchi-construction-start-reported"]) detail.constructionStartReported = options["nouchi-construction-start-reported"] === "true";
   if (options["nouchi-completion-report-deadline"]) detail.completionReportDeadlineIso = options["nouchi-completion-report-deadline"];
   if (options["nouchi-completion-reported"]) detail.completionReported = options["nouchi-completion-reported"] === "true";
+  if (options["nouchi-restoration-deadline"]) detail.restorationDeadlineIso = options["nouchi-restoration-deadline"];
+  if (options["nouchi-restored"]) detail.restored = options["nouchi-restored"] === "true";
   if (Object.keys(detail).length > 0) /** @type {any} */ (license).nouchiTenyoDetail = detail;
 } else if (licenseCategory === "inshokuten-eigyo") {
   /** @type {import('../src/licenses/inshokuten-eigyo/reminders/koshinSchedule.js').InshokutenLicenseDetail} */

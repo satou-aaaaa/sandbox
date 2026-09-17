@@ -165,9 +165,9 @@ M11（`docs/DESIGN_kobutsu-core.md`）で、許可種別に依存しない共通
 - `eligibility/ippanKijun.js` — 一般基準（転用の確実性・周辺農地への被害防除措置）の判定
 - `eligibility/engine.js` — 上記2要件をまとめて判定（集約部分はコアの`aggregate.js`を再利用）
 - `documents/shinseisho.js`（許可申請書）・`jigyokeikakusho.js`（事業計画書。資金調達内訳を`buildHeaderedTable`で表形式出力） — 各様式のdocx自動生成
-- `reminders/conditionDeadlineSchedule.js` — **条件履行期限型（第6のリマインドパターン）**。許可証に個別記載された期限日（工事着手期限・完了報告期限）をそのまま入力として受け取り、履行済みフラグが記録されるとリマインドが自動的に消える。期限超過時のラベル文言に許可取消し（農地法第51条）リスクの注記を常に含める設計とし、`ScheduleFn`のシグネチャ（今日の日付を引数に取らない）は変更していない
+- `reminders/conditionDeadlineSchedule.js` — **条件履行期限型（第6のリマインドパターン）**。許可証に個別記載された期限日（工事着手期限・完了報告期限・一時転用の農地復元期限〈2026年9月追加〉）をそのまま入力として受け取り、履行済みフラグが記録されるとリマインドが自動的に消える。期限超過時のラベル文言に許可取消し（農地法第51条）リスクの注記を常に含める設計とし、`ScheduleFn`のシグネチャ（今日の日付を引数に取らない）は変更していない。「一時転用」は農地法の条文上の用語ではなく、恒久転用と同じ4条・5条の許可の枠組み内で復元期限という条件が付される行政運用上の呼称であるため（2026年9月・e-Gov法令検索で確認）、既存の条件履行期限型パターンをそのまま適用できた
 - `index.js` — `registerNouchiTenyoLicense()`でコアの`scheduleTypes.js`へ登録するエントリポイント
-- 市街化区域内の届出案件・農地法第3条許可・農振除外手続・一時転用の農地復元期限管理は対象外（`docs/REQUIREMENTS_nouchi-tenyo-core.md` 4.6節）
+- 市街化区域内の届出案件・農地法第3条許可・農振除外手続は対象外（`docs/REQUIREMENTS_nouchi-tenyo-core.md` 4.6節。一時転用の農地復元期限管理は2026年9月に対応済み）
 
 ### 飲食店営業許可アドオン（`src/licenses/inshokuten-eigyo/`。コアの8例目）
 
