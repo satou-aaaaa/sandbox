@@ -157,7 +157,10 @@ version: 0.1 / 2026-09 作成
 
 ### 4.4 インテイク
 
-既存と同様、CLI/スクリプト操作を前提とする（Webフォーム対応は対象外）。
+CLI/スクリプト操作に加え、Webフォーム（`GET /nouchi-tenyo`・
+`POST /nouchi-tenyo/submit`）にも対応する。**2026年9月実装済み**
+（`src/web/nouchiTenyoFormPage.js`。古物商許可の`kobutsuFormPage.js`と
+同じ設計を踏襲。下書き保存は対象外）。
 
 ### 4.5 非機能要件
 

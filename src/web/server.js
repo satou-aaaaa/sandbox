@@ -47,6 +47,9 @@ import { evaluateKobutsuEligibility, formatKobutsuEligibilityReport } from "../l
 import { writeShinseishoDocx } from "../licenses/kobutsu/documents/shinseisho.js";
 import { writeSeiyakushoDocx } from "../licenses/kobutsu/documents/seiyakusho.js";
 import { writeRirekishoDocx } from "../licenses/kobutsu/documents/rirekisho.js";
+import { evaluateNouchiTenyoEligibility, formatNouchiTenyoEligibilityReport } from "../licenses/nouchi-tenyo/eligibility/engine.js";
+import { writeShinseishoDocx as writeNouchiTenyoShinseishoDocx } from "../licenses/nouchi-tenyo/documents/shinseisho.js";
+import { writeJigyokeikakushoDocx } from "../licenses/nouchi-tenyo/documents/jigyokeikakusho.js";
 import { loadClients, DEFAULT_CLIENTS_PATH } from "../core/reminders/clientStore.js";
 import {
   buildReminderDigest,
@@ -58,6 +61,7 @@ import { clientsToCsv } from "../core/reminders/clientCsv.js";
 import { loadDrafts, getDraft, upsertDraft, removeDraft, DEFAULT_DRAFTS_PATH } from "./draftStore.js";
 import { renderFormPage } from "./formPage.js";
 import { renderKobutsuFormPage } from "./kobutsuFormPage.js";
+import { renderNouchiTenyoFormPage } from "./nouchiTenyoFormPage.js";
 import { renderResultPage } from "./resultPage.js";
 import { renderReminderPage } from "./reminderPage.js";
 import { renderDraftsPage } from "./draftsPage.js";
@@ -108,6 +112,12 @@ const KOBUTSU_DOCUMENT_TARGETS = [
   { label: "許可申請書", filename: "shinseisho.docx", write: writeShinseishoDocx },
   { label: "誓約書", filename: "seiyakusho.docx", write: writeSeiyakushoDocx },
   { label: "略歴書", filename: "rirekisho.docx", write: writeRirekishoDocx },
+];
+
+/** 農地転用許可の様式生成モジュールの一覧（DOCUMENT_TARGETS参照）。 */
+const NOUCHI_TENYO_DOCUMENT_TARGETS = [
+  { label: "農地転用許可申請書", filename: "shinseisho.docx", write: writeNouchiTenyoShinseishoDocx },
+  { label: "事業計画書", filename: "jigyokeikakusho.docx", write: writeJigyokeikakushoDocx },
 ];
 
 /**
@@ -349,6 +359,44 @@ export function createServer({
             sessionId,
             judgmentLabels: { ok: "○ 要件を充足（申請準備を進められます）", ng: "× 未充足の要件があります" },
             formPath: "/kobutsu",
+          })
+        );
+        return;
+      }
+
+      if (req.method === "GET" && url === "/nouchi-tenyo") {
+        respondHtml(res, 200, renderNouchiTenyoFormPage());
+        return;
+      }
+
+      if (req.method === "POST" && url === "/nouchi-tenyo/submit") {
+        const bodyText = await readRequestBody(req);
+        const params = new URLSearchParams(bodyText);
+        const profileJson = params.get("profileJson");
+        if (!profileJson) {
+          throw new Error("profileJson が送信されていません（フォームのJavaScriptが動作していない可能性があります）");
+        }
+        /** @type {import('../licenses/nouchi-tenyo/eligibility/types.js').NouchiTenyoApplicantProfile} */
+        const profile = JSON.parse(profileJson);
+
+        const result = evaluateNouchiTenyoEligibility(profile);
+        const report = formatNouchiTenyoEligibilityReport(profile, result);
+
+        const sessionId = crypto.randomUUID();
+        const sessionDir = path.join(outDir, sessionId);
+        const files = await generateAllDocuments(NOUCHI_TENYO_DOCUMENT_TARGETS, profile, sessionDir);
+
+        respondHtml(
+          res,
+          200,
+          renderResultPage({
+            profile,
+            result,
+            report,
+            files,
+            sessionId,
+            judgmentLabels: { ok: "○ 要件を充足（申請準備を進められます）", ng: "× 未充足の要件があります" },
+            formPath: "/nouchi-tenyo",
           })
         );
         return;

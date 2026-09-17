@@ -39,6 +39,7 @@ import { JSDOM } from "jsdom";
 import axeCore from "axe-core";
 import { renderFormPage } from "../src/web/formPage.js";
 import { renderKobutsuFormPage } from "../src/web/kobutsuFormPage.js";
+import { renderNouchiTenyoFormPage } from "../src/web/nouchiTenyoFormPage.js";
 import { renderResultPage } from "../src/web/resultPage.js";
 import { renderReminderPage } from "../src/web/reminderPage.js";
 import { renderDraftsPage } from "../src/web/draftsPage.js";
@@ -107,6 +108,21 @@ test("renderKobutsuFormPage: 営業所行を追加した状態でもアクセシ
   const dom = new JSDOM(html);
   const template = dom.window.document.getElementById("eigyoshoRowTemplate");
   assert.ok(template, "テンプレート #eigyoshoRowTemplate が見つかりません");
+  const fragmentHtml = `<!doctype html><html lang="ja"><head><title>test</title></head><body><main>${template.innerHTML}</main></body></html>`;
+  const results = await runAxe(fragmentHtml);
+  assert.equal(results.violations.length, 0, formatViolations(results));
+});
+
+test("renderNouchiTenyoFormPage: アクセシビリティ違反が無い（農地転用許可インテイクフォーム。初期状態）", async () => {
+  const results = await runAxe(renderNouchiTenyoFormPage());
+  assert.equal(results.violations.length, 0, formatViolations(results));
+});
+
+test("renderNouchiTenyoFormPage: 資金調達区分の行を追加した状態でもアクセシビリティ違反が無い", async () => {
+  const html = renderNouchiTenyoFormPage();
+  const dom = new JSDOM(html);
+  const template = dom.window.document.getElementById("shikinChotatsuRowTemplate");
+  assert.ok(template, "テンプレート #shikinChotatsuRowTemplate が見つかりません");
   const fragmentHtml = `<!doctype html><html lang="ja"><head><title>test</title></head><body><main>${template.innerHTML}</main></body></html>`;
   const results = await runAxe(fragmentHtml);
   assert.equal(results.violations.length, 0, formatViolations(results));

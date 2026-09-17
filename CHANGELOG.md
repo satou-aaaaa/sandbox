@@ -6,6 +6,24 @@
 日付単位のリリースではなく `docs/PROPOSAL.md` のマイルストーン（M1〜）を
 単位として記録する。
 
+## 農地転用許可モジュールにインテイク用Webフォームを追加（2026年9月）
+
+`docs/DESIGN_nouchi-tenyo-core.md` 9章に残っていた「農地転用許可の
+Webフォーム対応」を実装した。古物商許可の`kobutsuFormPage.js`で確立した
+パターン（`resultPage.js`の`judgmentLabels`/`formPath`オプションを再利用
+する汎用設計）をそのまま踏襲できたため、比較的小さな差分で実装できた。
+
+- `src/web/nouchiTenyoFormPage.js`を新設し、`GET /nouchi-tenyo`・
+  `POST /nouchi-tenyo/submit`の2ルートを`server.js`に追加した
+- 資金調達内訳（事業計画書用）は古物商許可の営業所一覧と同じ「動的な行の
+  追加・削除」パターンで実装した
+- 下書き保存（`/drafts`相当）は古物商許可と同じ理由（プロフィール型の
+  判別フィールドが無い）で対象外とした
+- アクセシビリティテスト（axe-core）・E2Eテスト（Playwright。golden path・
+  資金調達区分行の追加削除・建設業許可フォームからの遷移リンク）・
+  ユニットテスト（`/nouchi-tenyo`・`/nouchi-tenyo/submit`の4ケース）を
+  追加した
+
 ## 古物商許可モジュールの誓約書に法人役員の欠格事由判定が反映されていなかった不整合を修正（2026年9月）
 
 `evaluateKobutsuEligibility`（要件判定エンジン）は法人申請の場合に

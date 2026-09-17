@@ -8,6 +8,7 @@ import { spawn } from "node:child_process";
 import { createServer, startServer } from "../src/web/server.js";
 import { buildSampleApplicantProfile } from "../scripts/sampleProfile.js";
 import { buildSampleKobutsuProfile } from "../scripts/sampleKobutsuProfile.js";
+import { buildSampleNouchiTenyoProfile } from "../scripts/sampleNouchiTenyoProfile.js";
 import { saveClients } from "../src/core/reminders/clientStore.js";
 import { upsertDraft, loadDrafts } from "../src/web/draftStore.js";
 
@@ -151,6 +152,78 @@ test("POST /kobutsu/submit で profileJson が無ければ400を返す", async (
   const ctx = await startTestServer();
   try {
     const res = await fetch(`${ctx.baseUrl}/kobutsu/submit`, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: "",
+    });
+    assert.equal(res.status, 400);
+  } finally {
+    await ctx.close();
+  }
+});
+
+test("GET /nouchi-tenyo は農地転用許可インテイクフォームのHTMLを返す", async () => {
+  const ctx = await startTestServer();
+  try {
+    const res = await fetch(`${ctx.baseUrl}/nouchi-tenyo`);
+    assert.equal(res.status, 200);
+    const html = await res.text();
+    assert.match(html, /農地転用許可 申請者情報インテイク/);
+    assert.match(html, /id="nouchiTenyoForm"/);
+  } finally {
+    await ctx.close();
+  }
+});
+
+test("POST /nouchi-tenyo/submit は判定結果と書類ダウンロードリンクを含む結果画面を返す", async () => {
+  const ctx = await startTestServer();
+  try {
+    const profile = buildSampleNouchiTenyoProfile();
+    const body = new URLSearchParams({ profileJson: JSON.stringify(profile) });
+    const res = await fetch(`${ctx.baseUrl}/nouchi-tenyo/submit`, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: body.toString(),
+    });
+    assert.equal(res.status, 200);
+    const html = await res.text();
+    assert.match(html, /要件判定結果/);
+    assert.match(html, /○ 要件を充足/);
+    assert.match(html, /\/download\/[^"]+\/shinseisho\.docx/);
+    assert.match(html, /href="\/nouchi-tenyo"/); // 「新しい申請者情報を入力する」リンクは/nouchi-tenyoへ戻る
+
+    // 実際に2様式分のdocxがディスクに生成されていることを確認する。
+    const sessions = await fs.readdir(ctx.outDir);
+    assert.equal(sessions.length, 1);
+    const files = await fs.readdir(path.join(ctx.outDir, sessions[0]));
+    assert.equal(files.length, 2);
+  } finally {
+    await ctx.close();
+  }
+});
+
+test("POST /nouchi-tenyo/submit の判定結果は評価エンジンと一致する（不合格ケース）", async () => {
+  const ctx = await startTestServer();
+  try {
+    const profile = buildSampleNouchiTenyoProfile();
+    profile.ricchiKijun = { nouchiKubun: "農用地区域内農地" }; // 立地基準を不合格にする
+    const body = new URLSearchParams({ profileJson: JSON.stringify(profile) });
+    const res = await fetch(`${ctx.baseUrl}/nouchi-tenyo/submit`, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: body.toString(),
+    });
+    const html = await res.text();
+    assert.match(html, /未充足の要件があります/);
+  } finally {
+    await ctx.close();
+  }
+});
+
+test("POST /nouchi-tenyo/submit で profileJson が無ければ400を返す", async () => {
+  const ctx = await startTestServer();
+  try {
+    const res = await fetch(`${ctx.baseUrl}/nouchi-tenyo/submit`, {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body: "",
