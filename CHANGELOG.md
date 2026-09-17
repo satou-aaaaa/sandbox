@@ -6,6 +6,52 @@
 日付単位のリリースではなく `docs/PROPOSAL.md` のマイルストーン（M1〜）を
 単位として記録する。
 
+## CIワークフローの不具合修正、提案書・ADRのドキュメント整合性回復、ミューテーションテストの再実行（2026年9月）
+
+M11以降10モジュール（M12〜M21）の実装が一段落したことを機に、開発基盤の
+棚卸しを行った。
+
+- **CIワークフローのpushトリガー不具合**: リポジトリのデフォルトブランチを
+  `master`から`main`へリネームした後も`.github/workflows/test.yml`の
+  `push: branches:`が`master`のままだったため、`main`への直接push
+  （`CLAUDE.md`のGit運用で明示的に許可されている操作）でCIが自動起動
+  しなくなっていた（`pull_request`トリガーは影響を受けずPR経由のCIは
+  正常だった）。`main`に修正し、実際にpushしてCIが起動・成功することを
+  確認した
+- あわせて、複数のPRで繰り返し発生していた`npm audit signatures`の
+  一時的な失敗（レジストリ側のSigstore署名添付取得APIの応答不良による
+  `EMISSINGSIGNATUREKEY`。手動再実行で毎回解消していた）に対し、
+  `continue-on-error`で結果を握りつぶすのではなく3回までの再試行で
+  対応するようにした
+- **`docs/PROPOSAL.md`の追従**: 「開発の進捗に合わせて随時更新する
+  『生きた』提案書」と明記されているにもかかわらずM11時点の内容のまま
+  更新が止まっていたため、M12〜M21として10モジュール分を現状表・
+  ロードマップ表に追記し、M11のコア抽出で移動済みの旧パス参照
+  （`src/eligibility/prefectureRules.js`）も修正した
+- **リマインドパターンの採番重複の修正**: `docs/ARCHITECTURE.md`で、
+  経営事項審査の「年次反復型」が在留資格「技術・人文知識・国際業務」の
+  「満了日直接入力型」と同じ「第4のリマインドパターン」を誤って重複して
+  名乗っていた（実装順のクロスチェック漏れ）。経審を第5、農地転用許可の
+  「条件履行期限型」を第6に採番し直し、ADR一覧に漏れていたADR-0014を
+  追加、年次反復型・条件履行期限型の2パターンを`ScheduleFn`レジストリ
+  契約のカタログへ反映する[ADR-0015](docs/adr/0015-schedulefn-pattern-extension-annual-and-condition-deadline.md)を
+  新規作成した（`docs/adr/README.md`参照）
+- **ミューテーションテストの再実行**: kaisha-secchi-support・
+  souzoku-support・tokutei-ginouの3モジュール追加後、初めてフルスコープ
+  （85ファイル・2596ミュータント）で再実行し、全体スコア77.73%
+  （1733件killed・285件survived・578件no coverage）を計測した。生き残った
+  ミュータントの一部を分析したところ、gijinkoku・inshokuten-eigyo・
+  tokutei-ginouの3モジュールの一次スクリーニング強調文言・HACCP継続義務
+  注記の定数（`GIJINKOKU_SCREENING_NOTICE`・
+  `HACCP_CONTINUING_OBLIGATION_NOTICE`・`TOKUTEI_GINOU_SCREENING_NOTICE`）
+  が、文言の一部を空文字列に置き換えても既存テストが検知できない不備を
+  発見した（既存テストはレポート内でのindexOf/includes検証のみで、
+  レポート側も同じ定数をインポートして使っているため「同じ改変後の
+  文字列同士の比較」になり検知できなかった）。定数の全文を直接アサートする
+  テストを3モジュールに追加し、該当ファイルのミューテーションスコアが
+  100%になることを確認した。残りのsurvived/no coverageミュータントは
+  今後の分析課題として残る
+
 ## 特定技能1号申請支援モジュールの新規実装（2026年9月）
 
 外国人材関連（柱C）の第2弾として、特定技能1号の技能水準・日本語能力・
