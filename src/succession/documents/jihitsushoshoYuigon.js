@@ -9,6 +9,12 @@
  * 遺留分の目安チェック（FR-S3.4）は、民法1042条（遺留分の帰属及びその
  * 割合。直系尊属のみが相続人である場合は1/3、それ以外〈兄弟姉妹を除く〉は
  * 1/2）に基づく機械的な近似計算であり、最終判断は専門家に委ねる。
+ *
+ * 【2026年9月・e-Gov法令検索で確認して追加】遺言執行者の指定（民法1006条
+ * 1項）は任意の記載事項であり、指定すると遺贈の履行等を遺言執行者のみが
+ * 行えるようになる（1012条2項）等のメリットがある。`executorName`を
+ * 指定した場合のみ本文に指定条項を追加し、未指定の場合は従来どおり
+ * 条項自体を出力しない（後方互換）。
  */
 import { Document, Paragraph, TextRun, HeadingLevel } from "docx";
 import {
@@ -31,6 +37,12 @@ const JIHITSU_FORMALITY_WARNING =
 const HOKAN_SEIDO_NOTICE =
   "法務局における自筆証書遺言書保管制度の利用をご検討ください。原本の紛失・改ざんを" +
   "防止できるほか、相続開始後の家庭裁判所での検認手続きが不要になるメリットがあります。";
+
+/**
+ * @typedef {Object} JihitsushoshoYuigonOptions
+ * @property {string} [executorName] 遺言執行者として指定する者の氏名（民法1006条1項）。
+ *   未指定の場合、遺言執行者の指定条項自体を出力しない
+ */
 
 /**
  * 遺留分（民法1042条）の目安を下回る割当てがないかを機械的に近似計算する。
@@ -82,12 +94,44 @@ export function resolveJihitsushoshoZaisanMokurokuRows(properties) {
 }
 
 /**
+ * 遺言執行者の指定条項の文面を組み立てる（民法1006条1項）。
+ * `executorName`未指定の場合はnullを返し、本文に条項自体を追加しない
+ * （後方互換）。
+ * @param {JihitsushoshoYuigonOptions} [options]
+ * @returns {string | null}
+ */
+export function resolveExecutorClauseText(options) {
+  if (!options?.executorName) return null;
+  return `遺言者は、本遺言の遺言執行者として次の者を指定する。${options.executorName}`;
+}
+
+/**
  * @param {import('../types.js').LegalHeirsResult} heirsResult
  * @param {import('../types.js').PropertyItem[]} properties
+ * @param {JihitsushoshoYuigonOptions} [options]
  * @returns {Document}
  */
-export function buildJihitsushoshoYuigonDocument(heirsResult, properties) {
+export function buildJihitsushoshoYuigonDocument(heirsResult, properties, options = {}) {
   const iryuubunWarnings = checkIryuubunTarget(heirsResult, properties);
+  const executorClauseText = resolveExecutorClauseText(options);
+  const bodyParagraphs = [
+    new Paragraph({
+      children: [
+        new TextRun({
+          text: "遺言者は、次のとおり遺言する。（以下、財産目録記載の各財産の取得者を、本文中に自書してください）",
+          font: FONT,
+        }),
+      ],
+    }),
+  ];
+  if (executorClauseText) {
+    bodyParagraphs.push(
+      new Paragraph({
+        spacing: { before: 120 },
+        children: [new TextRun({ text: executorClauseText, font: FONT })],
+      })
+    );
+  }
   return new Document({
     sections: [
       {
@@ -101,14 +145,7 @@ export function buildJihitsushoshoYuigonDocument(heirsResult, properties) {
             spacing: { before: 240, after: 120 },
             children: [new TextRun({ text: "本文（遺言者本人が自書する部分）", font: FONT, bold: true })],
           }),
-          new Paragraph({
-            children: [
-              new TextRun({
-                text: "遺言者は、次のとおり遺言する。（以下、財産目録記載の各財産の取得者を、本文中に自書してください）",
-                font: FONT,
-              }),
-            ],
-          }),
+          ...bodyParagraphs,
           new Paragraph({
             heading: HeadingLevel.HEADING_2,
             spacing: { before: 240, after: 120 },
@@ -116,6 +153,12 @@ export function buildJihitsushoshoYuigonDocument(heirsResult, properties) {
           }),
           buildLabeledTable(resolveJihitsushoshoZaisanMokurokuRows(properties)),
           ...buildBulletList("遺留分の目安に関する確認事項", iryuubunWarnings, { warning: iryuubunWarnings.length > 0 }),
+          ...(executorClauseText
+            ? buildBulletList("遺言執行者の指定について", [
+                "遺言執行者は、遺言の内容を実現するため相続財産の管理その他遺言の執行に必要な一切の行為を行う権利義務を有します（民法1012条1項）。" +
+                  "指定された方に事前に就任の意思を確認しておくことを推奨します。",
+              ])
+            : []),
           ...buildBulletList("保管制度のご案内", [HOKAN_SEIDO_NOTICE]),
         ],
       },
@@ -127,7 +170,8 @@ export function buildJihitsushoshoYuigonDocument(heirsResult, properties) {
  * @param {import('../types.js').LegalHeirsResult} heirsResult
  * @param {import('../types.js').PropertyItem[]} properties
  * @param {string} outPath
+ * @param {JihitsushoshoYuigonOptions} [options]
  */
-export async function writeJihitsushoshoYuigonDocx(heirsResult, properties, outPath) {
-  await writeDocxFile(buildJihitsushoshoYuigonDocument(heirsResult, properties), outPath);
+export async function writeJihitsushoshoYuigonDocx(heirsResult, properties, outPath, options = {}) {
+  await writeDocxFile(buildJihitsushoshoYuigonDocument(heirsResult, properties, options), outPath);
 }

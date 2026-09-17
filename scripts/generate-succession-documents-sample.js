@@ -14,5 +14,7 @@ console.log("wrote out/succession-zaisan-mokuroku-sample.docx");
 await writeIsanBunkatsuKyogishoDocx(heirsResult, properties, sample, "out/succession-isan-bunkatsu-kyogisho-sample.docx");
 console.log("wrote out/succession-isan-bunkatsu-kyogisho-sample.docx");
 
-await writeJihitsushoshoYuigonDocx(heirsResult, properties, "out/succession-jihitsushosho-yuigon-sample.docx");
-console.log("wrote out/succession-jihitsushosho-yuigon-sample.docx");
+await writeJihitsushoshoYuigonDocx(heirsResult, properties, "out/succession-jihitsushosho-yuigon-sample.docx", {
+  executorName: "サンプル 太郎",
+});
+console.log("wrote out/succession-jihitsushosho-yuigon-sample.docx（遺言執行者指定あり）");

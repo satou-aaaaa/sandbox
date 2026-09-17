@@ -9,7 +9,11 @@ import {
   resolveIsanBunkatsuKyogishoRows,
   writeIsanBunkatsuKyogishoDocx,
 } from "../src/succession/documents/isanBunkatsuKyogisho.js";
-import { checkIryuubunTarget, writeJihitsushoshoYuigonDocx } from "../src/succession/documents/jihitsushoshoYuigon.js";
+import {
+  checkIryuubunTarget,
+  resolveExecutorClauseText,
+  writeJihitsushoshoYuigonDocx,
+} from "../src/succession/documents/jihitsushoshoYuigon.js";
 import { calcLegalHeirs } from "../src/succession/heirs/calcLegalHeirs.js";
 import { buildSampleSuccessionCase } from "../scripts/sampleSuccessionCase.js";
 
@@ -109,4 +113,29 @@ test("自筆証書遺言: docxファイルを生成できる", async () => {
   const c = buildSampleSuccessionCase();
   const heirsResult = calcLegalHeirs(c.familyStructure);
   await assertWrittenDocx(writeJihitsushoshoYuigonDocx, heirsResult, c.properties);
+});
+
+test("resolveExecutorClauseText: executorName未指定ならnullを返す（後方互換）", () => {
+  assert.equal(resolveExecutorClauseText(), null);
+  assert.equal(resolveExecutorClauseText({}), null);
+});
+
+test("resolveExecutorClauseText: executorNameを指定すると遺言執行者の指定条項の文面を返す（民法1006条1項）", () => {
+  const text = resolveExecutorClauseText({ executorName: "サンプル 太郎" });
+  assert.match(text, /遺言執行者として次の者を指定する/);
+  assert.match(text, /サンプル 太郎/);
+});
+
+test("自筆証書遺言: executorNameを指定してもdocxファイルを生成できる", async () => {
+  const c = buildSampleSuccessionCase();
+  const heirsResult = calcLegalHeirs(c.familyStructure);
+  const outPath = path.join(os.tmpdir(), `kensetsu-kyoka-toolkit-succession-test-executor-${Date.now()}-${Math.random()}.docx`);
+  try {
+    await writeJihitsushoshoYuigonDocx(heirsResult, c.properties, outPath, { executorName: "サンプル 太郎" });
+    const buffer = await fs.readFile(outPath);
+    assert.equal(buffer[0], 0x50);
+    assert.equal(buffer[1], 0x4b);
+  } finally {
+    await fs.rm(outPath, { force: true });
+  }
 });
