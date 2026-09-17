@@ -89,6 +89,9 @@ export default {
     "src/licenses/inshokuten-eigyo/eligibility/**/*.js",
     "src/licenses/inshokuten-eigyo/reminders/**/*.js",
     "src/licenses/inshokuten-eigyo/index.js",
+    "src/licenses/tokutei-ginou/eligibility/**/*.js",
+    "src/licenses/tokutei-ginou/reminders/**/*.js",
+    "src/licenses/tokutei-ginou/index.js",
   ],
   // ignoreStatic は coverageAnalysis: "off"（command runner使用時の制約）と
   // 併用できないため設定しない。静的に一度しか評価されない箇所のミュータントも

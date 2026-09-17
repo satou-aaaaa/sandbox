@@ -32,6 +32,9 @@
  *     [--nouchi-completion-report-deadline <YYYY-MM-DD>] [--nouchi-completion-reported true|false]
  *     [--inshokuten-municipality-name <自治体名>] [--inshokuten-grant-date <YYYY-MM-DD>]
  *     [--inshokuten-validity-years 5|6|7|8] [--inshokuten-responsible-person-name <氏名>]
+ *     [--tokutei-ginou-field-key <分野キー>] [--tokutei-ginou-expiry-date <YYYY-MM-DD>]
+ *     [--tokutei-ginou-cumulative-start-date <YYYY-MM-DD>] [--tokutei-ginou-support-outsourced true|false]
+ *     [--tokutei-ginou-registered-support-org-name <登録支援機関名>]
  *
  * --grant-date は建設業許可・産廃許可（license.grantDateIsoをリマインド計算に
  * 使う種別）のみ必須。古物商許可・民泊届出・技人国ビザは各<種別>Detailの
@@ -63,6 +66,9 @@
  *
  * 例（飲食店営業許可。許可証交付後に有効期間年数を記録）:
  *   node scripts/add-client.js "サンプル食堂" --license-id 飲食店営業-本店 --license-category inshokuten-eigyo --inshokuten-municipality-name 東京都 --inshokuten-grant-date 2026-04-01 --inshokuten-validity-years 6
+ *
+ * 例（特定技能1号。在留カード記載の満了日と通算在留期間の起算日を記録）:
+ *   node scripts/add-client.js "サンプル飲食株式会社" --license-id 特定技能-山田 --license-category tokutei-ginou --tokutei-ginou-field-key gaishokugyou --tokutei-ginou-expiry-date 2027-03-31 --tokutei-ginou-cumulative-start-date 2026-04-01
  */
 import { upsertClientLicense } from "../src/core/reminders/clientStore.js";
 
@@ -75,6 +81,7 @@ const LICENSE_CATEGORIES = [
   "keiei-jiko-shinsa",
   "nouchi-tenyo",
   "inshokuten-eigyo",
+  "tokutei-ginou",
 ];
 // license.grantDateIso をリマインド計算にそのまま使う種別のみ必須とする
 // （kobutsu/minpaku/gijinkokuは各<種別>Detailの日付が起点のため不要）。
@@ -82,7 +89,7 @@ const CATEGORIES_REQUIRING_GRANT_DATE = ["construction", "sanpai"];
 
 const USAGE = [
   '使い方: node scripts/add-client.js "<クライアント名>" --license-id <許可ID> ' +
-    "[--license-category construction|kobutsu|sanpai|minpaku|gijinkoku|keiei-jiko-shinsa|nouchi-tenyo|inshokuten-eigyo] " +
+    "[--license-category construction|kobutsu|sanpai|minpaku|gijinkoku|keiei-jiko-shinsa|nouchi-tenyo|inshokuten-eigyo|tokutei-ginou] " +
     "[--grant-date <許可年月日YYYY-MM-DD>] [--license-type 一般|特定] " +
     "[--fiscal-year-end <事業年度終了日YYYY-MM-DD>] [--contact-email <連絡先メールアドレス>]",
   "種別ごとの追加フラグ:",
@@ -93,6 +100,7 @@ const USAGE = [
   "  keiei-jiko-shinsa: [--keiei-latest-kijunbi <YYYY-MM-DD>] [--keiei-latest-kekka-tsuchibi <YYYY-MM-DD>] [--keiei-latest-sougou-hyoutei <数値>] [--keiei-target-gyoshu <業種1,業種2,...>] [--keiei-y-bunseki-status 未申請|申請中|結果受領済み]",
   "  nouchi-tenyo: [--nouchi-article 4条|5条] [--nouchi-grant-date <YYYY-MM-DD>] [--nouchi-construction-start-deadline <YYYY-MM-DD>] [--nouchi-construction-start-reported true|false] [--nouchi-completion-report-deadline <YYYY-MM-DD>] [--nouchi-completion-reported true|false]",
   "  inshokuten-eigyo: [--inshokuten-municipality-name <自治体名>] [--inshokuten-grant-date <YYYY-MM-DD>] [--inshokuten-validity-years 5|6|7|8] [--inshokuten-responsible-person-name <氏名>]",
+  "  tokutei-ginou: [--tokutei-ginou-field-key <分野キー>] [--tokutei-ginou-expiry-date <YYYY-MM-DD>] [--tokutei-ginou-cumulative-start-date <YYYY-MM-DD>] [--tokutei-ginou-support-outsourced true|false] [--tokutei-ginou-registered-support-org-name <登録支援機関名>]",
   "同じ<クライアント名>を指定すると、そのクライアントへの許可の追加・更新になります",
   "（--license-idが既存の許可と一致すれば上書き、一致しなければ追記します）。",
   "--grant-dateは建設業許可・産廃許可のみ必須（他の種別は各Detailの日付が起点のため不要）。",
@@ -226,6 +234,15 @@ if (licenseCategory === "kobutsu") {
   }
   if (options["inshokuten-responsible-person-name"]) detail.responsiblePersonName = options["inshokuten-responsible-person-name"];
   if (Object.keys(detail).length > 0) /** @type {any} */ (license).inshokutenDetail = detail;
+} else if (licenseCategory === "tokutei-ginou") {
+  /** @type {import('../src/licenses/tokutei-ginou/reminders/tokuteiGinouSchedule.js').TokuteiGinouLicenseDetail} */
+  const detail = {};
+  if (options["tokutei-ginou-field-key"]) detail.fieldKey = options["tokutei-ginou-field-key"];
+  if (options["tokutei-ginou-expiry-date"]) detail.expiryDateIso = options["tokutei-ginou-expiry-date"];
+  if (options["tokutei-ginou-cumulative-start-date"]) detail.cumulativeStayStartDateIso = options["tokutei-ginou-cumulative-start-date"];
+  if (options["tokutei-ginou-support-outsourced"]) detail.supportOutsourced = options["tokutei-ginou-support-outsourced"] === "true";
+  if (options["tokutei-ginou-registered-support-org-name"]) detail.registeredSupportOrgName = options["tokutei-ginou-registered-support-org-name"];
+  if (Object.keys(detail).length > 0) /** @type {any} */ (license).tokuteiGinouDetail = detail;
 }
 
 // 他種別向けのフラグが誤って指定されていないか軽く確認する（気づきのための警告に留め、処理は止めない）。
@@ -237,6 +254,7 @@ const OTHER_CATEGORY_FLAG_PREFIXES = {
   "keiei-jiko-shinsa": "keiei-",
   "nouchi-tenyo": "nouchi-",
   "inshokuten-eigyo": "inshokuten-",
+  "tokutei-ginou": "tokutei-ginou-",
 };
 for (const [category, prefix] of Object.entries(OTHER_CATEGORY_FLAG_PREFIXES)) {
   if (category === licenseCategory) continue;
