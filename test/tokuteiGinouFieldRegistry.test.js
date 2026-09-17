@@ -44,3 +44,34 @@ test("SEED_FIELDS: 介護分野は分野固有の日本語試験が必要とさ�
   const kaigo = SEED_FIELDS.find((f) => f.fieldKey === "kaigo");
   assert.equal(kaigo?.requiresSectorSpecificJapaneseTest, true);
 });
+
+test("SEED_FIELDS: 特定技能2号への移行対象分野は11分野（介護を除く。省令令和8年4月1日施行版で確認済み）", () => {
+  const supported = SEED_FIELDS.filter((f) => f.supportsSpecifiedSkilled2);
+  assert.equal(supported.length, 11);
+  const supportedKeys = supported.map((f) => f.fieldKey).sort();
+  assert.deepEqual(supportedKeys, [
+    "biru-cleaning",
+    "gaishokugyou",
+    "gyogyou",
+    "inshoku-ryouhin-seizougyou",
+    "jidousha-seibi",
+    "kensetsu",
+    "kougyou-seihin-seizougyou",
+    "koukuu",
+    "nougyou",
+    "shukuhaku",
+    "zousen-hakuyou-kougyou",
+  ]);
+});
+
+test("SEED_FIELDS: 介護分野は特定技能2号の対象外（在留資格「介護」への移行が想定されるため）", () => {
+  const kaigo = SEED_FIELDS.find((f) => f.fieldKey === "kaigo");
+  assert.equal(kaigo?.supportsSpecifiedSkilled2, undefined);
+});
+
+test("SEED_FIELDS: 2026年4月新設の3分野（林業・木材産業・資源循環）は特定技能2号の対象外", () => {
+  for (const key of ["ringyou", "mokuzai-sangyou", "shigen-junkan"]) {
+    const field = SEED_FIELDS.find((f) => f.fieldKey === key);
+    assert.equal(field?.supportsSpecifiedSkilled2, undefined, `${key}は2号対象外のはず`);
+  }
+});

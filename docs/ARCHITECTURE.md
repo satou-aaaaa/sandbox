@@ -204,7 +204,7 @@ M11（`docs/DESIGN_kobutsu-core.md`）で、許可種別に依存しない共通
   （平成三十一年法務省令第五号第3条イ〜ヌ）・報酬同等以上要件
   （同令第1条第1項第3号）は当初の記載どおり正確であることも確認した
 - `eligibility/types.js` — `TokuteiGinouApplicantProfile`等のJSDoc型定義
-- `eligibility/fieldRegistry.js`・`fieldRegistry.seed.js` — 対象19分野を`fieldKey`で登録・参照するモジュール内部限定のサブレジストリ（分野ラベル・技能試験名・分野特有の日本語試験要否〈介護分野のみ`requiresSectorSpecificJapaneseTest: true`〉を保持。3新分野の技能試験名は暫定表記のため要再確認の旨をコメントで明示）
+- `eligibility/fieldRegistry.js`・`fieldRegistry.seed.js` — 対象19分野を`fieldKey`で登録・参照するモジュール内部限定のサブレジストリ（分野ラベル・技能試験名・分野特有の日本語試験要否〈介護分野のみ`requiresSectorSpecificJapaneseTest: true`〉・特定技能2号への移行対象分野か〈`supportsSpecifiedSkilled2`。2026年9月追加。介護等を除く11分野が対象〉を保持。3新分野の技能試験名は暫定表記のため要再確認の旨をコメントで明示）
 - `eligibility/ginouSuijun.js` — 分野別技能試験合格等による技能水準要件の判定
 - `eligibility/nihongoNouryoku.js` — 日本語能力要件（JLPT N4相当以上等）の判定。介護分野は分野特有の日本語評価試験も確認
 - `eligibility/shozokuKikanKijun.js` — 所属機関（受入れ企業）側の基準（報酬同等以上・支援体制確保等）の判定
@@ -212,7 +212,7 @@ M11（`docs/DESIGN_kobutsu-core.md`）で、許可種別に依存しない共通
 - `eligibility/disclaimer.js` — 一次スクリーニングの強調文言。gijinkokuと同じ設計パターン
 - `eligibility/engine.js` — 上記4要件をまとめて判定
 - `documents/ninteiShinseisho.js`（在留資格認定証明書交付申請書サマリー）・`shienKeikakusho.js`（支援計画書サマリー）・`checklist.js`（添付書類チェックリスト） — 各様式のdocx自動生成
-- `reminders/tokuteiGinouSchedule.js` — 在留期間満了リマインド（gijinkokuの可変期間型`calcZairyuKikanSchedule`と同じ設計）に加え、**通算在留期間5年上限への接近警告**という第2のリマインド軸を同一の`ScheduleItem[]`に混在させる。5年上限は出入国管理及び難民認定法の条文自体には見当たらず、同法第2条の3が策定を義務付ける「基本方針」（運用レベルの指針）に基づくものと考えられるため、条文引用をせず「運用上の上限」という前提を明記した近似計算（暦年加算）とした。通算在留期間の正確な計算方法（出国期間・特例期間・端数の扱い）は一次資料未確認のため、個別ケースでは人手確認を促す設計
+- `reminders/tokuteiGinouSchedule.js` — 在留期間満了リマインド（gijinkokuの可変期間型`calcZairyuKikanSchedule`と同じ設計）に加え、**通算在留期間5年上限への接近警告**という第2のリマインド軸を同一の`ScheduleItem[]`に混在させる。5年上限は出入国管理及び難民認定法の条文自体には見当たらず、同法第2条の3が策定を義務付ける「基本方針」（運用レベルの指針）に基づくものと考えられるため、条文引用をせず「運用上の上限」という前提を明記した近似計算（暦年加算）とした。通算在留期間の正確な計算方法（出国期間・特例期間・端数の扱い）は一次資料未確認のため、個別ケースでは人手確認を促す設計。`resolveGonenJougenGuidance`（2026年9月追加）が`fieldRegistry.js`の`supportsSpecifiedSkilled2`に基づき、5年上限接近時の案内文言を「2号移行の検討」または「在留資格の見直しが必要」に出し分ける
 - `index.js` — `registerTokuteiGinouModule()`でコアの`scheduleTypes.js`へ登録するエントリポイント
 - 特定技能2号（家族帯同可・在留期間上限なし）への移行支援、技能実習からの移行要件、特定産業分野ごとの詳細な受入れ人数枠管理は対象外（`docs/REQUIREMENTS_tokutei-ginou-core.md` 4.6節）
 

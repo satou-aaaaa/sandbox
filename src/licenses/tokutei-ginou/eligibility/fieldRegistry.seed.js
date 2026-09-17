@@ -32,6 +32,8 @@ export const SEED_FIELDS = [
     fieldLabel: "ビルクリーニング",
     skillTestName: "ビルクリーニング分野特定技能評価試験",
     requiresSectorSpecificJapaneseTest: false,
+    supportsSpecifiedSkilled2: true,
+    supplementaryNote: "特定技能2号への移行対象分野",
   },
   {
     fieldKey: "linen-supply",
@@ -45,13 +47,15 @@ export const SEED_FIELDS = [
     fieldLabel: "工業製品製造業",
     skillTestName: "製造分野特定技能1号評価試験",
     requiresSectorSpecificJapaneseTest: false,
-    supplementaryNote: "従来の素形材・産業機械製造業/電気電子情報関連産業等が統合再編された分野（附則の経過措置対象）",
+    supportsSpecifiedSkilled2: true,
+    supplementaryNote: "従来の素形材・産業機械製造業/電気電子情報関連産業等が統合再編された分野（附則の経過措置対象）。特定技能2号への移行対象分野",
   },
   {
     fieldKey: "kensetsu",
     fieldLabel: "建設",
     skillTestName: "建設分野特定技能1号評価試験",
     requiresSectorSpecificJapaneseTest: false,
+    supportsSpecifiedSkilled2: true,
     supplementaryNote: "受入れ機関側に建設特定技能受入計画の認定（国土交通大臣）等、分野固有の追加基準がある（9章の拡張ポイント参照）。特定技能2号への移行対象分野",
   },
   {
@@ -59,6 +63,7 @@ export const SEED_FIELDS = [
     fieldLabel: "造船・舶用工業",
     skillTestName: "造船・舶用工業分野特定技能1号試験",
     requiresSectorSpecificJapaneseTest: false,
+    supportsSpecifiedSkilled2: true,
     supplementaryNote: "特定技能2号への移行対象分野",
   },
   {
@@ -66,6 +71,7 @@ export const SEED_FIELDS = [
     fieldLabel: "自動車整備",
     skillTestName: "自動車整備分野特定技能評価試験",
     requiresSectorSpecificJapaneseTest: false,
+    supportsSpecifiedSkilled2: true,
     supplementaryNote: "特定技能2号への移行対象分野",
   },
   {
@@ -73,6 +79,7 @@ export const SEED_FIELDS = [
     fieldLabel: "航空",
     skillTestName: "航空分野技能評価試験",
     requiresSectorSpecificJapaneseTest: false,
+    supportsSpecifiedSkilled2: true,
     supplementaryNote: "特定技能2号への移行対象分野",
   },
   {
@@ -80,6 +87,7 @@ export const SEED_FIELDS = [
     fieldLabel: "宿泊",
     skillTestName: "宿泊業技能測定試験",
     requiresSectorSpecificJapaneseTest: false,
+    supportsSpecifiedSkilled2: true,
     supplementaryNote: "特定技能2号への移行対象分野",
   },
   {
@@ -107,6 +115,7 @@ export const SEED_FIELDS = [
     fieldLabel: "農業",
     skillTestName: "農業技能測定試験",
     requiresSectorSpecificJapaneseTest: false,
+    supportsSpecifiedSkilled2: true,
     supplementaryNote: "特定技能2号への移行対象分野",
   },
   {
@@ -114,6 +123,7 @@ export const SEED_FIELDS = [
     fieldLabel: "漁業",
     skillTestName: "漁業技能測定試験",
     requiresSectorSpecificJapaneseTest: false,
+    supportsSpecifiedSkilled2: true,
     supplementaryNote: "特定技能2号への移行対象分野",
   },
   {
@@ -121,6 +131,7 @@ export const SEED_FIELDS = [
     fieldLabel: "飲食料品製造業",
     skillTestName: "飲食料品製造業技能測定試験",
     requiresSectorSpecificJapaneseTest: false,
+    supportsSpecifiedSkilled2: true,
     supplementaryNote: "特定技能2号への移行対象分野",
   },
   {
@@ -128,6 +139,7 @@ export const SEED_FIELDS = [
     fieldLabel: "外食業",
     skillTestName: "外食業技能測定試験",
     requiresSectorSpecificJapaneseTest: false,
+    supportsSpecifiedSkilled2: true,
     supplementaryNote: "特定技能2号への移行対象分野",
   },
   {

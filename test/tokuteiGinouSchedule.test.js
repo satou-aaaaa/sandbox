@@ -4,7 +4,9 @@ import {
   calcTokuteiGinouSchedule,
   calcGonenJougenDate,
   checkExceedsGonenJougen,
+  resolveGonenJougenGuidance,
 } from "../src/licenses/tokutei-ginou/reminders/tokuteiGinouSchedule.js";
+import { clearFields, registerField } from "../src/licenses/tokutei-ginou/eligibility/fieldRegistry.js";
 
 test("calcGonenJougenDate: 起算日から5年後の日付を計算する", () => {
   assert.equal(calcGonenJougenDate("2026-04-01"), "2031-04-01");
@@ -62,4 +64,54 @@ test("calcTokuteiGinouSchedule: 両方設定の場合、満了リマインド3�
     tokuteiGinouDetail: { fieldKey: "gaishokugyou", expiryDateIso: "2026-12-31", cumulativeStayStartDateIso: "2026-04-01" },
   });
   assert.equal(items.length, 4);
+});
+
+test("resolveGonenJougenGuidance: 2号移行対象分野なら移行検討を促す文言を返す", () => {
+  clearFields();
+  registerField({
+    fieldKey: "test-2gou-taisho",
+    fieldLabel: "テスト2号対象分野",
+    skillTestName: "テスト試験",
+    requiresSectorSpecificJapaneseTest: false,
+    supportsSpecifiedSkilled2: true,
+  });
+  const guidance = resolveGonenJougenGuidance("test-2gou-taisho");
+  assert.match(guidance, /2号への移行対象/);
+  assert.match(guidance, /移行の検討/);
+});
+
+test("resolveGonenJougenGuidance: 2号対象外分野なら在留資格の見直しが必要な旨を返す", () => {
+  clearFields();
+  registerField({
+    fieldKey: "test-2gou-taishogai",
+    fieldLabel: "テスト2号対象外分野",
+    skillTestName: "テスト試験",
+    requiresSectorSpecificJapaneseTest: false,
+    supportsSpecifiedSkilled2: false,
+  });
+  const guidance = resolveGonenJougenGuidance("test-2gou-taishogai");
+  assert.match(guidance, /2号の制度が無い/);
+  assert.match(guidance, /在留資格への変更検討/);
+});
+
+test("resolveGonenJougenGuidance: fieldKey未指定・未登録の場合は中立的な文言を返す", () => {
+  clearFields();
+  assert.match(resolveGonenJougenGuidance(undefined), /分野別運用方針を確認/);
+  assert.match(resolveGonenJougenGuidance("no-such-field"), /分野別運用方針を確認/);
+});
+
+test("calcTokuteiGinouSchedule: 通算上限警告のラベルに分野別の案内文言が反映される", () => {
+  clearFields();
+  registerField({
+    fieldKey: "gaishokugyou",
+    fieldLabel: "外食業",
+    skillTestName: "外食業技能測定試験",
+    requiresSectorSpecificJapaneseTest: false,
+    supportsSpecifiedSkilled2: true,
+  });
+  const items = calcTokuteiGinouSchedule({
+    licenseId: "既定",
+    tokuteiGinouDetail: { fieldKey: "gaishokugyou", cumulativeStayStartDateIso: "2026-04-01" },
+  });
+  assert.match(items[0].label, /2号への移行対象/);
 });

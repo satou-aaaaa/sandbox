@@ -18,7 +18,15 @@
  * 30日未満の端数の扱い）は実装時点で一次資料確認が完了していない。
  * 以下は簡易な暦年加算による近似計算であり、正確な計算が必要な個別
  * ケースでは人手確認を促す。
+ *
+ * 【2026年9月・特定技能2号の案内文言を追加】5年上限接近時の案内文言を、
+ * `fieldRegistry.js`の`supportsSpecifiedSkilled2`に基づき出し分ける。
+ * 2号への移行対象分野（介護を除く11分野）であれば2号移行の検討を促し、
+ * 対象外分野（介護・リネンサプライ・自動車運送業・鉄道・物流倉庫・
+ * 林業・木材産業・資源循環）であれば、5年上限到達後は在留資格の見直し
+ * （帰国、または他の在留資格への変更検討）が必要になる旨を明記する。
  */
+import { getField } from "../eligibility/fieldRegistry.js";
 
 /**
  * @typedef {Object} TokuteiGinouLicenseDetail LicenseEntry.tokuteiGinouDetail の中身
@@ -54,12 +62,30 @@ export function calcTokuteiGinouSchedule(license) {
     const capDateIso = calcGonenJougenDate(detail.cumulativeStayStartDateIso);
     items.push({
       type: "gonen-jougen-keikoku",
-      label: "通算在留期間5年上限の到達見込み日（簡易計算・特定技能2号移行等の検討要）",
+      label: `通算在留期間5年上限の到達見込み日（簡易計算）。${resolveGonenJougenGuidance(detail.fieldKey)}`,
       dueDateIso: addDaysIso(capDateIso, -180), // 上限180日前から警告を出す（早期の方針検討を促すための余裕）
     });
   }
 
   return items;
+}
+
+/**
+ * 通算5年上限接近時の案内文言を、分野が特定技能2号への移行対象かどうかで
+ * 出し分ける。`fieldKey`未入力、または`fieldRegistry`に未登録の分野の場合は
+ * 判定材料が無いため、どちらとも決めつけない中立的な文言を返す。
+ * @param {string} [fieldKey]
+ * @returns {string}
+ */
+export function resolveGonenJougenGuidance(fieldKey) {
+  const field = fieldKey ? getField(fieldKey) : undefined;
+  if (!field) {
+    return "特定技能2号への移行可否は対象分野によって異なるため、分野別運用方針を確認してください。";
+  }
+  if (field.supportsSpecifiedSkilled2) {
+    return "対象分野は特定技能2号への移行対象のため、上限到達前に2号評価試験の受験等、移行の検討を進めてください。";
+  }
+  return "対象分野は特定技能2号の制度が無いため、上限到達後は帰国または他の在留資格への変更検討が必要です。";
 }
 
 /**
