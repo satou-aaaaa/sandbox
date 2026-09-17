@@ -38,7 +38,9 @@
  * @property {string} applicantName 申請者氏名または法人名
  * @property {string} [address]
  * @property {string} [landAddress] 転用対象農地の所在地（地番）
- * @property {number} [landAreaSqm] 転用対象農地の面積（平方メートル）
+ * @property {number} [landAreaSqm] 転用対象農地の面積（平方メートル）。
+ *   4ヘクタール（40,000㎡）を超える場合は農林水産大臣への協議が必要になる
+ *   （`eligibility/daijinKyogi.js`。農地法附則2項1号・3号）
  * @property {string} [purposeOfConversion] 転用の目的（例: "資材置場", "駐車場", "太陽光発電設備"）
  * @property {string} [rightsHolderName] 譲受人・借主氏名（5条許可の場合のみ入力。4条の場合は未設定）
  * @property {NouchiTenyoRicchiKijunInput} ricchiKijun

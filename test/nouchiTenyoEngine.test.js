@@ -6,7 +6,27 @@ import { buildSampleNouchiTenyoProfile } from "../scripts/sampleNouchiTenyoProfi
 test("evaluateNouchiTenyoEligibility: サンプルデータは全要件を満たしeligible=trueになる", () => {
   const result = evaluateNouchiTenyoEligibility(buildSampleNouchiTenyoProfile());
   assert.equal(result.eligible, true);
-  assert.equal(result.checks.length, 2);
+  assert.equal(result.checks.length, 3);
+});
+
+test("evaluateNouchiTenyoEligibility: 転用面積が4ヘクタール以下なら大臣協議の警告は出ない", () => {
+  const profile = buildSampleNouchiTenyoProfile();
+  profile.landAreaSqm = 40_000;
+  const result = evaluateNouchiTenyoEligibility(profile);
+  assert.equal(result.eligible, true);
+  const check = result.checks.find((c) => c.key === "daijinKyogi");
+  assert.equal(check.passed, true);
+  assert.deepEqual(check.warnings, []);
+});
+
+test("evaluateNouchiTenyoEligibility: 転用面積が4ヘクタールを超えると大臣協議の警告が出るが、eligibleには影響しない（農地法附則2項）", () => {
+  const profile = buildSampleNouchiTenyoProfile();
+  profile.landAreaSqm = 40_001;
+  const result = evaluateNouchiTenyoEligibility(profile);
+  assert.equal(result.eligible, true);
+  const check = result.checks.find((c) => c.key === "daijinKyogi");
+  assert.equal(check.passed, true);
+  assert.ok(check.warnings.some((w) => w.includes("農林水産大臣への協議")));
 });
 
 test("evaluateNouchiTenyoEligibility: 立地基準を満たさなければeligible=falseになる", () => {

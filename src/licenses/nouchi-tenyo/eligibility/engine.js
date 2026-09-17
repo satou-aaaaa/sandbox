@@ -1,6 +1,7 @@
 import { aggregateEligibility, formatChecksSection } from "../../../core/eligibility/aggregate.js";
 import { checkRicchiKijun } from "./ricchiKijun.js";
 import { checkIppanKijun } from "./ippanKijun.js";
+import { checkDaijinKyogiRequirement } from "./daijinKyogi.js";
 
 /**
  * 農地転用許可（立地基準・一般基準）をまとめて判定する。
@@ -15,7 +16,11 @@ import { checkIppanKijun } from "./ippanKijun.js";
  * @returns {import('../../../core/eligibility/types.js').EligibilityResult}
  */
 export function evaluateNouchiTenyoEligibility(profile) {
-  const checks = [checkRicchiKijun(profile.ricchiKijun), checkIppanKijun(profile.ippanKijun)];
+  const checks = [
+    checkRicchiKijun(profile.ricchiKijun),
+    checkIppanKijun(profile.ippanKijun),
+    checkDaijinKyogiRequirement(profile.landAreaSqm),
+  ];
   const { eligible, blockingIssues } = aggregateEligibility(checks);
   return { eligible, checks, blockingIssues };
 }

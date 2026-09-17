@@ -540,6 +540,11 @@ M1→M2→M4の順序を踏襲する。
   `NouchiTenyoLicenseDetail.restorationDeadlineIso`・`restored`を追加し、
   既存の条件履行期限型パターン（`conditionDeadlineSchedule.js`）を
   そのまま適用した
+- 4haを超える転用における農林水産大臣への協議案件への対応: **2026年9月・
+  協議の要否の警告表示のみ実装済み**。`eligibility/daijinKyogi.js`が
+  `landAreaSqm`から機械的に閾値判定し、合否には影響させない警告として
+  出す（農地法附則2項1号・3号）。協議そのものの手続支援（大臣協議資料の
+  作成等）は引き続き対象外
 - 農地転用許可のWebフォーム対応（`src/web/`の拡張）
 - 市街化区域内の届出案件への対応拡大（1.3節でスコープ外とした届出フロー。
   対応する場合、許可とは別の`licenseCategory`（例: `"nouchi-todokede"`）を
