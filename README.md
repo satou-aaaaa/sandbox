@@ -76,7 +76,8 @@
 - **BtoB下請けケース管理ポータル**: 許可種別アドオンではなく、他の行政書士から
   下請けとして受注する業務を管理する独立した業務ドメイン（`src/portal/`）。
   元請行政書士・案件（受注日・納期・報酬・進捗ステータス）の登録・一覧、
-  見積書・請求書のdocx生成、納期リマインドに対応。コアの許可レジストリ
+  見積書・請求書のdocx生成、納期リマインド、1つの元請に対する当月完了分を
+  まとめる月次請求サマリー生成に対応。コアの許可レジストリ
   （`registerScheduleFn`）は使わず、docx共通ヘルパーとリマインド表示関数
   （`bucketizeAlerts`等）のみを再利用する設計（詳細は`docs/DESIGN_uketsuke-portal.md`）
 - **会社設立サポートモジュール**: 許可の可否を判定する業務ではないため、
@@ -185,6 +186,7 @@ npm run gen:minpaku-checklist    # 必要書類チェックリストのdocx生�
 npm run gen:mitsumorisho             # 下請けポータル: 見積書サマリーのdocx生成サンプル
 npm run gen:seikyusho                # 下請けポータル: 請求書サマリーのdocx生成サンプル
 npm run gen:portal-reminder-digest   # 下請けポータル: 案件納期リマインドのダイジェスト出力サンプル
+npm run gen:portal-monthly-seikyusho # 下請けポータル: 月次請求サマリーのdocx生成サンプル
 npm run gen:incorporation-teikan             # 会社設立サポート: 定款サマリー（株式会社・合同会社）のdocx生成サンプル
 npm run gen:incorporation-hokininketteisho   # 会社設立サポート: 発起人決定書サマリーのdocx生成サンプル
 npm run gen:incorporation-reminder-digest    # 会社設立サポート: 定款認証予約日/払込期限リマインドのダイジェスト出力サンプル
@@ -250,13 +252,15 @@ LibreOffice Writer 等で開いて内容を確認すること。
 ```bash
 npm run portal:partner-add -- "sample-law-office" "サンプル行政書士法人" --contact-name "田中 次郎" --contact-email tanaka@example.com
 npm run portal:case-add -- "case-001" --partner-id sample-law-office --case-name "○○様 建設業許可新規申請 書類作成" --received-date 2026-09-01 --due-date 2026-10-15 --fee 80000 --license-category construction
-npm run portal:case-status -- "case-001" 作業中   # ステータス更新（受付/作業中/納品待ち/完了/保留）
+npm run portal:case-status -- "case-001" 完了 2026-09-18   # ステータス更新（受付/作業中/納品待ち/完了/保留）。完了時は完了日を指定（省略時は本日）
 npm run portal:reminders                            # 未完了案件の納期リマインドを表示
+npm run portal:monthly-seikyusho -- "sample-law-office" 2026-09   # 指定した元請の当月完了分をまとめた月次請求サマリーをdocx生成
 ```
 
 データは `data/partners.json`・`data/cases.json`（いずれもコミット対象外）に
 ローカル保存される。外部への送信は行わない。見積書・請求書のdocx生成は
-`npm run gen:mitsumorisho`・`npm run gen:seikyusho`（サンプルデータ）を参照。
+`npm run gen:mitsumorisho`・`npm run gen:seikyusho`、月次請求サマリーは
+`npm run gen:portal-monthly-seikyusho`（いずれもサンプルデータ）を参照。
 
 ### 会社設立サポートモジュールを使う
 

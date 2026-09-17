@@ -228,8 +228,9 @@ M11（`docs/DESIGN_kobutsu-core.md`）で、許可種別に依存しない共通
 - `types.js` — `PartnerRecord`（元請行政書士）・`CaseRecord`（案件）のJSDoc型定義。`ApplicantProfile`・`ClientRecord`とは意図的に型を共有しない（NFR-U2）
 - `caseStore.js` — `data/partners.json`・`data/cases.json`への永続化（`clientStore.js`と同じ設計パターン。`withFileLock`によるread-modify-write直列化を含む）
 - `documents/mitsumorisho.js`（見積書）・`seikyusho.js`（請求書） — 各様式のdocx自動生成。国・自治体が定める「様式」ではないため`buildDisclaimerParagraph`は使わない
+- `documents/monthlySeikyusho.js`（月次請求サマリー。FR-U2.3。2026年9月追加）— 1つの元請に対する「当月完了分」の複数案件をまとめて一覧化し合計金額を算出する任意機能。`CaseRecord.completedDateIso`（同時に追加した任意フィールド）で絞り込む。`dueDateIso`（納期）は予定日に過ぎず実際の完了日と一致しないことがあるため、絞り込みには使わない
 - `reminders/caseDeadlines.js` — 案件の納期から`ReminderAlert`相当を生成。**あえて`registerScheduleFn`（許可のレジストリ）を使わない設計**: 案件を`LicenseEntry`として無理に扱うとコアが許可種別以外の概念を抱え込んでしまうため、表示用の関数（`bucketizeAlerts`等）だけをコアから再利用し、許可のリマインド一覧（`buildReminderDigest`）とは別コマンド・別出力として扱う（`docs/DESIGN_uketsuke-portal.md` 5章）
-- `scripts/portal-*.js` — 元請・案件の登録/一覧/ステータス更新・納期リマインド表示のCLI
+- `scripts/portal-*.js` — 元請・案件の登録/一覧/ステータス更新・納期リマインド表示・月次請求サマリー生成のCLI。`portal-update-case-status.js`はステータスを「完了」にする際、完了日（`completedDateIso`）を省略すると本日の日付を自動設定する
 - Web一覧表示・オンライン決済・複数案件の月次請求サマリーは対象外（`docs/REQUIREMENTS_uketsuke-portal.md` 4.6節）
 
 ### 会社設立サポート（`src/incorporation/`。許可種別アドオンではない独立ドメイン）

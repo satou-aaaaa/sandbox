@@ -27,6 +27,11 @@
  * @property {string} dueDateIso 納期
  * @property {number} feeAmount 報酬額（円）
  * @property {"受付" | "作業中" | "納品待ち" | "完了" | "保留"} status
+ * @property {string} [completedDateIso] 完了日（YYYY-MM-DD。任意）。
+ *   月次請求サマリー（`documents/monthlySeikyusho.js`）が「当月完了分」を
+ *   絞り込む基準に使う。`dueDateIso`（納期）はあくまで予定日であり、
+ *   実際の完了日とは一致しないことがあるため、専用のフィールドとして
+ *   別に持たせる（FR-U2.3）
  * @property {string} [notes] 自由記述メモ
  */
 

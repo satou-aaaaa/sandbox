@@ -214,5 +214,6 @@ export function buildCaseDeadlineAlerts(cases, partners, todayIso) {
 - 許可のリマインドと案件の納期リマインドを1つの画面・1つのCLI
   コマンドで横断的に見たいというニーズが出てきた場合の、
   `ReminderAlert`型の再設計（5章）
-- 複数案件をまとめた月次請求サマリー生成（要件定義書FR-U2.3）
+- 複数案件をまとめた月次請求サマリー生成（要件定義書FR-U2.3）:
+  **2026年9月実装済み**。`documents/monthlySeikyusho.js`
 - Web一覧表示への対応（`src/web/`の拡張。他モジュール同様、本フェーズは対象外）

@@ -6,6 +6,23 @@
 日付単位のリリースではなく `docs/PROPOSAL.md` のマイルストーン（M1〜）を
 単位として記録する。
 
+## BtoB下請けケース管理ポータルに月次請求サマリー生成を追加（2026年9月）
+
+`docs/DESIGN_uketsuke-portal.md` 9章「今後の拡張ポイント」に記載されていた
+FR-U2.3（1つの元請行政書士に対する当月完了分の一覧をまとめた「月次請求
+サマリー」）を実装した。
+
+- `CaseRecord`に完了日（`completedDateIso`）を新設した。既存の`dueDateIso`
+  （納期）はあくまで予定日であり実際の完了日と一致しないことがあるため、
+  月次サマリーの絞り込みには専用フィールドを使う設計とした
+- `portal-update-case-status.js`でステータスを「完了」に更新する際、
+  完了日を省略すると本日の日付を自動記録するようにした
+- `documents/monthlySeikyusho.js`（`filterCompletedCasesForMonth`・
+  `resolveMonthlySeikyushoTable`・`buildMonthlySeikyushoDocument`・
+  `writeMonthlySeikyushoDocx`）を新設し、指定した元請・対象年月の完了案件
+  一覧と合計請求額をdocxで出力できるようにした（CLI:
+  `npm run portal:monthly-seikyusho`）
+
 ## 建設業許可の欠格要件（誓約書）を6項目から10項目へ拡充（2026年9月）
 
 `docs/ARCHITECTURE.md`「既知の未実装・今後の拡張ポイント」に記載されていた
