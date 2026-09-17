@@ -1,6 +1,6 @@
 # 設計書 — 許認可自動化コア拡張＋古物商許可モジュール
 
-version: 0.2 / 2026-09 修正（実装着手前レビューで現行コードとの突き合わせ・e-Gov原文確認を反映。0.1からの変更点は末尾の改訂履歴を参照）
+version: 0.3 / 2026-09 修正（実装後にe-Gov原文で届出期限の記載を再確認し訂正。0.1・0.2からの変更点は末尾の改訂履歴を参照）
 対応する要件定義書: `docs/REQUIREMENTS_kobutsu-core.md`
 
 > 本書は既存の `docs/DESIGN.md`（建設業許可分）と対になる技術設計書。
@@ -215,7 +215,8 @@ version: 0.2 / 2026-09 修正（実装着手前レビューで現行コードと
 /**
  * @typedef {Object} KobutsuLicenseDetail LicenseEntry.kobutsuDetail の中身
  * @property {string} [grantDateIso] 許可年月日（リマインド計算の起点にはしない。参考情報）
- * @property {string} [lastRecordedChangeDateIso] 直近に記録した記載事項変更日（書換申請の期限計算の入力。5.13節）
+ * @property {string} [lastRecordedChangeDateIso] 直近に記録した記載事項変更日（書換申請の期限計算の入力。営業所の名称・所在地以外の変更。5.13節）
+ * @property {string} [plannedEigyoshoChangeDateIso] 営業所又は古物市場の名称・所在地変更の予定日（事前届出の期限計算の入力。5.13節。2026年9月追加）
  * @property {string} [closureDateIso] 廃業日（返納期限の計算の入力。5.13節。廃業していない場合は未設定）
  */
 ```
@@ -780,11 +781,28 @@ function addDaysIso(iso, days) {
 }
 ```
 
+⚠ **2026年9月・実装後の一次資料確認で訂正**: 上記コード例にあった
+`buildHenkoTodokedeWarning`（「記載事項以外の変更は事由発生から3日以内」
+という即時警告文言を返す関数）は、e-Gov法令検索で古物営業法・同施行規則の
+原文を確認した結果、内容が誤りだったことが判明した。正しくは、
+第5条第1項各号のうち**第2号（営業所又は古物市場の名称・所在地）だけが
+「事前届出」**（変更予定日の3日前まで。第7条第1項・施行規則第5条2〜3項）
+であり、それ以外の号はすべて「事後届出」（変更の日から14日以内。第7条
+第2項・施行規則第5条4〜6項）である。`buildHenkoTodokedeWarning`は
+`calcEigyoshoHenkoJizenTodokedeDeadline`（変更予定日から3日前の日付を
+計算する関数）に置き換え、即時警告ではなく他の記載事項変更と同じ
+`ScheduleItem`ベースのリマインドとして5.14節の`registerKobutsuLicense`に
+組み込んだ（詳細は`docs/REQUIREMENTS_kobutsu-core.md`改訂履歴v0.3節）。
+
 ### 5.14 `src/licenses/kobutsu/index.js`（新規）
 
 ```js
 import { registerScheduleFn } from "../../core/reminders/scheduleTypes.js";
-import { calcShokanShinseiDeadline, calcHenoukiDeadline } from "./reminders/changeSchedule.js";
+import {
+  calcShokanShinseiDeadline,
+  calcEigyoshoHenkoJizenTodokedeDeadline,
+  calcHenoukiDeadline,
+} from "./reminders/changeSchedule.js";
 
 /**
  * 古物商許可アドオンをコアへ登録する。construction/index.js と同じ役割。
@@ -798,6 +816,13 @@ export function registerKobutsuLicense() {
         type: "shokan-shinsei",
         label: "書換申請の期限",
         dueDateIso: calcShokanShinseiDeadline(detail.lastRecordedChangeDateIso),
+      });
+    }
+    if (detail?.plannedEigyoshoChangeDateIso) {
+      items.push({
+        type: "eigyosho-henko-jizen-todokede",
+        label: "営業所・古物市場の名称/所在地変更の事前届出期限（変更予定日の3日前）",
+        dueDateIso: calcEigyoshoHenkoJizenTodokedeDeadline(detail.plannedEigyoshoChangeDateIso),
       });
     }
     if (detail?.closureDateIso) {
@@ -920,11 +945,30 @@ CLIスクリプト（`scripts/generate-kobutsu-*.js` 等、新規追加分）・
   `KobutsuOfficerInput[]`）を追加、`checkKobutsuKekkaku`が役員ごとの
   該当性もあわせて判定するようにした。法人向けの許可申請書・略歴書
   （役員ごとに1通必要）等、書類生成のフル対応は引き続き対象外
-- 変更届（3日以内）の入力時警告（5.13節 `buildHenkoTodokedeWarning`）を、
-  将来的に `src/web/` に組み込む際のUI設計（現状はCLI/スクリプト前提の
-  ため、警告メッセージを返す関数を用意するのみに留めている）
+- 営業所・古物市場の名称/所在地変更の事前届出リマインド（5.13節
+  `calcEigyoshoHenkoJizenTodokedeDeadline`）を、将来的に `src/web/`
+  （個人申請のみ対応の`/kobutsu`フォーム）に組み込む際のUI設計
+  （現状は`data/clients.json`側の`kobutsuDetail.plannedEigyoshoChangeDateIso`
+  をCLI経由で登録する運用のみ対応）
 
 ## 10. 改訂履歴
+
+### v0.3（2026年9月・実装後の一次資料確認で判明した誤りの訂正）
+
+Webフォーム機能追加の調査過程で、e-Gov法令検索で古物営業法・同施行規則
+（[https://laws.e-gov.go.jp/law/407M50400000010](https://laws.e-gov.go.jp/law/407M50400000010)）
+の原文を確認したところ、5.13節の`buildHenkoTodokedeWarning`の内容
+（「記載事項以外の変更は事由発生から3日以内に変更届出」）が誤りだったことが
+判明したため訂正した。正しくは、第5条第1項各号のうち第2号（営業所又は
+古物市場の名称・所在地）だけが「事前届出」（変更予定日の3日前まで）で
+あり、それ以外の号はすべて「事後届出」（変更の日から14日以内）である。
+
+- 5.13節: `buildHenkoTodokedeWarning`を`calcEigyoshoHenkoJizenTodokedeDeadline`
+  （変更予定日から3日前の日付を計算する関数）に置き換えた
+- 5.14節: `registerKobutsuLicense`に、新しい`ScheduleItem`
+  （`eigyosho-henko-jizen-todokede`）を追加した
+- 4.4節: `KobutsuLicenseDetail`に`plannedEigyoshoChangeDateIso`を追加した
+- 詳細な訂正理由は`docs/REQUIREMENTS_kobutsu-core.md`改訂履歴v0.3節を参照
 
 ### v0.2（2026年9月・実装着手前レビュー）
 

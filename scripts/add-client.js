@@ -20,7 +20,8 @@
  *     [--license-category construction|kobutsu|sanpai|minpaku|gijinkoku|keiei-jiko-shinsa]
  *     [--grant-date <許可年月日YYYY-MM-DD>] [--license-type 一般|特定]
  *     [--fiscal-year-end <事業年度終了日YYYY-MM-DD>] [--contact-email <連絡先メールアドレス>]
- *     [--kobutsu-grant-date <YYYY-MM-DD>] [--kobutsu-last-change-date <YYYY-MM-DD>] [--kobutsu-closure-date <YYYY-MM-DD>]
+ *     [--kobutsu-grant-date <YYYY-MM-DD>] [--kobutsu-last-change-date <YYYY-MM-DD>]
+ *     [--kobutsu-planned-eigyosho-change-date <YYYY-MM-DD>] [--kobutsu-closure-date <YYYY-MM-DD>]
  *     [--sanpai-validity-years 5|7] [--sanpai-koushu-completion-date <YYYY-MM-DD>]
  *     [--minpaku-notification-date <YYYY-MM-DD>]
  *     [--gijinkoku-expiry-date <YYYY-MM-DD>] [--gijinkoku-period-type 3月|1年|3年|5年]
@@ -93,7 +94,7 @@ const USAGE = [
     "[--grant-date <許可年月日YYYY-MM-DD>] [--license-type 一般|特定] " +
     "[--fiscal-year-end <事業年度終了日YYYY-MM-DD>] [--contact-email <連絡先メールアドレス>]",
   "種別ごとの追加フラグ:",
-  "  kobutsu: [--kobutsu-grant-date <YYYY-MM-DD>] [--kobutsu-last-change-date <YYYY-MM-DD>] [--kobutsu-closure-date <YYYY-MM-DD>]",
+  "  kobutsu: [--kobutsu-grant-date <YYYY-MM-DD>] [--kobutsu-last-change-date <YYYY-MM-DD>] [--kobutsu-planned-eigyosho-change-date <YYYY-MM-DD>（営業所/古物市場の名称・所在地変更の予定日。事前届出の起点）] [--kobutsu-closure-date <YYYY-MM-DD>]",
   "  sanpai:  [--sanpai-validity-years 5|7] [--sanpai-koushu-completion-date <YYYY-MM-DD>]",
   "  minpaku: [--minpaku-notification-date <YYYY-MM-DD>]",
   "  gijinkoku: [--gijinkoku-expiry-date <YYYY-MM-DD>] [--gijinkoku-period-type 3月|1年|3年|5年]",
@@ -146,6 +147,9 @@ if (licenseCategory === "kobutsu") {
   const detail = {};
   if (options["kobutsu-grant-date"]) detail.grantDateIso = options["kobutsu-grant-date"];
   if (options["kobutsu-last-change-date"]) detail.lastRecordedChangeDateIso = options["kobutsu-last-change-date"];
+  if (options["kobutsu-planned-eigyosho-change-date"]) {
+    detail.plannedEigyoshoChangeDateIso = options["kobutsu-planned-eigyosho-change-date"];
+  }
   if (options["kobutsu-closure-date"]) detail.closureDateIso = options["kobutsu-closure-date"];
   if (Object.keys(detail).length > 0) /** @type {any} */ (license).kobutsuDetail = detail;
 } else if (licenseCategory === "sanpai") {

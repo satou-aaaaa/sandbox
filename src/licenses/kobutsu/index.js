@@ -7,7 +7,11 @@
  * 計算するより前にこの関数を呼ぶこと。
  */
 import { registerScheduleFn } from "../../core/reminders/scheduleTypes.js";
-import { calcShokanShinseiDeadline, calcHenoukiDeadline } from "./reminders/changeSchedule.js";
+import {
+  calcShokanShinseiDeadline,
+  calcEigyoshoHenkoJizenTodokedeDeadline,
+  calcHenoukiDeadline,
+} from "./reminders/changeSchedule.js";
 
 /**
  * @param {import('../../core/reminders/digest.js').LicenseEntry & { kobutsuDetail?: import('./reminders/changeSchedule.js').KobutsuLicenseDetail }} license
@@ -21,6 +25,13 @@ function kobutsuScheduleFn(license) {
       type: "shokan-shinsei",
       label: "書換申請の期限",
       dueDateIso: calcShokanShinseiDeadline(detail.lastRecordedChangeDateIso),
+    });
+  }
+  if (detail?.plannedEigyoshoChangeDateIso) {
+    items.push({
+      type: "eigyosho-henko-jizen-todokede",
+      label: "営業所・古物市場の名称/所在地変更の事前届出期限（変更予定日の3日前）",
+      dueDateIso: calcEigyoshoHenkoJizenTodokedeDeadline(detail.plannedEigyoshoChangeDateIso),
     });
   }
   if (detail?.closureDateIso) {

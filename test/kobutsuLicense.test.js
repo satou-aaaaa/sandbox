@@ -29,6 +29,19 @@ test("registerKobutsuLicense: 記載事項変更の記録があれば書換申�
   assert.equal(items[0].dueDateIso, "2026-09-15");
 });
 
+test("registerKobutsuLicense: 営業所・古物市場の名称/所在地変更予定日の記録があれば事前届出の期限を返す（3日前）", () => {
+  clearScheduleFns();
+  registerKobutsuLicense();
+  const scheduleFn = getScheduleFn("kobutsu");
+  const items = scheduleFn({
+    licenseId: "既定",
+    kobutsuDetail: { plannedEigyoshoChangeDateIso: "2026-09-10" },
+  });
+  assert.equal(items.length, 1);
+  assert.equal(items[0].type, "eigyosho-henko-jizen-todokede");
+  assert.equal(items[0].dueDateIso, "2026-09-07");
+});
+
 test("registerKobutsuLicense: 廃業の記録があれば返納期限を返す", () => {
   clearScheduleFns();
   registerKobutsuLicense();
@@ -51,4 +64,19 @@ test("registerKobutsuLicense: 変更と廃業の両方が記録されていれ�
     kobutsuDetail: { lastRecordedChangeDateIso: "2026-09-01", closureDateIso: "2026-09-05" },
   });
   assert.equal(items.length, 2);
+});
+
+test("registerKobutsuLicense: 記載事項変更・営業所変更予定・廃業のすべてが記録されていれば3件返す", () => {
+  clearScheduleFns();
+  registerKobutsuLicense();
+  const scheduleFn = getScheduleFn("kobutsu");
+  const items = scheduleFn({
+    licenseId: "既定",
+    kobutsuDetail: {
+      lastRecordedChangeDateIso: "2026-09-01",
+      plannedEigyoshoChangeDateIso: "2026-09-10",
+      closureDateIso: "2026-09-05",
+    },
+  });
+  assert.equal(items.length, 3);
 });
