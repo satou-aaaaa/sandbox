@@ -2,7 +2,7 @@ name: Test
 
 on:
   push:
-    branches: [master]
+    branches: [main]
   pull_request:
 
 # GITHUB_TOKENの権限を必要最小限に絞る（サプライチェーン攻撃対策の基本）。
@@ -100,9 +100,23 @@ jobs:
         run: npm audit --audit-level=high
       # npmレジストリ上のパッケージ署名を検証する（サプライチェーン改ざん対策）。
       # 同上の理由でubuntu・22.xの1系統のみで足りる。
+      # 【既知の問題】npmレジストリ側のSigstore署名添付（attestation）取得APIが
+      # 一時的に応答しないことがあり、`@playwright/test`等でEMISSINGSIGNATUREKEYと
+      # なって本ステップだけが単発で失敗する事象が複数のPRで発生した（他の
+      # 全ステップは毎回成功しており、実際の署名不備ではなくレジストリ側の
+      # 一時的な取得失敗と判断）。手動でのジョブ再実行で毎回解消していたため、
+      # `continue-on-error` で結果を無視する（本物の署名不備も見逃してしまう）
+      # のではなく、コマンド自体を3回まで再試行する形でCI側の安定性を上げる。
       - name: npmパッケージ署名の検証
         if: matrix.os == 'ubuntu-latest' && matrix.node-version == '22.x'
-        run: npm audit signatures
+        shell: bash
+        run: |
+          for i in 1 2 3; do
+            npm audit signatures && exit 0
+            echo "npm audit signatures が失敗しました（${i}回目）。レジストリ側の一時的な応答不良の可能性があるため再試行します。"
+            sleep 10
+          done
+          exit 1
       # E2Eテスト（Playwright）。ブラウザバイナリのダウンロードを伴い実行時間も
       # 長いため、他の「OS非依存」チェックと同じくubuntu・22.xの1系統のみで
       # 実行する（アプリ側はOS依存の分岐が無いHTTPサーバーのため、複数OSで
