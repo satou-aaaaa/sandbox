@@ -43,6 +43,13 @@
  *   または相続人廃除（892条・893条）に該当するか。死亡と同様、
  *   代襲相続の原因になる。該当性の判断自体は本モジュールでは行わず、
  *   発注者が別途確認した結果を入力する前提とする
+ * @property {boolean} [isAdopted] 被相続人の養子か（childrenの要素の場合の
+ *   み使用。相続分の計算〈calcLegalHeirs〉では実子・養子を区別しないため
+ *   参照しないが、相続税の基礎控除額の計算〈calcSouzokuzeiKisokoujogaku〉
+ *   では養子の数に上限がある〈相続税法15条2項〉ため区別が必要になる。
+ *   特別養子縁組による養子・被相続人の配偶者の連れ子で養子となった者等
+ *   （同条3項により実子とみなされる者）は、この上限の対象外のため
+ *   isAdoptedをtrueにしないこと（未入力=実子として扱う）
  * @property {"full" | "half"} [siblingBloodType] relationが兄弟姉妹の
  *   場合のみ使用。父母の双方を同じくするか（全血）、一方のみか（半血。
  *   民法900条4号ただし書）。未入力の場合は全血として扱うが、
@@ -107,6 +114,25 @@
  */
 
 /**
+ * @typedef {Object} SouzokuzeiKisokoujogakuResult
+ *   calcSouzokuzeiKisokoujogakuの戻り値（相続税の基礎控除額の目安）
+ * @property {number} houteiSouzokuninCount 相続税法15条2項に基づく
+ *   「相続人の数」（calcLegalHeirsの実際の法定相続人数とは異なりうる。
+ *   相続放棄があった場合は放棄がなかったものとして数え、養子は上限つきで
+ *   算入する）
+ * @property {"なし" | "子" | "直系尊属" | "兄弟姉妹"} bloodRank
+ *   相続放棄を無視した場合にどの順位の血族が数えられたか（配偶者以外。
+ *   calcLegalHeirsのpatternと異なり得る点に注意。例えば子が全員相続放棄した
+ *   場合でも、本計算では子が数えられ直系尊属には移らない）
+ * @property {number} kisokoujogakuYen 基礎控除額の目安（円）。
+ *   3,000万円 + 600万円 × houteiSouzokuninCount
+ * @property {string[]} warnings 養子の数が上限を超えて申告された場合の
+ *   注意喚起、相続放棄者がいる場合の取り扱いの説明等。必ず末尾に
+ *   「相続税額そのものの計算・申告は税理士の職域であり本モジュールの
+ *   対応範囲外」である旨の定型文を含める
+ */
+
+/**
  * @typedef {Object} PropertyItem 財産目録1件分
  * @property {string} itemId 案件内で一意なID
  * @property {"不動産" | "預貯金" | "有価証券" | "自動車" | "その他"} category
@@ -132,6 +158,10 @@
  *   使った家族構成の入力（再計算・変更履歴確認用に保持する）
  * @property {LegalHeirsResult} [lastCalculatedResult] 直近の計算結果
  *   （キャッシュ。家族構成の変更のたびにcalcLegalHeirsを再実行し上書きする）
+ * @property {SouzokuzeiKisokoujogakuResult} [lastKisokoujogakuResult]
+ *   相続税の基礎控除額の目安の直近の計算結果（キャッシュ。lastCalculatedResult
+ *   と同様、家族構成の変更のたびにcalcSouzokuzeiKisokoujogakuを再実行し
+ *   上書きする）
  * @property {PropertyItem[]} [properties] 財産目録
  * @property {"遺産分割協議書作成中" | "自筆証書遺言作成支援中" | "完了" |
  *   "保留"} status 案件の進捗ステータス

@@ -6,8 +6,9 @@
  * ディレクトリ自動作成・`withFileLock`によるread-modify-writeの直列化）を
  * 踏襲する（`docs/DESIGN_souzoku-support.md` 4.4節）。
  *
- * `upsertCase`は、`familyStructure`が更新されるたびに`calcLegalHeirs`を
- * 呼び直し、`lastCalculatedResult`を上書きする（呼び出し側が計算結果の
+ * `upsertCase`は、`familyStructure`が更新されるたびに`calcLegalHeirs`・
+ * `calcSouzokuzeiKisokoujogaku`を呼び直し、`lastCalculatedResult`・
+ * `lastKisokoujogakuResult`を上書きする（呼び出し側が計算結果の
  * 再計算を忘れないようにするため、更新関数の内部で自動的に再計算する）。
  *
  * 【重要】保存されるデータには相続人・被相続人の氏名等の個人情報が含まれる。
@@ -19,6 +20,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { withFileLock } from "../core/reminders/fileLock.js";
 import { calcLegalHeirs } from "./heirs/calcLegalHeirs.js";
+import { calcSouzokuzeiKisokoujogaku } from "./heirs/kisokoujogaku.js";
 
 export const DEFAULT_SUCCESSION_CASES_PATH = "data/succession-cases.json";
 
@@ -79,7 +81,11 @@ export async function saveCases(cases, filePath = DEFAULT_SUCCESSION_CASES_PATH)
 export async function upsertCase(record, filePath = DEFAULT_SUCCESSION_CASES_PATH) {
   return withFileLock(filePath, async () => {
     const cases = await loadCases(filePath);
-    const recalculated = { ...record, lastCalculatedResult: calcLegalHeirs(record.familyStructure) };
+    const recalculated = {
+      ...record,
+      lastCalculatedResult: calcLegalHeirs(record.familyStructure),
+      lastKisokoujogakuResult: calcSouzokuzeiKisokoujogaku(record.familyStructure),
+    };
     const index = cases.findIndex((c) => c.caseId === record.caseId);
     if (index >= 0) {
       cases[index] = recalculated;

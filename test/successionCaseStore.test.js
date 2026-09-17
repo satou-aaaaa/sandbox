@@ -30,6 +30,22 @@ test("upsertCase: 保存時にfamilyStructureからlastCalculatedResultが自動
   }
 });
 
+test("upsertCase: 保存時にfamilyStructureからlastKisokoujogakuResultも自動計算される", async () => {
+  const filePath = tmpFile("cases-kisokoujogaku");
+  try {
+    const c = buildSampleSuccessionCase();
+    await upsertCase(c, filePath);
+    const cases = await loadCases(filePath);
+    assert.equal(cases.length, 1);
+    assert.ok(cases[0].lastKisokoujogakuResult);
+    // サンプルは配偶者+子2人=3人 → 3,000万+600万×3=4,800万円
+    assert.equal(cases[0].lastKisokoujogakuResult.houteiSouzokuninCount, 3);
+    assert.equal(cases[0].lastKisokoujogakuResult.kisokoujogakuYen, 48_000_000);
+  } finally {
+    await fs.rm(filePath, { force: true });
+  }
+});
+
 test("upsertCase: familyStructure変更後の更新でlastCalculatedResultが再計算される", async () => {
   const filePath = tmpFile("cases-recalc");
   try {

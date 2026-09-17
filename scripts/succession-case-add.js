@@ -104,5 +104,6 @@ const cases = await upsertCase(caseRecord);
 const saved = cases.find((c) => c.caseId === caseId);
 console.log(
   `登録しました: ${caseRecord.caseLabel ?? caseId}（法定相続パターン: ${saved?.lastCalculatedResult?.pattern ?? "不明"}、` +
+    `相続税の基礎控除額の目安: ${saved?.lastKisokoujogakuResult?.kisokoujogakuYen?.toLocaleString("ja-JP") ?? "不明"}円、` +
     `登録済み案件数: ${cases.length}）`
 );
