@@ -1,8 +1,15 @@
 /**
- * 誓約書（個人用）の記載内容サマリー。
+ * 誓約書の記載内容サマリー。
  * 古物営業法第4条の欠格事由に該当しない旨の誓約文言を含む。
  * 判定ロジックはeligibility/kekkaku.jsのcheckKobutsuKekkakuをそのまま再利用し、
  * 独自に再実装しない（建設業許可のyoushiki7.jsと同じ設計方針）。
+ *
+ * 法人申請（`applicantType: "法人"`）の場合は`profile.officers`も
+ * `checkKobutsuKekkaku`に渡し、役員の欠格事由（第4条11号）もあわせて
+ * 判定結果に反映する（`eligibility/engine.js`の`evaluateKobutsuEligibility`と
+ * 同じ呼び出し方に揃える。以前はこの引数が渡されておらず、法人申請で
+ * 役員に欠格事由があっても本書類上は「該当なし」と表示されてしまう
+ * 不整合があったため2026年9月に修正した）。
  */
 import { Document } from "docx";
 import {
@@ -21,7 +28,8 @@ import { checkKobutsuKekkaku } from "../eligibility/kekkaku.js";
  * @returns {{ rows: [string, string][], check: import('../../../core/eligibility/types.js').RequirementCheckResult }}
  */
 export function resolveSeiyakushoFields(profile) {
-  const check = checkKobutsuKekkaku(profile.kekkaku);
+  const officers = profile.applicantType === "法人" ? profile.officers : undefined;
+  const check = checkKobutsuKekkaku(profile.kekkaku, officers);
   /** @type {[string, string][]} */
   const rows = [
     ["申請者氏名", orNotEntered(profile.applicantName)],

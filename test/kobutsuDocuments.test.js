@@ -80,6 +80,51 @@ test("誓約書: docxファイルを生成できる", async () => {
   await assertWrittenDocx(writeSeiyakushoDocx, buildSampleKobutsuProfile());
 });
 
+test("誓約書: 法人申請で役員に欠格事由（第十一号）があれば「該当あり」と表示される（回帰テスト）", () => {
+  // 2026年9月に発見・修正したバグ: 以前はcheckKobutsuKekkakuにprofile.officersを
+  // 渡していなかったため、役員に欠格事由があっても本書類上は誤って
+  // 「該当なし」と表示されていた（evaluateKobutsuEligibilityとの不整合）。
+  const profile = buildSampleKobutsuProfile();
+  profile.applicantType = "法人";
+  profile.officers = [
+    {
+      name: "役員B",
+      isUndischargedBankrupt: true,
+      hasCriminalRecordWithin5Years: false,
+      hasBoryokuFuhouKoiRisk: false,
+      hasBoryokudanRelatedOrderWithin3Years: false,
+      isAddressUnknown: false,
+      hadLicenseRevokedWithin5Years: false,
+      hasSurrenderedLicenseDuringRevocationHearingWithin5Years: false,
+      hasMentalImpairmentAffectingDuties: false,
+    },
+  ];
+  const { rows, check } = resolveSeiyakushoFields(profile);
+  const map = Object.fromEntries(rows);
+  assert.equal(check.passed, false);
+  assert.ok(check.reasons.some((r) => r.includes("役員（役員B）") && r.includes("第十一号")));
+  assert.equal(map["欠格事由（古物営業法第4条）の該当状況"], "該当あり（要確認）");
+});
+
+test("誓約書: 個人申請（applicantType未指定）ではofficersが設定されていても無視される（従来どおり）", () => {
+  const profile = buildSampleKobutsuProfile();
+  profile.officers = [
+    {
+      name: "無関係の役員",
+      isUndischargedBankrupt: true,
+      hasCriminalRecordWithin5Years: false,
+      hasBoryokuFuhouKoiRisk: false,
+      hasBoryokudanRelatedOrderWithin3Years: false,
+      isAddressUnknown: false,
+      hadLicenseRevokedWithin5Years: false,
+      hasSurrenderedLicenseDuringRevocationHearingWithin5Years: false,
+      hasMentalImpairmentAffectingDuties: false,
+    },
+  ];
+  const { check } = resolveSeiyakushoFields(profile);
+  assert.equal(check.passed, true);
+});
+
 test("略歴書: 略歴が未入力なら（未入力）になる", () => {
   const profile = buildSampleKobutsuProfile();
   const rows = resolveRirekishoRows(profile);

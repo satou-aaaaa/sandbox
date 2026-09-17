@@ -6,6 +6,16 @@
 日付単位のリリースではなく `docs/PROPOSAL.md` のマイルストーン（M1〜）を
 単位として記録する。
 
+## 古物商許可モジュールの誓約書に法人役員の欠格事由判定が反映されていなかった不整合を修正（2026年9月）
+
+`evaluateKobutsuEligibility`（要件判定エンジン）は法人申請の場合に
+`profile.officers`を`checkKobutsuKekkaku`へ渡し役員の欠格事由（第4条11号）を
+判定に含めていたが、誓約書（`documents/seiyakusho.js`）の
+`resolveSeiyakushoFields`はこの引数を渡しておらず、役員に欠格事由が
+あっても誓約書上は誤って「該当なし」と表示される不整合があった。
+`resolveSeiyakushoFields`にも同じ`officers`受け渡しロジックを追加し、
+回帰防止のテストを追加した。
+
 ## 【重要な訂正】古物商許可モジュールの変更届出リマインドの誤りを修正（2026年9月）
 
 古物商のインターネット取引URL届出周りの実装可能性を調査する過程で、
