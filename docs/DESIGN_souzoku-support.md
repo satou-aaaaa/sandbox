@@ -886,10 +886,14 @@ function makeSuccessionAlert(caseRecord, item, todayIso) {
   「サマリーのみ・正式様式ではない」方針を踏襲）。続柄は`relation`の
   4大分類（配偶者/子/直系尊属/兄弟姉妹）からの近似表示であり、代襲相続人の
   正確な続柄（孫・甥姪等）までは自動判定しない旨を出力に明記する
-- **相続税の基礎控除額の目安表示**: 基礎控除額（3,000万円＋600万円×
-  法定相続人数）の参考値を`calcLegalHeirs`の結果件数から算出して
-  表示する連携（ただし相続税額そのものの計算は税理士の職域のため対象外
-  であることを明記し続ける）
+- **相続税の基礎控除額の目安表示**: **実装済み**。`heirs/kisokoujogaku.js`の
+  `calcSouzokuzeiKisokoujogaku`が、基礎控除額（3,000万円＋600万円×
+  法定相続人数。相続税法15条）の目安を算出する。`calcLegalHeirs`とは
+  相続放棄・養子の数の扱いが異なる（放棄はなかったものとして数える、
+  養子は実子の有無に応じて1人・2人までに制限）ため独立した計算関数として
+  実装し、`caseStore.js`の`upsertCase`が`familyStructure`更新のたびに
+  自動的に再計算して`lastKisokoujogakuResult`に保存する。相続税額そのものの
+  計算・申告は税理士の職域のため対象外であることを出力の全ケースで明記する
 - **`addMonthsClamped`の共通化**: 【2026年9月訂正】`daysUntil`については、
   M11のコア抽出（`docs/DESIGN_kobutsu-core.md` 5.3節）で既に
   `src/core/reminders/dateUtils.js`へ切り出し済みだったため、本モジュールを
