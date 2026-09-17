@@ -1,12 +1,19 @@
 /**
  * 在留資格「特定技能」（1号）申請支援に使うデータ型定義（JSDoc）。
- * 在留資格変更許可申請・技能実習制度そのもの・特定技能2号は対象外
+ * 技能実習制度そのもの・特定技能2号は対象外
  * （docs/REQUIREMENTS_tokutei-ginou-core.md 4.6節スコープ外）。
  *
  * 【重要】本モジュールはgijinkoku-core（技人国ビザ）よりも制度が複雑で
  * ある（分野別技能試験・登録支援機関との関係・通算在留期間の上限管理）。
  * 外国人本人の旅券番号・技能実習時の詳細な処遇記録等、書類生成に不要な
  * 個人情報は含めない（NFR-T1・NFR-G1の踏襲）。
+ *
+ * 【2026年9月・e-Gov法令検索で確認済み】在留資格変更許可申請（入管法20条。
+ * 既に日本国内にいる外国人が現に有する在留資格から変更する場合）は、
+ * gijinkoku-core（技人国ビザ）の`documents/henkoShinseisho.js`と同じ考え方で
+ * 対応する。技能水準・日本語能力・所属機関基準・支援体制の判定基準は
+ * 新規招へい（認定証明書交付申請）と同一であり（在留資格自体の該当性は
+ * 申請の経路によらないため）、既存の判定ロジックをそのまま再利用する。
  */
 
 /**
@@ -68,6 +75,13 @@
  * @property {NihongoNouryokuInput} nihongoNouryoku
  * @property {ShozokuKikanKijunInput} shozokuKikanKijun
  * @property {ShienTaiseiInput} shienTaisei
+ * @property {string} [currentStatusOfResidence] 在留資格変更許可申請
+ *   （入管法20条）の場合のみ使用。申請人が現に有する在留資格（例:
+ *   "技能実習"「留学」）。未入力（undefined）の場合は新規招へい
+ *   （認定証明書交付申請）を前提とする
+ * @property {string} [currentZairyuKikanMatsuIso] 在留資格変更許可申請の
+ *   場合のみ使用。現に有する在留資格の在留期限（YYYY-MM-DD）。申請時に
+ *   残存する在留期間の目安として申請書に記載する
  */
 
 export {};

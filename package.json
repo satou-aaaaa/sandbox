@@ -67,6 +67,7 @@
     "gen:succession-documents": "node scripts/generate-succession-documents-sample.js",
     "gen:tokutei-ginou-eligibility": "node scripts/generate-tokutei-ginou-eligibility-sample.js",
     "gen:tokutei-ginou-ninteishinseisho": "node scripts/generate-tokutei-ginou-ninteishinseisho-sample.js",
+    "gen:tokutei-ginou-henkoshinseisho": "node scripts/generate-tokutei-ginou-henkoshinseisho-sample.js",
     "gen:tokutei-ginou-shienkeikakusho": "node scripts/generate-tokutei-ginou-shienkeikakusho-sample.js",
     "gen:tokutei-ginou-checklist": "node scripts/generate-tokutei-ginou-checklist-sample.js",
     "client:add": "node scripts/add-client.js",

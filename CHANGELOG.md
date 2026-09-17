@@ -6,6 +6,21 @@
 日付単位のリリースではなく `docs/PROPOSAL.md` のマイルストーン（M1〜）を
 単位として記録する。
 
+## 特定技能モジュールに在留資格変更許可申請書を追加（2026年9月）
+
+`docs/REQUIREMENTS_tokutei-ginou-core.md` 4.6節でフェーズ1スコープ外と
+していた「在留資格変更許可申請（技能実習2号からの移行を含む、既に国内に
+いる外国人向け）」を実装した。技人国モジュール（gijinkoku-core）で
+同種の申請に既に対応済みだったため、同じ設計をそのまま踏襲できた。
+
+- e-Gov法令検索で入管法20条（在留資格の変更）を確認した
+- `src/licenses/tokutei-ginou/documents/henkoShinseisho.js`を新設した。
+  技能水準・日本語能力・所属機関基準・支援体制の判定基準は新規招へい
+  （認定証明書交付申請）と同一であるため、既存の判定ロジックをそのまま
+  再利用する設計とした（gijinkoku-coreの同名モジュールと同型）
+- `TokuteiGinouApplicantProfile`に`currentStatusOfResidence`・
+  `currentZairyuKikanMatsuIso`を任意フィールドとして追加した
+
 ## 相続税基礎控除額モジュールのミューテーションテストのカバレッジを強化（2026年9月）
 
 `test/successionKisokoujogaku.test.js`を対象にスコープを絞った

@@ -116,8 +116,10 @@
   航空・宿泊・農業・漁業・飲食料品製造業・外食業・自動車運送業・鉄道・
   林業・木材産業・資源循環等。2026年4月施行の省令改正で16→19分野に
   拡大）を分野別サブレジストリで管理し、技能水準・日本語能力・所属機関
-  基準・支援体制（自社/委託）の判定、認定申請書サマリー・支援計画書
-  サマリー・添付書類チェックリストのdocx生成、在留期間満了リマインドに
+  基準・支援体制（自社/委託）の判定、認定申請書サマリー・在留資格変更
+  許可申請書サマリー（入管法20条。技能実習2号からの移行を含む、既に
+  国内にいる外国人向け）・支援計画書サマリー・添付書類チェックリストの
+  docx生成、在留期間満了リマインドに
   加え、通算在留期間5年上限（法律条文ではなく運用上の基本方針に基づく
   近似計算である旨を明記）への接近警告リマインドに対応。上限接近時の
   案内文言は、対象分野が特定技能2号への移行対象（介護等を除く11分野。
@@ -217,6 +219,7 @@ npm run gen:inshokuten-eigyo-shinseisho   # 営業許可申請書サマリーの
 npm run gen:inshokuten-eigyo-checklist    # 添付書類チェックリスト・手続きの流れ案内のdocx生成サンプル
 npm run gen:tokutei-ginou-eligibility        # 特定技能1号の要件判定サンプル実行
 npm run gen:tokutei-ginou-ninteishinseisho   # 認定申請書サマリーのdocx生成サンプル
+npm run gen:tokutei-ginou-henkoshinseisho    # 在留資格変更許可申請書サマリーのdocx生成サンプル
 npm run gen:tokutei-ginou-shienkeikakusho    # 支援計画書サマリーのdocx生成サンプル
 npm run gen:tokutei-ginou-checklist          # 添付書類チェックリストのdocx生成サンプル
 ```
