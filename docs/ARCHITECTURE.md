@@ -85,9 +85,9 @@ M11（`docs/DESIGN_kobutsu-core.md`）で、許可種別に依存しない共通
 - `eligibility/engine.js` — 上記2要件をまとめて判定（集約部分はコアの`aggregate.js`を再利用）
 - `eligibility/consistencyChecks.js` — 入力内容の整合性チェック（2026年9月追加。建設業許可の`consistencyChecks.js`と同じ設計思想。生年月日の妥当性・管理者の複数営業所重複・未成年者例外フラグの矛盾を検出。合否判定には影響しない）
 - `documents/shinseisho.js`（許可申請書）・`seiyakusho.js`（誓約書）・`rirekisho.js`（略歴書） — 各様式のdocx自動生成
-- `reminders/changeSchedule.js` — 書換申請（変更日から14日以内）・許可証返納（廃業日から10日以内）の期限計算、変更届出（3日以内）の即時警告
+- `reminders/changeSchedule.js` — 書換申請（記載事項の変更。変更日から14日以内）・営業所又は古物市場の名称/所在地変更の事前届出（変更予定日の**3日前**まで）・許可証返納（廃業日から10日以内）の期限計算。**2026年9月訂正**: 旧版は「記載事項以外の変更は事由発生から3日以内に変更届出」という、実際の法令（古物営業法第7条・同施行規則第5条）と異なる内容を即時警告として実装していたが、e-Gov法令検索で原文を確認した結果、営業所/古物市場の名称・所在地の変更だけが唯一の事前届出（3日前まで）であり、それ以外はすべて14日以内の事後届出であることが判明したため、他の記載事項変更と同じ`ScheduleItem`ベースのリマインドに作り直した（詳細は`docs/REQUIREMENTS_kobutsu-core.md`改訂履歴v0.3節）
 - `index.js` — `registerKobutsuLicense()`でコアの`scheduleTypes.js`へ登録するエントリポイント
-- 法人申請・Webフォーム対応は対象外（`docs/REQUIREMENTS_kobutsu-core.md` 4.6節）
+- 法人申請は欠格事由の判定（古物営業法第4条11号）のみ2026年9月対応済み。Webフォーム（`/kobutsu`）も2026年9月実装済み（個人申請のみ）。法人向けの書類生成フル対応は引き続き対象外（`docs/REQUIREMENTS_kobutsu-core.md` 4.6節）
 
 ### 産業廃棄物収集運搬業許可アドオン（`src/licenses/sanpai/`。コアの3例目）
 
@@ -163,11 +163,13 @@ M11（`docs/DESIGN_kobutsu-core.md`）で、許可種別に依存しない共通
 - `eligibility/types.js` — `NouchiTenyoApplicantProfile`等のJSDoc型定義
 - `eligibility/ricchiKijun.js` — 立地基準（農地区分：農用地区域内農地・甲種農地・第1種農地・第2種農地・第3種農地）の判定。**農地区分の最終認定は農業委員会・都道府県が行うものであり、本判定は自己申告に基づく形式的な一次判定に過ぎない旨を必ずwarningsに含める**（NFR-N1）
 - `eligibility/ippanKijun.js` — 一般基準（転用の確実性・周辺農地への被害防除措置）の判定
-- `eligibility/engine.js` — 上記2要件をまとめて判定（集約部分はコアの`aggregate.js`を再利用）
+- `eligibility/daijinKyogi.js`（2026年9月追加） — 転用面積が4ヘクタールを超える場合、都道府県知事等が許可をする前にあらかじめ農林水産大臣への協議が必要になる旨（農地法附則2項1号・3号）を警告する。合否には影響しない（常に`passed: true`）
+- `eligibility/engine.js` — 上記3件をまとめて判定（集約部分はコアの`aggregate.js`を再利用）
 - `documents/shinseisho.js`（許可申請書）・`jigyokeikakusho.js`（事業計画書。資金調達内訳を`buildHeaderedTable`で表形式出力） — 各様式のdocx自動生成
 - `reminders/conditionDeadlineSchedule.js` — **条件履行期限型（第6のリマインドパターン）**。許可証に個別記載された期限日（工事着手期限・完了報告期限・一時転用の農地復元期限〈2026年9月追加〉）をそのまま入力として受け取り、履行済みフラグが記録されるとリマインドが自動的に消える。期限超過時のラベル文言に許可取消し（農地法第51条）リスクの注記を常に含める設計とし、`ScheduleFn`のシグネチャ（今日の日付を引数に取らない）は変更していない。「一時転用」は農地法の条文上の用語ではなく、恒久転用と同じ4条・5条の許可の枠組み内で復元期限という条件が付される行政運用上の呼称であるため（2026年9月・e-Gov法令検索で確認）、既存の条件履行期限型パターンをそのまま適用できた
 - `index.js` — `registerNouchiTenyoLicense()`でコアの`scheduleTypes.js`へ登録するエントリポイント
-- 市街化区域内の届出案件・農地法第3条許可・農振除外手続は対象外（`docs/REQUIREMENTS_nouchi-tenyo-core.md` 4.6節。一時転用の農地復元期限管理は2026年9月に対応済み）
+- インテイクWebフォーム（`/nouchi-tenyo`・`/nouchi-tenyo/submit`）: **2026年9月実装済み**。`src/web/nouchiTenyoFormPage.js`。古物商許可の`kobutsuFormPage.js`と同じ設計を踏襲（下書き保存は対象外）
+- 市街化区域内の届出案件・農地法第3条許可・農振除外手続は対象外（`docs/REQUIREMENTS_nouchi-tenyo-core.md` 4.6節。一時転用の農地復元期限管理・大臣協議要否の警告は2026年9月に対応済み）
 
 ### 飲食店営業許可アドオン（`src/licenses/inshokuten-eigyo/`。コアの8例目）
 
@@ -211,10 +213,10 @@ M11（`docs/DESIGN_kobutsu-core.md`）で、許可種別に依存しない共通
 - `eligibility/shienTaisei.js` — 支援計画の実施体制（自社支援 or 登録支援機関への委託）の判定
 - `eligibility/disclaimer.js` — 一次スクリーニングの強調文言。gijinkokuと同じ設計パターン
 - `eligibility/engine.js` — 上記4要件をまとめて判定
-- `documents/ninteiShinseisho.js`（在留資格認定証明書交付申請書サマリー）・`shienKeikakusho.js`（支援計画書サマリー）・`checklist.js`（添付書類チェックリスト） — 各様式のdocx自動生成
+- `documents/ninteiShinseisho.js`（在留資格認定証明書交付申請書サマリー）・`henkoShinseisho.js`（在留資格変更許可申請書サマリー。入管法20条。技能実習2号からの移行を含む、既に国内にいる外国人向け。2026年9月追加）・`shienKeikakusho.js`（支援計画書サマリー）・`checklist.js`（添付書類チェックリスト） — 各様式のdocx自動生成
 - `reminders/tokuteiGinouSchedule.js` — 在留期間満了リマインド（gijinkokuの可変期間型`calcZairyuKikanSchedule`と同じ設計）に加え、**通算在留期間5年上限への接近警告**という第2のリマインド軸を同一の`ScheduleItem[]`に混在させる。5年上限は出入国管理及び難民認定法の条文自体には見当たらず、同法第2条の3が策定を義務付ける「基本方針」（運用レベルの指針）に基づくものと考えられるため、条文引用をせず「運用上の上限」という前提を明記した近似計算（暦年加算）とした。通算在留期間の正確な計算方法（出国期間・特例期間・端数の扱い）は一次資料未確認のため、個別ケースでは人手確認を促す設計。`resolveGonenJougenGuidance`（2026年9月追加）が`fieldRegistry.js`の`supportsSpecifiedSkilled2`に基づき、5年上限接近時の案内文言を「2号移行の検討」または「在留資格の見直しが必要」に出し分ける
 - `index.js` — `registerTokuteiGinouModule()`でコアの`scheduleTypes.js`へ登録するエントリポイント
-- 特定技能2号（家族帯同可・在留期間上限なし）への移行支援、技能実習からの移行要件、特定産業分野ごとの詳細な受入れ人数枠管理は対象外（`docs/REQUIREMENTS_tokutei-ginou-core.md` 4.6節）
+- 特定技能2号（家族帯同可・在留期間上限なし）への移行支援、特定産業分野ごとの詳細な受入れ人数枠管理は対象外（`docs/REQUIREMENTS_tokutei-ginou-core.md` 4.6節）。在留資格変更許可申請（技能実習2号からの移行を含む）自体は2026年9月に対応済みだが、判定基準は新規招へいと同一のものを再利用しているため、技能実習経験者向けの独自の評価基準・実務経験の読み替え等は引き続き対象外
 
 ### BtoB下請けケース管理ポータル（`src/portal/`。許可種別アドオンではない独立ドメイン）
 
@@ -290,9 +292,9 @@ BtoB下請けポータル・会社設立サポートとも異なり、判定す�
 
 ### Web・共通
 
-- `src/web/server.js` — インテイク用の簡易Webフォーム（M3。建設業許可用の`/`・`/submit`に加え、古物商許可用の`/kobutsu`・`/kobutsu/submit`を2026年9月追加。個人申請のみ対応〈`shinseisho.js`等の書類生成モジュールが法人の記載項目に対応していないため〉）＋リマインド表示・残日数フィルタ（`/reminders`、M7）＋下書き保存（`/drafts`。建設業許可のみ）＋CSVダウンロード（`/clients.csv`）。node:http のみで実装し、127.0.0.1のみで待受
-- `src/web/formPage.js`（建設業許可）・`kobutsuFormPage.js`（古物商許可。2026年9月追加） — 各許可種別のインテイクフォーム画面。`resultPage.js`（判定結果画面）は`judgmentLabels`・`formPath`オプションで許可種別ごとの文言・戻り先リンクを差し替えられる設計とし、両方の許可種別で共用する
-- `src/web/draftStore.js` — インテイクフォームの入力途中データを `data/drafts.json` へ読み書きするローカル永続化層（DB不使用）。建設業許可専用の`ApplicantProfile`前提のデータ構造のため、古物商許可の下書き保存はスコープ外とした（`docs/DESIGN_kobutsu-core.md` 9章参照。同じ一覧に混在させると「続きから入力」が誤った種別のフォームを開いてしまうため、安易に共有しない設計判断とした）
+- `src/web/server.js` — インテイク用の簡易Webフォーム（M3。建設業許可用の`/`・`/submit`に加え、古物商許可用の`/kobutsu`・`/kobutsu/submit`、農地転用許可用の`/nouchi-tenyo`・`/nouchi-tenyo/submit`を2026年9月追加。古物商許可は個人申請のみ対応〈`shinseisho.js`等の書類生成モジュールが法人の記載項目に対応していないため〉）＋リマインド表示・残日数フィルタ（`/reminders`、M7）＋下書き保存（`/drafts`。建設業許可のみ）＋CSVダウンロード（`/clients.csv`）。node:http のみで実装し、127.0.0.1のみで待受
+- `src/web/formPage.js`（建設業許可）・`kobutsuFormPage.js`（古物商許可。2026年9月追加）・`nouchiTenyoFormPage.js`（農地転用許可。2026年9月追加） — 各許可種別のインテイクフォーム画面。`resultPage.js`（判定結果画面）は`judgmentLabels`・`formPath`オプションで許可種別ごとの文言・戻り先リンクを差し替えられる設計とし、3つの許可種別すべてで共用する
+- `src/web/draftStore.js` — インテイクフォームの入力途中データを `data/drafts.json` へ読み書きするローカル永続化層（DB不使用）。建設業許可専用の`ApplicantProfile`前提のデータ構造のため、古物商許可・農地転用許可の下書き保存はスコープ外とした（`docs/DESIGN_kobutsu-core.md` 9章参照。同じ一覧に混在させると「続きから入力」が誤った種別のフォームを開いてしまうため、安易に共有しない設計判断とした）
 - `test/` — `node --test` で実行するユニットテスト（外部テストランナー不要）
 - `scripts/` — 動作確認用のサンプル実行スクリプト（`sampleProfile.js`・`sampleKobutsuProfile.js`が各許可種別共通のダミーデータ）
 
@@ -326,6 +328,9 @@ BtoB下請けポータル・会社設立サポートとも異なり、判定す�
   `officers`・第4条1号〜8号の役員ごとのチェック）のみ2026年9月に対応済みだが、
   法人向けの許可申請書・略歴書（役員ごとに1通必要）等の書類生成フル対応
   （Webフォームを含む）は引き続き対象外
+- 農地転用許可のWebフォーム対応: **2026年9月実装済み**（`/nouchi-tenyo`・
+  `/nouchi-tenyo/submit`）。下書き保存（`/drafts`相当）は古物商許可と
+  同じ理由で対象外のまま
 - `src/core/reminders/clientCsv.js`は各種`<種別>Detail`をCSV列としては
   意図的に持たせていない（`docs/DESIGN_kobutsu-core.md` 5.5節参照）。CSV
   エクスポート/インポートでは`<種別>Detail`が失われるため、これらを使う
