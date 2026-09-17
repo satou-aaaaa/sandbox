@@ -45,7 +45,7 @@ Martin Fowler・OWASP・Google Cloud DORAチーム等の公開資料を出典と
 | 依存パッケージ数の最小化 | ✅ | 本番依存は `docx` 1件のみ |
 | コミット前のシークレット混入防止 | ✅ | `hooks/check-secrets.mjs`（pre-commitフック）。AWSキー・Google APIキー・Slackトークン・秘密鍵・汎用的な`api_key=`等のパターンを検知する簡易チェック。導入コストを抑えるため外部ツール（gitleaks等）は使わず、`git`コマンドのみで実装 |
 | CI側でのシークレット混入チェック（二重の安全網） | ✅ | 2026年9月追加。`hooks/check-secrets.mjs --all`（`npm run check-secrets`）をCIでも実行し、リポジトリ全体を対象に再チェックする。ローカルのpre-commitフックは`--no-verify`でバイパスできる・`git config core.hooksPath hooks`を設定していない環境からのpushには効かないため、その穴を埋める目的 |
-| GitHub純正のシークレットスキャン・CodeQL（コードスキャン） | ⛔ | 2026年9月にGitHub APIで確認したところ、本リポジトリ（非公開・GitHub Freeプラン）では利用不可（`secret-scanning/alerts`→404、`code-scanning/alerts`→403。いずれもGitHub Advanced Security機能のため）。上記の自作チェックで代替している |
+| GitHub純正のシークレットスキャン・CodeQL（コードスキャン） | 🟡 | 2026年9月にGitHub APIで確認した時点（非公開・GitHub Freeプラン）では利用不可だったが、同月中にリポジトリをpublicに変更したことでGitHub Advanced Securityの当該機能は公開リポジトリなら無料で利用可能になった。ただし有効化はリポジトリ設定（Settings > Code security）からのみ行え、コードやCLIからは変更できないため未実施。発注者がGitHub UIで「Secret scanning」「Push protection」「CodeQL analysis（default setup）」を有効化することを推奨する。有効化するまでは上記の自作チェックで代替する |
 | 依存パッケージのレジストリ署名検証 | ✅ | 2026年9月追加。CIで`npm audit signatures`を実行し、npmレジストリ上のパッケージ署名を検証する（サプライチェーン改ざん対策） |
 | 静的解析（SAST） | ✅ | 2026年9月追加（§2参照）。`eslint-plugin-security`を導入済み。旧版では本行を🟡（未導入）としていたが、§2の記述と矛盾していたため訂正（第7回監査で判明） |
 | 動的解析（DAST。実際に動かしたアプリケーションへの侵入試行） | ⛔ | 2026年9月・第10回監査で追加検討。`npm run web`のサーバーは`127.0.0.1`限定で待受し、外部ネットワークに公開されないため、DASTが前提とする「攻撃可能な公開エンドポイント」自体が存在しない（NFR-4と同じ設計原則） |
@@ -69,7 +69,7 @@ Martin Fowler・OWASP・Google Cloud DORAチーム等の公開資料を出典と
 | カオスエンジニアリング（障害注入テスト） | ✅ | 2026年9月追加。`test/chaos.test.js`でファイルシステムの障害・同時実行の競合を注入。**作成過程で実際の競合状態バグ（同時書き込みによるクライアント登録のlost update）を発見し、`src/core/reminders/fileLock.js`で修正した**。[ADR-0013](adr/0013-load-chaos-contract-testing.md) |
 | 負荷テスト | ✅ | 2026年9月追加。autocannonで`GET /`・`POST /submit`への同時アクセスを検証（`npm run test:load`）。具体的な性能閾値ではなくエラー・タイムアウトの有無のみ判定。[ADR-0013](adr/0013-load-chaos-contract-testing.md) |
 | 契約テスト | ✅ | 2026年9月追加。`schemas/client-record.schema.json`（JSON Schema）+ ajvで`ClientRecord`/`LicenseEntry`の形を検証（`test/contract.test.js`）。外部API消費者がまだ無いため、将来のAPI公開に備えた土台という位置づけ。[ADR-0013](adr/0013-load-chaos-contract-testing.md) |
-| ブランチ保護ルール（必須レビュー等） | 🟡 | GitHub側のリポジトリ設定（Settings > Branches）で有効化可能。単独開発のためレビュー必須は現実的でないが、「CIが通るまでマージ不可」の設定は検討の余地あり。コードからは変更できないため、必要なら発注者（あなた）がGitHub UIで設定すること |
+| ブランチ保護ルール（必須レビュー等） | 🟡 | 2026年9月にリポジトリをpublicに変更したことで、従来は非公開リポジトリ・GitHub Freeプランの制約でGitHub Proへのアップグレードが必要だった「必須ステータスチェック」を含むブランチ保護ルールが、公開リポジトリでは無料で利用可能になった（§6参照）。単独開発のためレビュー必須は現実的でないが、「CIが通るまでマージ不可」の設定は改めて検討の余地あり。コードからは変更できないため、必要なら発注者（あなた）がGitHub UIで設定すること |
 | 型チェック（JSDoc + `tsconfig.json` の `checkJs`） | ✅ | 独立したタスクとして着手し導入済み。`npm run typecheck`（`tsc --noEmit`）をCIに追加。対象は`src/`・`scripts/`のみ（`test/`は対象外。ダミーデータ主体でstrictモードとの相性が悪いため）。導入時に判明した既存コードの型不備（暗黙のany、`err.code`アクセス時のunknown型、`req.url`のundefined未考慮等）は修正済み。詳細は[ADR-0007](adr/0007-checkjs-type-checking.md) |
 | テストピラミッド構成の明文化 | ✅ | DESIGN.md 7章に追記。単体テストを主体とし、`web.test.js`のような結合テストは最小限。E2Eテスト（Playwright）は2026年9月に導入し、golden pathの疎通確認に限定（ubuntu・Node22.xの1系統のみCIで実行）。[ADR-0012](adr/0012-accessibility-e2e-sast-coverage-tooling.md) |
 | テストが実装ではなく振る舞いを検証しているか | ✅ | 既存テストは公開関数（`checkKeieiGyomuKanri`、`buildYoushiki1Document`等）の入出力を検証しており、プライベートな内部実装には依存していない。新規踏襲すべきパターンとして継続する |
@@ -107,13 +107,13 @@ Googleのeng-practicesが挙げる12のレビュー観点（設計・機能性�
 | 項目 | 状態 | 補足 |
 |---|---|---|
 | README（概要・セットアップ手順） | ✅ | 既存。CIバッジも追加済み |
-| ライセンス表記 | ✅ | `package.json` に `"license": "UNLICENSED"` を追加（非公開・個人所有であることを明示し、誤ってnpm公開されることを防ぐ） |
+| ライセンス表記 | ✅ | `package.json` に `"license": "UNLICENSED"` を追加（個人所有・全著作権留保であることを明示し、誤ってnpm公開されることを防ぐ）。2026年9月にリポジトリをpublicに変更した後も、OSSライセンスを付与する予定がないため方針は変更していない（LICENSEファイルが無い公開リポジトリは既定で著作権法上の権利がすべて留保される点は`package.json`の`UNLICENSED`表記と整合している。README冒頭にもその旨を明記した） |
 | `repository` フィールド | ✅ | `package.json` に追加 |
 | PRテンプレート | ✅ | `.github/pull_request_template.md`。DEVELOPMENT_GUIDE.md 5章の受け入れ・検収チェックをテンプレート化 |
 | 変更履歴（CHANGELOG） | ✅ | `CHANGELOG.md` を新設。マイルストーン単位で記録 |
-| CONTRIBUTING.md | ⛔ | 外部コントリビューターを募集する予定がなく、DEVELOPMENT_GUIDE.mdが実質的に同じ役割を果たしているため不要 |
-| SECURITY.md（脆弱性報告手順） | ⛔ | 非公開の個人プロジェクトであり、外部からの脆弱性報告を受け付ける想定がないため不要 |
-| CODEOWNERS | ⛔ | 単独開発のため不要 |
+| CONTRIBUTING.md | ⛔ | 外部コントリビューターを募集する予定がなく、DEVELOPMENT_GUIDE.mdが実質的に同じ役割を果たしているため不要。2026年9月のpublic化後も方針は変わらないが、外部からのIssue/PRを想定していない旨をREADMEに明記した（§5第9回参照） |
+| SECURITY.md（脆弱性報告手順） | ✅ | 2026年9月追加。リポジトリをpublicに変更したことで外部の第三者が脆弱性を発見・報告し得る状態になったため、従来の「非公開なので不要」という判断を撤回し新設した。個人のメールアドレスを公開リポジトリに露出させない方針のため、報告経路はGitHubの「Private vulnerability reporting」機能（Security タブ）を案内している。同機能自体の有効化はリポジトリ設定からのみ行えるため、発注者がGitHub UI（Settings > Code security > Private vulnerability reporting）で有効化する必要がある |
+| CODEOWNERS | ⛔ | 単独開発のため不要。public化後も外部レビュアーを置く予定はないため方針は変わらない |
 | Issueテンプレート | ✅ | `.github/ISSUE_TEMPLATE/`（バグ報告・機能要望の2種）を新設。第8回監査で発注者の判断により追加 |
 | GitHub Releases（マイルストーンごとのリリースノート） | ✅ | `CHANGELOG.md`が一次情報源である点は変わらないが、区切りを付けたい場合の`git tag` + GitHub Releases運用を`docs/DEVELOPMENT_GUIDE.md` 3.5節に明文化。毎回のマイルストーンで機械的に打つ運用までは求めない |
 | アーキテクチャ決定記録（ADR） | ✅ | `docs/adr/` を新設・継続運用中。件数は増え続けるため本表には列挙しない（正確な一覧は`docs/adr/`を直接確認すること。過去に本行へ件数をハードコードしていたが、新規ADR追加のたびに更新漏れで陳腐化するため第7回監査で撤廃した） |
@@ -265,6 +265,34 @@ GitHub APIで計測し、確実な無駄を2件特定して解消した（テス
   判断を得た。後者は`.github/workflows/test.yml`の`matrix.exclude`で
   Windows×20.xを除外し、ジョブ数を4→3に削減して対応した
 
+### 第9回（2026年9月・リポジトリをprivateからpublicに変更）
+
+発注者がGitHubリポジトリの可視性をprivateからpublicに変更したことを受けて、
+「非公開であること」を前提にしていた既存の判断・記述の棚卸しを行った。
+
+- **`SECURITY.md`を新設**: 従来「非公開の個人プロジェクトのため不要」として
+  いたが、公開リポジトリになったことで外部の第三者が脆弱性を発見し得る
+  前提に変わったため撤回。個人のメールアドレスを露出させないよう、
+  報告経路にはGitHubの「Private vulnerability reporting」機能を案内する
+  形にした（同機能自体の有効化はリポジトリ設定から発注者が行う必要あり）
+- **README冒頭に公開リポジトリである旨の注記を追加**: ライセンスが
+  `UNLICENSED`（全著作権留保）であり外部からの再利用・Issue/PR受け入れを
+  想定していないことを明記した。ライセンスファイル自体を追加する対応は
+  見送った（OSSとして公開する意図がないため、`package.json`の`UNLICENSED`
+  表記と「LICENSEファイル無し＝著作権法上の権利を全留保」という既定の
+  組み合わせで方針と整合している）
+- **`docs/BEST_PRACTICES_AUDIT.md`・`.github/workflows/test.yml`のコメント
+  訂正**: 「GitHub純正のシークレットスキャン・コードスキャン・必須ステータス
+  チェック付きブランチ保護ルールは非公開リポジトリ（GitHub Free）では
+  利用不可」としていた第6回・第7回時点の記述が、public化により事実と
+  異なるものになったため訂正した。いずれも公開リポジトリでは無料で
+  利用可能になったが、有効化はGitHub UI（Settings > Code security /
+  Settings > Branches）からのみ行えコードやCLIからは変更できないため、
+  §6に発注者向けのTODOとして追記するに留めた
+- **秘密情報の再点検**: public化を機に、`npm run check-secrets`（全ファイル
+  対象）とGit履歴上に`data/clients.json`等の実データファイルがコミットされた
+  形跡がないことを再確認した（結果: 検出なし）
+
 ### 第10回（2026年9月・社内資料の改訂版を再照合）
 
 発注者から「参考資料を基にベストプラクティスの導入をお願いします」との
@@ -300,17 +328,31 @@ GitHub APIで計測し、確実な無駄を2件特定して解消した（テス
 
 ## 6. 次に検討する価値がある項目（優先度順の目安）
 
-いずれも2026年9月・第7回監査で発注者に確認済み。
+第7回監査時点の2項目は発注者に確認済み。2026年9月のリポジトリpublic化
+（第9回）を受けて、GitHub UI側での対応が必要な項目を新たに追記した
+（いずれもコードやCLIからは変更できず、リポジトリ設定画面からの操作が必要）。
 
-1. **ブランチ保護ルール**: GitHub Freeプランの非公開リポジトリでは、必須
+1. **ブランチ保護ルール**: 従来はGitHub Freeプランの非公開リポジトリでは、必須
    ステータスチェックを含むブランチ保護ルールが使用できず、有効化には
-   GitHub Proへのアップグレード（個人向け、月額数百円程度）が必要。
-   **発注者の判断: アップグレードしない（現状維持）。** 単独開発のため
-   マージ前に必ずCI結果を確認する運用を継続する
+   GitHub Proへのアップグレード（個人向け、月額数百円程度）が必要だった。
+   **発注者の判断（第7回時点）: アップグレードしない（現状維持）。** 単独開発のため
+   マージ前に必ずCI結果を確認する運用を継続する。
+   **2026年9月のpublic化により、この制約自体が解消された**（公開リポジトリは
+   GitHub Freeプランでもブランチ保護ルールを無料で利用可能）。現状維持の判断が
+   前提としていた制約が変わったため、必要に応じて発注者が改めてSettings >
+   Branchesから「Require status checks to pass before merging」等の設定を
+   検討すること
 2. **CIのWindowsマトリクスの削減**: GitHub ActionsのWindows runnerはLinuxの
    2倍の課金倍率のため、目的（OS差異の検出）をWindows×22.xの1系統で保ちつつ、
    Windows×20.xを除外してジョブ数を4→3に削減する案。**発注者の判断: 削減する。**
    `.github/workflows/test.yml`の`matrix.exclude`で対応済み
+3. **GitHub Advanced Securityの無料機能（Secret scanning / Push protection /
+   CodeQL default setup）**: 2026年9月のpublic化により無料で利用可能になった。
+   Settings > Code security から有効化を検討すること。有効化するまでは
+   `hooks/check-secrets.mjs`（pre-commit + CI）の自作チェックで代替する
+4. **Private vulnerability reporting**: 新設した`SECURITY.md`が案内している
+   報告経路。Settings > Code security > Private vulnerability reportingから
+   有効化しないと、`SECURITY.md`記載の報告手段が機能しない点に注意
 
 ## 参考情報
 

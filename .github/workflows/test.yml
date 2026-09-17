@@ -87,8 +87,10 @@ jobs:
       # ローカルのpre-commitフックは `git commit --no-verify` でバイパスできる・
       # そもそも `git config core.hooksPath hooks` を設定していない環境からの
       # pushには効かないため、CI側での二重の安全網として全ファイルを対象に
-      # 再チェックする。GitHub純正のシークレットスキャンは非公開リポジトリの
-      # 現プラン（GitHub Free）では利用できないため確認済み（2026年9月）。
+      # 再チェックする。GitHub純正のシークレットスキャンは2026年9月のリポジトリ
+      # public化以降は無料で利用可能だが、リポジトリ設定（Settings > Code
+      # security）からの有効化が別途必要で未実施のため、この自作チェックで
+      # 引き続き代替する（docs/BEST_PRACTICES_AUDIT.md §1・§6参照）。
       # 結果はOSに依存しないため ubuntu の1系統のみで足りる。
       - name: シークレット混入チェック（CI側の安全網）
         if: matrix.os == 'ubuntu-latest' && matrix.node-version == '22.x'
