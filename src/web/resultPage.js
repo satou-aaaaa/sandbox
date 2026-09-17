@@ -6,14 +6,19 @@ import { escapeHtml } from "./htmlUtils.js";
 
 /**
  * @param {Object} params
- * @param {import('../licenses/construction/eligibility/types.js').ApplicantProfile} params.profile
- * @param {import('../licenses/construction/eligibility/types.js').EligibilityResult} params.result
+ * @param {{ applicantName?: string }} params.profile
+ * @param {{ eligible: boolean }} params.result
  * @param {string} params.report フォーマット済みテキストレポート（formatEligibilityReportの出力）
  * @param {{ label: string, filename: string }[]} params.files
  * @param {string} params.sessionId ダウンロードURLに使うセッションID
+ * @param {{ ok?: string, ng?: string }} [params.judgmentLabels] 総合判定バッジの文言
+ *   （許可種別により要件の性質が異なるため差し替え可能にする。未指定時は
+ *   建設業許可（5要件）向けの既定文言を使う）
+ * @param {string} [params.formPath] 新しい申請者情報を入力するリンク先のパス
+ *   （複数の許可種別のインテイクフォームを持つため差し替え可能にする。既定値は建設業許可の / ）
  * @returns {string}
  */
-export function renderResultPage({ profile, result, report, files, sessionId }) {
+export function renderResultPage({ profile, result, report, files, sessionId, judgmentLabels = {}, formPath = "/" }) {
   const fileRows = files
     .map(
       (f) =>
@@ -22,6 +27,9 @@ export function renderResultPage({ profile, result, report, files, sessionId }) 
         )}</a></li>`
     )
     .join("\n");
+
+  const okLabel = judgmentLabels.ok ?? "○ 5要件すべて充足（申請準備を進められます）";
+  const ngLabel = judgmentLabels.ng ?? "× 未充足の要件があります";
 
   return `<!doctype html>
 <html lang="ja">
@@ -39,7 +47,7 @@ export function renderResultPage({ profile, result, report, files, sessionId }) 
   内容確認・下書き用のサマリーです。
 </p>
 <p class="badge ${result.eligible ? "ok" : "ng"}">
-  総合判定: ${result.eligible ? "○ 5要件すべて充足（申請準備を進められます）" : "× 未充足の要件があります"}
+  総合判定: ${result.eligible ? okLabel : ngLabel}
 </p>
 
 <h2>判定レポート</h2>
@@ -50,7 +58,7 @@ export function renderResultPage({ profile, result, report, files, sessionId }) 
 ${fileRows}
 </ul>
 
-<p><a href="/">← 新しい申請者情報を入力する</a></p>
+<p><a href="${escapeHtml(formPath)}">← 新しい申請者情報を入力する</a></p>
 </main>
 </body>
 </html>`;

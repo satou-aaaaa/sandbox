@@ -906,7 +906,13 @@ CLIスクリプト（`scripts/generate-kobutsu-*.js` 等、新規追加分）・
 - 古物商許可の整合性チェック（建設業許可の `consistencyChecks.js` 相当）:
   **2026年9月実装済み**。`eligibility/consistencyChecks.js`
   （生年月日の妥当性・管理者の複数営業所重複・未成年者例外フラグの矛盾）
-- 古物商許可のWebフォーム対応（`src/web/` の拡張）
+- 古物商許可のWebフォーム対応（`src/web/` の拡張）: **2026年9月実装済み**
+  （`GET /kobutsu`・`POST /kobutsu/submit`。`src/web/kobutsuFormPage.js`）。
+  法人申請の書類生成が引き続き未対応（下記参照）のため、Webフォームも
+  個人申請のみを対象とし、`applicantType`/`officers`の入力UIは意図的に
+  設けていない。既存の`/drafts`下書き保存機能も、`DraftRecord`に
+  プロフィール種別の判別フィールドが無く誤って建設業許可フォームを
+  再表示してしまう恐れがあるため、古物商許可では対象外のままとした
 - 法人申請への対応拡大: **2026年9月・欠格事由の判定のみ実装済み**。
   古物営業法第4条11号（法人でその役員のうちに第一号から第八号までの
   いずれかに該当する者があるもの）を確認し、`KobutsuApplicantProfile`に

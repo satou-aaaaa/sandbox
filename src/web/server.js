@@ -43,6 +43,10 @@ import { writeYoushiki7Docx } from "../documents/youshiki7.js";
 import { writeYoushiki8Docx } from "../documents/youshiki8.js";
 import { writeYoushiki16Docx } from "../documents/youshiki16.js";
 import { writeYoushiki20_2Docx } from "../documents/youshiki20-2.js";
+import { evaluateKobutsuEligibility, formatKobutsuEligibilityReport } from "../licenses/kobutsu/eligibility/engine.js";
+import { writeShinseishoDocx } from "../licenses/kobutsu/documents/shinseisho.js";
+import { writeSeiyakushoDocx } from "../licenses/kobutsu/documents/seiyakusho.js";
+import { writeRirekishoDocx } from "../licenses/kobutsu/documents/rirekisho.js";
 import { loadClients, DEFAULT_CLIENTS_PATH } from "../core/reminders/clientStore.js";
 import {
   buildReminderDigest,
@@ -53,6 +57,7 @@ import {
 import { clientsToCsv } from "../core/reminders/clientCsv.js";
 import { loadDrafts, getDraft, upsertDraft, removeDraft, DEFAULT_DRAFTS_PATH } from "./draftStore.js";
 import { renderFormPage } from "./formPage.js";
+import { renderKobutsuFormPage } from "./kobutsuFormPage.js";
 import { renderResultPage } from "./resultPage.js";
 import { renderReminderPage } from "./reminderPage.js";
 import { renderDraftsPage } from "./draftsPage.js";
@@ -98,15 +103,24 @@ const DOCUMENT_TARGETS = [
   { label: "様式第二十号の二（誓約書）", filename: "youshiki20-2.docx", write: writeYoushiki20_2Docx },
 ];
 
+/** 古物商許可の様式生成モジュールの一覧（個人申請のみ対応。DOCUMENT_TARGETS参照）。 */
+const KOBUTSU_DOCUMENT_TARGETS = [
+  { label: "許可申請書", filename: "shinseisho.docx", write: writeShinseishoDocx },
+  { label: "誓約書", filename: "seiyakusho.docx", write: writeSeiyakushoDocx },
+  { label: "略歴書", filename: "rirekisho.docx", write: writeRirekishoDocx },
+];
+
 /**
- * ApplicantProfile から様式すべてのdocxサマリーを生成する（DOCUMENT_TARGETS参照）。
- * @param {import('../licenses/construction/eligibility/types.js').ApplicantProfile} profile
+ * 指定した様式生成モジュール一覧（targets）に沿って、profileから
+ * 全様式のdocxサマリーを生成する（DOCUMENT_TARGETS・KOBUTSU_DOCUMENT_TARGETS共用）。
+ * @param {{ label: string, filename: string, write: (profile: any, outPath: string) => Promise<void> }[]} targets
+ * @param {any} profile
  * @param {string} sessionDir
  * @returns {Promise<{ label: string, filename: string }[]>}
  */
-async function generateAllDocuments(profile, sessionDir) {
+async function generateAllDocuments(targets, profile, sessionDir) {
   const results = [];
-  for (const target of DOCUMENT_TARGETS) {
+  for (const target of targets) {
     await target.write(profile, path.join(sessionDir, target.filename));
     results.push({ label: target.label, filename: target.filename });
   }
@@ -296,9 +310,47 @@ export function createServer({
 
         const sessionId = crypto.randomUUID();
         const sessionDir = path.join(outDir, sessionId);
-        const files = await generateAllDocuments(profile, sessionDir);
+        const files = await generateAllDocuments(DOCUMENT_TARGETS, profile, sessionDir);
 
         respondHtml(res, 200, renderResultPage({ profile, result, report, files, sessionId }));
+        return;
+      }
+
+      if (req.method === "GET" && url === "/kobutsu") {
+        respondHtml(res, 200, renderKobutsuFormPage());
+        return;
+      }
+
+      if (req.method === "POST" && url === "/kobutsu/submit") {
+        const bodyText = await readRequestBody(req);
+        const params = new URLSearchParams(bodyText);
+        const profileJson = params.get("profileJson");
+        if (!profileJson) {
+          throw new Error("profileJson が送信されていません（フォームのJavaScriptが動作していない可能性があります）");
+        }
+        /** @type {import('../licenses/kobutsu/eligibility/types.js').KobutsuApplicantProfile} */
+        const profile = JSON.parse(profileJson);
+
+        const result = evaluateKobutsuEligibility(profile);
+        const report = formatKobutsuEligibilityReport(profile, result);
+
+        const sessionId = crypto.randomUUID();
+        const sessionDir = path.join(outDir, sessionId);
+        const files = await generateAllDocuments(KOBUTSU_DOCUMENT_TARGETS, profile, sessionDir);
+
+        respondHtml(
+          res,
+          200,
+          renderResultPage({
+            profile,
+            result,
+            report,
+            files,
+            sessionId,
+            judgmentLabels: { ok: "○ 要件を充足（申請準備を進められます）", ng: "× 未充足の要件があります" },
+            formPath: "/kobutsu",
+          })
+        );
         return;
       }
 

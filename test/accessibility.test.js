@@ -38,6 +38,7 @@ import assert from "node:assert/strict";
 import { JSDOM } from "jsdom";
 import axeCore from "axe-core";
 import { renderFormPage } from "../src/web/formPage.js";
+import { renderKobutsuFormPage } from "../src/web/kobutsuFormPage.js";
 import { renderResultPage } from "../src/web/resultPage.js";
 import { renderReminderPage } from "../src/web/reminderPage.js";
 import { renderDraftsPage } from "../src/web/draftsPage.js";
@@ -94,6 +95,21 @@ test("renderFormPage: 役員・営業所・工事経歴の行を追加した状�
     const results = await runAxe(fragmentHtml);
     assert.equal(results.violations.length, 0, `#${id}:\n${formatViolations(results)}`);
   }
+});
+
+test("renderKobutsuFormPage: アクセシビリティ違反が無い（古物商許可インテイクフォーム。初期状態）", async () => {
+  const results = await runAxe(renderKobutsuFormPage());
+  assert.equal(results.violations.length, 0, formatViolations(results));
+});
+
+test("renderKobutsuFormPage: 営業所行を追加した状態でもアクセシビリティ違反が無い", async () => {
+  const html = renderKobutsuFormPage();
+  const dom = new JSDOM(html);
+  const template = dom.window.document.getElementById("eigyoshoRowTemplate");
+  assert.ok(template, "テンプレート #eigyoshoRowTemplate が見つかりません");
+  const fragmentHtml = `<!doctype html><html lang="ja"><head><title>test</title></head><body><main>${template.innerHTML}</main></body></html>`;
+  const results = await runAxe(fragmentHtml);
+  assert.equal(results.violations.length, 0, formatViolations(results));
 });
 
 test("renderResultPage: アクセシビリティ違反が無い（判定結果画面。合格・不合格の両方）", async () => {

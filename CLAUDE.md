@@ -77,7 +77,8 @@ src/
                                   自動判定せず必ず人手確認を促す。マイナンバー等の機微情報
                                   は型定義上保持しない）
   documents/                     様式（youshiki*.js）生成モジュール（建設業許可分）
-  web/                           インテイク用Webフォーム（建設業許可のみ・ローカルホスト限定）
+  web/                           インテイク用Webフォーム（建設業許可・古物商許可対応。
+                                  古物商許可は個人申請のみ・ローカルホスト限定）
 test/          node --test のユニットテスト（1ファイル1モジュール対応が基本）
 scripts/       動作確認用サンプル・CLIスクリプト（gen:*, client:*, reminders。
                portal/incorporation/succession等の独立ドメインは

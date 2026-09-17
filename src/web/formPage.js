@@ -53,6 +53,7 @@ export function renderFormPage(options = {}) {
   <p>
     <a href="/reminders">→ 更新リマインド・ダイジェストを見る</a>
     ・ <a href="/drafts">→ 保存済みの下書き一覧を見る</a>
+    ・ <a href="/kobutsu">→ 古物商許可のインテイクフォームへ</a>
   </p>
 </header>
 ${errorBlock}

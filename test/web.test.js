@@ -7,6 +7,7 @@ import { spawn } from "node:child_process";
 
 import { createServer, startServer } from "../src/web/server.js";
 import { buildSampleApplicantProfile } from "../scripts/sampleProfile.js";
+import { buildSampleKobutsuProfile } from "../scripts/sampleKobutsuProfile.js";
 import { saveClients } from "../src/core/reminders/clientStore.js";
 import { upsertDraft, loadDrafts } from "../src/web/draftStore.js";
 
@@ -83,6 +84,78 @@ test("POST /submit の判定結果は評価エンジン・書類生成モジュ�
     });
     const html = await res.text();
     assert.match(html, /未充足の要件があります/);
+  } finally {
+    await ctx.close();
+  }
+});
+
+test("GET /kobutsu は古物商許可インテイクフォームのHTMLを返す", async () => {
+  const ctx = await startTestServer();
+  try {
+    const res = await fetch(`${ctx.baseUrl}/kobutsu`);
+    assert.equal(res.status, 200);
+    const html = await res.text();
+    assert.match(html, /古物商許可 申請者情報インテイク/);
+    assert.match(html, /id="kobutsuForm"/);
+  } finally {
+    await ctx.close();
+  }
+});
+
+test("POST /kobutsu/submit は判定結果と書類ダウンロードリンクを含む結果画面を返す（建設業許可とは異なる判定文言を使う）", async () => {
+  const ctx = await startTestServer();
+  try {
+    const profile = buildSampleKobutsuProfile();
+    const body = new URLSearchParams({ profileJson: JSON.stringify(profile) });
+    const res = await fetch(`${ctx.baseUrl}/kobutsu/submit`, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: body.toString(),
+    });
+    assert.equal(res.status, 200);
+    const html = await res.text();
+    assert.match(html, /要件判定結果/);
+    assert.match(html, /○ 要件を充足/); // 建設業許可の「5要件すべて充足」ではなく古物商許可専用の文言
+    assert.match(html, /\/download\/[^"]+\/shinseisho\.docx/);
+    assert.match(html, /href="\/kobutsu"/); // 「新しい申請者情報を入力する」リンクは/kobutsuへ戻る
+
+    // 実際に3様式分のdocxがディスクに生成されていることを確認する。
+    const sessions = await fs.readdir(ctx.outDir);
+    assert.equal(sessions.length, 1);
+    const files = await fs.readdir(path.join(ctx.outDir, sessions[0]));
+    assert.equal(files.length, 3);
+  } finally {
+    await ctx.close();
+  }
+});
+
+test("POST /kobutsu/submit の判定結果は評価エンジンと一致する（不合格ケース）", async () => {
+  const ctx = await startTestServer();
+  try {
+    const profile = buildSampleKobutsuProfile();
+    profile.kekkaku.isAddressUnknown = true; // 欠格事由に該当させる
+    const body = new URLSearchParams({ profileJson: JSON.stringify(profile) });
+    const res = await fetch(`${ctx.baseUrl}/kobutsu/submit`, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: body.toString(),
+    });
+    const html = await res.text();
+    assert.match(html, /未充足の要件があります/);
+  } finally {
+    await ctx.close();
+  }
+});
+
+test("POST /kobutsu/submit で profileJson が無ければ400を返す", async () => {
+  const ctx = await startTestServer();
+  try {
+    const res = await fetch(`${ctx.baseUrl}/kobutsu/submit`, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: "",
+    });
+    assert.equal(res.status, 400);
   } finally {
     await ctx.close();
   }
