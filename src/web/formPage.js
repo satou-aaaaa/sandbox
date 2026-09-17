@@ -138,9 +138,13 @@ ${savedNoticeBlock}
     <h2>8. 欠格要件（該当するものにチェック）</h2>
     <label><input type="checkbox" id="isUndischargedBankrupt"> 破産者で復権を得ていない</label>
     <label><input type="checkbox" id="hadLicenseRevokedWithin5Years"> 5年以内に建設業許可を取り消された経験がある</label>
-    <label><input type="checkbox" id="hasCriminalRecordWithin5Years"> 禁錮以上の刑、または関連法令違反による罰金刑から5年を経過していない</label>
+    <label><input type="checkbox" id="hasWithdrawnLicenseDuringRevocationHearingWithin5Years"> 許可取消しの聴聞通知後、取消しを免れるため廃業届出をしてから5年を経過していない</label>
+    <label><input type="checkbox" id="hasBusinessSuspensionOrderInEffect"> 営業停止命令の停止期間が経過していない</label>
+    <label><input type="checkbox" id="hasBusinessProhibitionOrderInEffect"> 営業禁止処分の禁止期間が経過していない</label>
+    <label><input type="checkbox" id="hasCriminalRecordWithin5Years"> 拘禁刑以上の刑、または関連法令違反による罰金刑から5年を経過していない</label>
     <label><input type="checkbox" id="isBoryokudanMemberOrWithin5Years"> 暴力団員である、または脱退から5年を経過していない</label>
     <label><input type="checkbox" id="hasMentalImpairmentAffectingDuties"> 心身の故障により建設業を適正に営むことができないと認められる</label>
+    <label><input type="checkbox" id="isControlledByBoryokudanMember"> 暴力団員等がその事業活動を支配する者である</label>
     <label><input type="checkbox" id="hasFalseOrOmittedStatement"> 申請書・添付書類に虚偽の記載、または重要な事実の記載漏れがある</label>
   </section>
 
@@ -382,9 +386,13 @@ if (INITIAL_PROFILE) {
 
   setChecked("isUndischargedBankrupt", kk.isUndischargedBankrupt);
   setChecked("hadLicenseRevokedWithin5Years", kk.hadLicenseRevokedWithin5Years);
+  setChecked("hasWithdrawnLicenseDuringRevocationHearingWithin5Years", kk.hasWithdrawnLicenseDuringRevocationHearingWithin5Years);
+  setChecked("hasBusinessSuspensionOrderInEffect", kk.hasBusinessSuspensionOrderInEffect);
+  setChecked("hasBusinessProhibitionOrderInEffect", kk.hasBusinessProhibitionOrderInEffect);
   setChecked("hasCriminalRecordWithin5Years", kk.hasCriminalRecordWithin5Years);
   setChecked("isBoryokudanMemberOrWithin5Years", kk.isBoryokudanMemberOrWithin5Years);
   setChecked("hasMentalImpairmentAffectingDuties", kk.hasMentalImpairmentAffectingDuties);
+  setChecked("isControlledByBoryokudanMember", kk.isControlledByBoryokudanMember);
   setChecked("hasFalseOrOmittedStatement", kk.hasFalseOrOmittedStatement);
 
   setChecked("hasNoDishonestActRisk", s.hasNoDishonestActRisk);
@@ -502,9 +510,13 @@ function buildProfile() {
     kekkaku: {
       isUndischargedBankrupt: checked("isUndischargedBankrupt"),
       hadLicenseRevokedWithin5Years: checked("hadLicenseRevokedWithin5Years"),
+      hasWithdrawnLicenseDuringRevocationHearingWithin5Years: checked("hasWithdrawnLicenseDuringRevocationHearingWithin5Years"),
+      hasBusinessSuspensionOrderInEffect: checked("hasBusinessSuspensionOrderInEffect"),
+      hasBusinessProhibitionOrderInEffect: checked("hasBusinessProhibitionOrderInEffect"),
       hasCriminalRecordWithin5Years: checked("hasCriminalRecordWithin5Years"),
       isBoryokudanMemberOrWithin5Years: checked("isBoryokudanMemberOrWithin5Years"),
       hasMentalImpairmentAffectingDuties: checked("hasMentalImpairmentAffectingDuties"),
+      isControlledByBoryokudanMember: checked("isControlledByBoryokudanMember"),
       hasFalseOrOmittedStatement: checked("hasFalseOrOmittedStatement"),
     },
     seijitsusei: {

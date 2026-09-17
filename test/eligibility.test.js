@@ -674,13 +674,49 @@ test("欠格要件: 5年以内に建設業許可を取り消された経験が�
   assert.ok(check.reasons.some((r) => r.includes("許可を取り消された")));
 });
 
-test("欠格要件: 禁錮以上の刑等から5年を経過していない場合は不合格", () => {
+test("欠格要件: 拘禁刑以上の刑等から5年を経過していない場合は不合格（令和7年6月1日施行の現行用語。「禁錮」ではない）", () => {
   const profile = baseProfile();
   profile.kekkaku.hasCriminalRecordWithin5Years = true;
   const result = evaluateEligibility(profile);
   const check = result.checks.find((c) => c.key === "kekkaku");
   assert.equal(check.passed, false);
-  assert.ok(check.reasons.some((r) => r.includes("禁錮以上の刑")));
+  assert.ok(check.reasons.some((r) => r.includes("拘禁刑以上の刑")));
+});
+
+test("欠格要件: 許可取消しの聴聞通知後の駆け込み廃業から5年を経過していない場合は不合格（建設業法第8条第3号）", () => {
+  const profile = baseProfile();
+  profile.kekkaku.hasWithdrawnLicenseDuringRevocationHearingWithin5Years = true;
+  const result = evaluateEligibility(profile);
+  const check = result.checks.find((c) => c.key === "kekkaku");
+  assert.equal(check.passed, false);
+  assert.ok(check.reasons.some((r) => r.includes("廃業届出")));
+});
+
+test("欠格要件: 営業停止命令の停止期間が経過していない場合は不合格（建設業法第8条第5号）", () => {
+  const profile = baseProfile();
+  profile.kekkaku.hasBusinessSuspensionOrderInEffect = true;
+  const result = evaluateEligibility(profile);
+  const check = result.checks.find((c) => c.key === "kekkaku");
+  assert.equal(check.passed, false);
+  assert.ok(check.reasons.some((r) => r.includes("営業停止命令")));
+});
+
+test("欠格要件: 営業禁止処分の禁止期間が経過していない場合は不合格（建設業法第8条第6号）", () => {
+  const profile = baseProfile();
+  profile.kekkaku.hasBusinessProhibitionOrderInEffect = true;
+  const result = evaluateEligibility(profile);
+  const check = result.checks.find((c) => c.key === "kekkaku");
+  assert.equal(check.passed, false);
+  assert.ok(check.reasons.some((r) => r.includes("営業禁止処分")));
+});
+
+test("欠格要件: 暴力団員等がその事業活動を支配する者である場合は不合格（建設業法第8条第14号）", () => {
+  const profile = baseProfile();
+  profile.kekkaku.isControlledByBoryokudanMember = true;
+  const result = evaluateEligibility(profile);
+  const check = result.checks.find((c) => c.key === "kekkaku");
+  assert.equal(check.passed, false);
+  assert.ok(check.reasons.some((r) => r.includes("事業活動を支配")));
 });
 
 test("欠格要件: 心身の故障により適正に営むことができないと認められる場合は不合格", () => {

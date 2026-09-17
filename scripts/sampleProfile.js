@@ -98,9 +98,13 @@ export function buildSampleApplicantProfile() {
     kekkaku: {
       isUndischargedBankrupt: false,
       hadLicenseRevokedWithin5Years: false,
+      hasWithdrawnLicenseDuringRevocationHearingWithin5Years: false,
+      hasBusinessSuspensionOrderInEffect: false,
+      hasBusinessProhibitionOrderInEffect: false,
       hasCriminalRecordWithin5Years: false,
       isBoryokudanMemberOrWithin5Years: false,
       hasMentalImpairmentAffectingDuties: false,
+      isControlledByBoryokudanMember: false,
       hasFalseOrOmittedStatement: false,
     },
     seijitsusei: { hasNoDishonestActRisk: true },

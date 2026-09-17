@@ -43,13 +43,30 @@
  */
 
 /**
- * @typedef {Object} KekkakuInput 欠格要件の判定に使う入力
- * @property {boolean} isUndischargedBankrupt 破産者で復権を得ていないか
- * @property {boolean} hadLicenseRevokedWithin5Years 5年以内に建設業許可を取り消された経験があるか
- * @property {boolean} hasCriminalRecordWithin5Years 禁錮以上の刑、または関連法令違反による罰金刑から5年を経過していないか
- * @property {boolean} isBoryokudanMemberOrWithin5Years 暴力団員である、または脱退から5年を経過していないか
- * @property {boolean} hasMentalImpairmentAffectingDuties 心身の故障により建設業を適正に営むことができないと認められるか
- * @property {boolean} hasFalseOrOmittedStatement 申請書・添付書類に虚偽の記載、または重要な事実の記載漏れがあるか
+ * @typedef {Object} KekkakuInput 欠格要件（建設業法第8条）の判定に使う入力
+ *   フィールドの号立ては2026年9月にe-Gov法令検索の原文で確認済み。
+ *   同条第11号（未成年者の法定代理人の欠格）・第12号（法人役員等の欠格）・
+ *   第13号（個人の政令使用人の欠格）は、申請者本人以外の複数人物
+ *   （役員・使用人・法定代理人）ごとの欠格状況を保持する必要があり、
+ *   個人の申請者1名を前提とする現行の`ApplicantProfile`型では表現でき
+ *   ないため対象外とする（古物商許可の`KobutsuKekkakuInput`が同種の
+ *   理由で法人役員の欠格〈第11号相当〉を対象外としているのと同じ判断）。
+ *   第4号（取消し処分の通知前60日以内に役員等であった者）も同様の理由に
+ *   加え、期間の起点となる通知日自体を本ツールが保持しないため対象外とする。
+ * @property {boolean} isUndischargedBankrupt 破産者で復権を得ていないか（第1号）
+ * @property {boolean} hadLicenseRevokedWithin5Years 5年以内に建設業許可を取り消された経験があるか（第2号）
+ * @property {boolean} [hasWithdrawnLicenseDuringRevocationHearingWithin5Years]
+ *   許可取消しの聴聞通知後、取消しを免れるため廃業届出（第12条第5号）をした者で、
+ *   その届出日から5年を経過していないか（第3号。いわゆる「駆け込み廃業」対策。
+ *   古物商許可の`hasSurrenderedLicenseDuringRevocationHearingWithin5Years`と
+ *   同種の欠格事由）
+ * @property {boolean} [hasBusinessSuspensionOrderInEffect] 営業の停止を命ぜられ、その停止期間が経過していないか（第5号。第28条第3項・第5項）
+ * @property {boolean} [hasBusinessProhibitionOrderInEffect] 許可を受けようとする建設業について営業を禁止され、その禁止期間が経過していないか（第6号。第29条の4）
+ * @property {boolean} hasCriminalRecordWithin5Years 拘禁刑以上の刑、または関連法令違反・特定の刑法上の罪による罰金の刑に処せられ、その執行を終わり又は執行を受けることがなくなった日から5年を経過していないか（第7号・第8号。「拘禁刑」は令和7年6月1日施行の現行用語であり「禁錮」ではない）
+ * @property {boolean} isBoryokudanMemberOrWithin5Years 暴力団員である、または脱退から5年を経過していないか（第9号）
+ * @property {boolean} hasMentalImpairmentAffectingDuties 心身の故障により建設業を適正に営むことができないと認められるか（第10号）
+ * @property {boolean} [isControlledByBoryokudanMember] 暴力団員等がその事業活動を支配する者であるか（第14号。法人・個人いずれも対象になり得る、事業活動の実質支配についての規定）
+ * @property {boolean} hasFalseOrOmittedStatement 申請書・添付書類に重要な事項について虚偽の記載、または重要な事実の記載漏れがあるか（第8条本文の各号とは別の、許可拒否事由の総則的な要件）
  */
 
 /**
