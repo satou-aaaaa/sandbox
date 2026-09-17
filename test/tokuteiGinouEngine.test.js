@@ -51,6 +51,20 @@ test("evaluateTokuteiGinouEligibility: 支援体制要件を満たさなけれ�
   assert.equal(result.eligible, false);
 });
 
+test("TOKUTEI_GINOU_SCREENING_NOTICE: 一次スクリーニング強調文言の全文が欠落・改変されていない", () => {
+  // report内でのindexOf検証（下記テスト）は同じ定数同士の比較のため、
+  // 定数自体の一部の文が空文字列等に化けても検出できない
+  // （ミューテーションテストで発見。CHANGELOG.md参照）。
+  assert.equal(
+    TOKUTEI_GINOU_SCREENING_NOTICE,
+    "※ この判定は書類準備段階での一次スクリーニングに過ぎません。特定技能の該当性は、" +
+      "出入国在留管理局及び分野所管省庁が個別の事案ごとに審査し、本判定と異なる結果になることが" +
+      "十分にあります。分野別運用方針・技能評価試験の実施状況は改定頻度が高いため、申請直前に" +
+      "必ず出入国在留管理庁公式サイトで最新情報を確認してください。この結果を外国人本人・" +
+      "特定技能所属機関への在留資格取得の確約として提示しないこと。"
+  );
+});
+
 test("formatTokuteiGinouEligibilityReport: 一次スクリーニング強調文言が冒頭・末尾の両方に含まれる（NFR-T2）", () => {
   clearFields();
   seedFieldRegistry();

@@ -25,6 +25,20 @@ test("evaluateInshokutenEligibility: 食品衛生責任者要件を満たさな�
   assert.equal(result.eligible, false);
 });
 
+test("HACCP_CONTINUING_OBLIGATION_NOTICE: 注記の全文が欠落・改変されていない", () => {
+  // report内でのincludes検証（下記テスト）は同じ定数同士の比較のため、
+  // 定数自体の一部の文が空文字列等に化けても検出できない
+  // （ミューテーションテストで発見。CHANGELOG.md参照）。
+  assert.equal(
+    HACCP_CONTINUING_OBLIGATION_NOTICE,
+    "※ HACCPに沿った衛生管理（またはHACCPの考え方を取り入れた衛生管理）の" +
+      "実施は、飲食店営業許可の交付要件ではありません。許可取得後に、原則" +
+      "すべての事業者に義務付けられる継続的な衛生管理です（食品衛生法第51条）。" +
+      "本判定結果が「○」であっても、HACCPに沿った衛生管理計画の策定・記録は" +
+      "別途必要となりますので、開業後速やかに対応してください。"
+  );
+});
+
 test("formatInshokutenEligibilityReport: HACCP継続義務の注記が必ず含まれる（NFR-I1。eligible=trueの場合）", () => {
   const profile = buildSampleInshokutenEigyoProfile();
   const result = evaluateInshokutenEligibility(profile);
