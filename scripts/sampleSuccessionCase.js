@@ -11,12 +11,15 @@ export function buildSampleSuccessionCase() {
     decedentDeathDateIso: "2026-06-01",
     familyStructure: {
       caseId: "case-souzoku-001",
+      decedentName: "サンプル 太郎",
+      decedentBirthDateIso: "1950-04-01",
+      decedentLastAddress: "サンプル県サンプル市1-2-3",
       decedentDeathDateIso: "2026-06-01",
       hasSpouse: true,
       spouseIsAlive: true,
       children: [
-        { personId: "child-1", label: "長男", isAlive: true },
-        { personId: "child-2", label: "長女", isAlive: true },
+        { personId: "child-1", label: "長男", isAlive: true, birthDate: "1975-08-10" },
+        { personId: "child-2", label: "長女", isAlive: true, birthDate: "1978-11-22" },
       ],
       ascendants: [],
       siblings: [],

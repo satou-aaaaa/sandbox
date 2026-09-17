@@ -61,15 +61,28 @@
  *   再帰的に続けられる（再代襲。887条3項）。兄弟姉妹の代襲は甥姪の
  *   1世代のみとし、そのsubstitutesはcalcLegalHeirsが無視する
  *   （889条2項は887条3項を準用しない）
+ * @property {string} [birthDate] 生年月日（YYYY-MM-DD、任意）。相続分の
+ *   計算では使わないが、法定相続情報一覧図（不動産登記規則247条1項2号）は
+ *   相続人の生年月日の記載を必須とするため、
+ *   `documents/houteiSouzokuJohoIchiranzu.js`が参照する
+ * @property {string} [address] 住所（任意）。法定相続情報一覧図に相続人の
+ *   住所を記載する場合は、別途住民票の写し等の添付が必要になる
+ *   （同条4項）。本モジュールは記載の要否を判定しない
  */
 
 /**
  * @typedef {Object} FamilyStructureInput 法定相続人・法定相続分の
  *   自動計算に使う家族構成の入力（calcLegalHeirsの唯一の引数）
  * @property {string} caseId SuccessionCaseRecord.caseIdと対応する案件ID
+ * @property {string} [decedentName] 被相続人の氏名（任意）。相続分の計算
+ *   では使わないが、法定相続情報一覧図（不動産登記規則247条1項1号）は
+ *   氏名・生年月日・最後の住所・死亡年月日の記載を必須とするため、
+ *   `documents/houteiSouzokuJohoIchiranzu.js`が参照する
+ * @property {string} [decedentBirthDateIso] 被相続人の生年月日（YYYY-MM-DD、任意）
+ * @property {string} [decedentLastAddress] 被相続人の最後の住所（任意）
  * @property {string} decedentDeathDateIso 被相続人の死亡日（相続開始日。
  *   YYYY-MM-DD）。熟慮期間・相続税申告期限・遺留分侵害額請求の除斥期間
- *   〈10年〉の起点になる
+ *   〈10年〉の起点になる。法定相続情報一覧図の「死亡の年月日」も兼ねる
  * @property {string} [decedentDeathKnownDateIso] 相続人（代表者）が
  *   相続の開始を知った日。省略時はdecedentDeathDateIsoと同一とみなす。
  *   相続放棄の熟慮期間・相続税申告期限・遺留分侵害額請求の消滅時効

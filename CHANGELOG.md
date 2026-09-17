@@ -6,6 +6,27 @@
 日付単位のリリースではなく `docs/PROPOSAL.md` のマイルストーン（M1〜）を
 単位として記録する。
 
+## 相続支援モジュールに法定相続情報一覧図の記載内容サマリー生成を追加（2026年9月）
+
+`docs/DESIGN_souzoku-support.md` 9章に残っていた「今後の拡張ポイント」を
+実装した。e-Gov法令検索で不動産登記規則第247条を確認し、法定相続情報
+一覧図には被相続人の氏名・生年月日・最後の住所・死亡年月日（1項1号）、
+相続人の氏名・生年月日・被相続人との続柄（1項2号）の記載が必須で
+あることを確認した。
+
+- `FamilyStructureInput`に`decedentName`・`decedentBirthDateIso`・
+  `decedentLastAddress`を、`HeirCandidateInput`に`birthDate`・`address`を
+  それぞれ任意フィールドとして追加した（相続分の計算ロジックには一切
+  影響しない）
+- `documents/houteiSouzokuJohoIchiranzu.js`（`resolveDecedentRows`・
+  `resolveHeirRows`・`buildHouteiSouzokuJohoIchiranzuDocument`・
+  `writeHouteiSouzokuJohoIchiranzuDocx`）を新設した。他の様式生成
+  モジュールと同じ「内容確認用サマリーであり、法務局公表の正式な
+  家系図レイアウトには対応しない」方針を明記している
+- 続柄は`HeirShareResult.relation`の4大分類（配偶者/子/直系尊属/
+  兄弟姉妹）からの近似表示とし、代襲相続人（孫・甥姪等）の正確な続柄
+  までは自動判定しない旨を出力に明記した
+
 ## 農地転用許可モジュールに一時転用（農地復元期限）のリマインドを追加（2026年9月）
 
 `docs/DESIGN_nouchi-tenyo-core.md` 9章「今後の拡張ポイント」に記載されて
