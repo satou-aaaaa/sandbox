@@ -884,11 +884,18 @@ function makeSuccessionAlert(caseRecord, item, todayIso) {
   法定相続人数）の参考値を`calcLegalHeirs`の結果件数から算出して
   表示する連携（ただし相続税額そのものの計算は税理士の職域のため対象外
   であることを明記し続ける）
-- **`daysUntil`・`addMonthsClamped`の共通化**: `docs/DESIGN_uketsuke-portal.md`
-  9章で既に指摘されている技術的負債（`daysUntil`をconstruction配下から
-  直接importする慣行）が、本モジュールでも同様に発生している
-  （5章）。3例目の重複が発生したことを踏まえ、`src/core/dateUtils.js`
-  への切り出しをコア側の変更として次フェーズで検討する
+- **`addMonthsClamped`の共通化**: 【2026年9月訂正】`daysUntil`については、
+  M11のコア抽出（`docs/DESIGN_kobutsu-core.md` 5.3節）で既に
+  `src/core/reminders/dateUtils.js`へ切り出し済みだったため、本モジュールを
+  含む全モジュールが最初からそこを直接importしており、想定していた
+  技術的負債は実際には発生しなかった（`docs/DESIGN_uketsuke-portal.md`側の
+  記載も訂正済み）。一方`addMonthsClamped`（月単位の丸め計算）は、
+  `src/core/reminders/expirySchedule.js`・`src/licenses/construction/reminders/renewalSchedule.js`
+  （いずれも`Date`型ベース）・本モジュールの`souzokuDeadlines.js`
+  （ISO文字列ベース）の3箇所で、シグネチャの異なる実装が独立して存在して
+  おり、こちらは引き続き重複が残っている。共通化する場合はDate型か
+  ISO文字列型かのインターフェース統一が必要になる点に注意（次フェーズで
+  検討する）
 - **Web一覧表示への対応**（`src/web/`の拡張。他モジュール同様、本フェーズは対象外）
 - **遺言執行者の指定支援**: **2026年9月実装済み**。`documents/jihitsushoshoYuigon.js`の
   `buildJihitsushoshoYuigonDocument`が`executorName`オプションを受け取り、

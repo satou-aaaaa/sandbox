@@ -126,11 +126,11 @@ export function resolveMitsumorishoRows(caseRecord, partner) {
 渡せるようにする（型は流用するが、生成ロジックは案件専用に実装する）。
 
 ```js
-import { daysUntil } from "../../licenses/construction/reminders/renewalSchedule.js";
-// 【設計判断】daysUntilは許可種別に依存しない純粋な日数計算のため、
-// 案件納期の計算にもそのまま使える。実装者の判断で、より自然な配置
-// （例: src/core/dateUtils.js への切り出し）に変更してよい
-// （docs/DESIGN_sanpai-core.md 4.3節と同じ技術的負債として記録）
+import { daysUntil } from "../../core/reminders/dateUtils.js";
+// 【2026年9月追記】daysUntilは元々建設業許可専用モジュールに置かれていたが、
+// M11のコア抽出（docs/DESIGN_kobutsu-core.md 5.3節）でsrc/core/reminders/dateUtils.js
+// へ既に切り出し済みだったため、本モジュールの実装時点で当初案（construction配下からの
+// 直接import）ではなくこちらから直接importする形にできた（技術的負債は発生しなかった）。
 
 /**
  * 未完了（status !== "完了"）の案件から、コアと同形式のリマインド項目を生成する。
