@@ -183,6 +183,38 @@ M11（`docs/DESIGN_kobutsu-core.md`）で、許可種別に依存しない共通
 - `index.js` — `registerInshokutenEigyoLicense()`でコアの`scheduleTypes.js`へ登録するエントリポイント
 - 深夜酒類提供飲食店営業届出・風俗営業許可（風俗営業法）、酒類販売業免許（酒税法）、飲食店営業以外の食品衛生法上の許可業種、自治体ごとの施設基準条例の網羅的データベース化は対象外（`docs/REQUIREMENTS_inshokuten-eigyo-core.md` 4.6節）
 
+### 特定技能1号申請支援アドオン（`src/licenses/tokutei-ginou/`。コアの9例目）
+
+事業提案の柱（C）「外国人材関連」の第2弾。gijinkoku（技人国ビザ）同様、
+専門性・リスクが高い分野を扱うため一次スクリーニングの強調文言を全出力に
+付与する。gijinkokuと異なり、対象分野ごとに技能試験名・分野特有の日本語
+試験要否等が変わるため、モジュール内部に「分野別サブレジストリ」
+（`prefectureRules.js`と同型のパターンだが、コア横断のレジストリ
+〈`scheduleTypes.js`〉とは別物でモジュール内部限定）を新設した点が特徴。
+
+- **e-Gov法令検索で確認・修正済み（2026年9月）**: 当初提案書は「2026年9月
+  時点で16分野」としていたが、2026年4月1日施行の省令改正（「出入国管理
+  及び難民認定法別表第一の二の表の特定技能の項の下欄に規定する産業上の
+  分野等を定める省令」平成三十一年法務省令第六号）により対象分野が
+  **19分野**（林業・木材産業・資源循環の3分野が新規追加）へ拡大している
+  ことを確認し、`docs/REQUIREMENTS_tokutei-ginou-core.md`・
+  `docs/DESIGN_tokutei-ginou-core.md`の該当箇所を修正した
+  （ドキュメント修正PRを実装着手前にマージ）。義務的支援10項目
+  （平成三十一年法務省令第五号第3条イ〜ヌ）・報酬同等以上要件
+  （同令第1条第1項第3号）は当初の記載どおり正確であることも確認した
+- `eligibility/types.js` — `TokuteiGinouApplicantProfile`等のJSDoc型定義
+- `eligibility/fieldRegistry.js`・`fieldRegistry.seed.js` — 対象19分野を`fieldKey`で登録・参照するモジュール内部限定のサブレジストリ（分野ラベル・技能試験名・分野特有の日本語試験要否〈介護分野のみ`requiresSectorSpecificJapaneseTest: true`〉を保持。3新分野の技能試験名は暫定表記のため要再確認の旨をコメントで明示）
+- `eligibility/ginouSuijun.js` — 分野別技能試験合格等による技能水準要件の判定
+- `eligibility/nihongoNouryoku.js` — 日本語能力要件（JLPT N4相当以上等）の判定。介護分野は分野特有の日本語評価試験も確認
+- `eligibility/shozokuKikanKijun.js` — 所属機関（受入れ企業）側の基準（報酬同等以上・支援体制確保等）の判定
+- `eligibility/shienTaisei.js` — 支援計画の実施体制（自社支援 or 登録支援機関への委託）の判定
+- `eligibility/disclaimer.js` — 一次スクリーニングの強調文言。gijinkokuと同じ設計パターン
+- `eligibility/engine.js` — 上記4要件をまとめて判定
+- `documents/ninteiShinseisho.js`（在留資格認定証明書交付申請書サマリー）・`shienKeikakusho.js`（支援計画書サマリー）・`checklist.js`（添付書類チェックリスト） — 各様式のdocx自動生成
+- `reminders/tokuteiGinouSchedule.js` — 在留期間満了リマインド（gijinkokuの可変期間型`calcZairyuKikanSchedule`と同じ設計）に加え、**通算在留期間5年上限への接近警告**という第2のリマインド軸を同一の`ScheduleItem[]`に混在させる。5年上限は出入国管理及び難民認定法の条文自体には見当たらず、同法第2条の3が策定を義務付ける「基本方針」（運用レベルの指針）に基づくものと考えられるため、条文引用をせず「運用上の上限」という前提を明記した近似計算（暦年加算）とした。通算在留期間の正確な計算方法（出国期間・特例期間・端数の扱い）は一次資料未確認のため、個別ケースでは人手確認を促す設計
+- `index.js` — `registerTokuteiGinouModule()`でコアの`scheduleTypes.js`へ登録するエントリポイント
+- 特定技能2号（家族帯同可・在留期間上限なし）への移行支援、技能実習からの移行要件、特定産業分野ごとの詳細な受入れ人数枠管理は対象外（`docs/REQUIREMENTS_tokutei-ginou-core.md` 4.6節）
+
 ### BtoB下請けケース管理ポータル（`src/portal/`。許可種別アドオンではない独立ドメイン）
 
 事業提案の柱（A）「BtoB下請け」（他の行政書士から書類作成業務を受注する側の

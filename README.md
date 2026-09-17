@@ -100,6 +100,17 @@
   書類チェックリストのdocx生成、在留期間満了（3月/1年/3年/5年の可変期間）
   リマインドに対応。判定結果・生成書類のすべてに一次スクリーニングの強調
   文言を付与（詳細は`docs/DESIGN_gijinkoku-core.md`）
+- **特定技能1号申請支援モジュール**: 外国人材関連の柱（C）の第2弾。対象19分野
+  （介護・ビルクリーニング・工業製品製造業・建設・造船舶用工業・自動車整備・
+  航空・宿泊・農業・漁業・飲食料品製造業・外食業・自動車運送業・鉄道・
+  林業・木材産業・資源循環等。2026年4月施行の省令改正で16→19分野に
+  拡大）を分野別サブレジストリで管理し、技能水準・日本語能力・所属機関
+  基準・支援体制（自社/委託）の判定、認定申請書サマリー・支援計画書
+  サマリー・添付書類チェックリストのdocx生成、在留期間満了リマインドに
+  加え、通算在留期間5年上限（法律条文ではなく運用上の基本方針に基づく
+  近似計算である旨を明記）への接近警告リマインドに対応。gijinkoku同様、
+  一次スクリーニングの強調文言を全出力に付与（詳細は
+  `docs/DESIGN_tokutei-ginou-core.md`）
 - **住宅宿泊事業（民泊）届出モジュール**: コアの4例目のアドオンとして新規実装。
   届出制のため要件判定は「欠格事由（住宅宿泊事業法第4条）の確認」「必要書類の
   充足チェックリスト」「家主居住/不在型の確認」が中心。届出書・誓約書・
@@ -126,6 +137,7 @@
 - [`docs/REQUIREMENTS_keiei-jiko-shinsa-core.md`](docs/REQUIREMENTS_keiei-jiko-shinsa-core.md) / [`docs/DESIGN_keiei-jiko-shinsa-core.md`](docs/DESIGN_keiei-jiko-shinsa-core.md) — 要件定義書・技術設計書（経営事項審査申請支援モジュール分）
 - [`docs/REQUIREMENTS_nouchi-tenyo-core.md`](docs/REQUIREMENTS_nouchi-tenyo-core.md) / [`docs/DESIGN_nouchi-tenyo-core.md`](docs/DESIGN_nouchi-tenyo-core.md) — 要件定義書・技術設計書（農地転用許可モジュール分）
 - [`docs/REQUIREMENTS_inshokuten-eigyo-core.md`](docs/REQUIREMENTS_inshokuten-eigyo-core.md) / [`docs/DESIGN_inshokuten-eigyo-core.md`](docs/DESIGN_inshokuten-eigyo-core.md) — 要件定義書・技術設計書（飲食店営業許可モジュール分）
+- [`docs/REQUIREMENTS_tokutei-ginou-core.md`](docs/REQUIREMENTS_tokutei-ginou-core.md) / [`docs/DESIGN_tokutei-ginou-core.md`](docs/DESIGN_tokutei-ginou-core.md) — 要件定義書・技術設計書（特定技能1号申請支援モジュール分）
 - [`docs/DEVELOPMENT_GUIDE.md`](docs/DEVELOPMENT_GUIDE.md) — 開発環境構築・コーディング規約・Git運用ガイド
 - [`docs/BEST_PRACTICES_AUDIT.md`](docs/BEST_PRACTICES_AUDIT.md) — セキュリティ・CI・リポジトリ運用の棚卸しと今後の推奨事項
 - [`docs/adr/`](docs/adr/) — アーキテクチャ決定記録（重要な設計判断の背景）
@@ -187,6 +199,10 @@ npm run gen:nouchi-tenyo-jigyokeikakusho  # 事業計画書（資金調達内訳
 npm run gen:inshokuten-eigyo-eligibility  # 飲食店営業許可の要件判定サンプル実行
 npm run gen:inshokuten-eigyo-shinseisho   # 営業許可申請書サマリーのdocx生成サンプル
 npm run gen:inshokuten-eigyo-checklist    # 添付書類チェックリスト・手続きの流れ案内のdocx生成サンプル
+npm run gen:tokutei-ginou-eligibility        # 特定技能1号の要件判定サンプル実行
+npm run gen:tokutei-ginou-ninteishinseisho   # 認定申請書サマリーのdocx生成サンプル
+npm run gen:tokutei-ginou-shienkeikakusho    # 支援計画書サマリーのdocx生成サンプル
+npm run gen:tokutei-ginou-checklist          # 添付書類チェックリストのdocx生成サンプル
 ```
 
 ### 実クライアントのリマインドを管理する
@@ -317,6 +333,10 @@ src/
     inshokuten-eigyo/      飲食店営業許可アドオン（施設基準/食品衛生責任者設置要件の判定、
                            2様式のdocx生成、可変期間〈5〜8年〉の満了リマインド。HACCPは
                            許可要件ではなく継続義務である旨を全出力に明記）
+    tokutei-ginou/         特定技能1号申請支援アドオン（対象19分野の分野別サブレジストリ、
+                           技能水準/日本語能力/所属機関基準/支援体制の判定、3様式の
+                           docx生成、在留期間満了＋通算5年上限接近警告のリマインド。
+                           一次スクリーニングの強調文言を全出力に付与）
   portal/                  BtoB下請けケース管理ポータル（許可種別アドオンではない独立ドメイン。
                            元請行政書士/案件の永続化・見積書/請求書のdocx生成・納期リマインド）
   incorporation/           会社設立サポート（許可種別アドオンではない独立ドメイン。定款/

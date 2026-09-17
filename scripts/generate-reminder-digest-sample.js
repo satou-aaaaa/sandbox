@@ -7,6 +7,7 @@ import { registerGijinkokuModule } from "../src/licenses/gijinkoku/index.js";
 import { registerKeieiJikoShinsaLicense } from "../src/licenses/keiei-jiko-shinsa/index.js";
 import { registerNouchiTenyoLicense } from "../src/licenses/nouchi-tenyo/index.js";
 import { registerInshokutenEigyoLicense } from "../src/licenses/inshokuten-eigyo/index.js";
+import { registerTokuteiGinouModule } from "../src/licenses/tokutei-ginou/index.js";
 
 registerConstructionLicense();
 registerKobutsuLicense();
@@ -16,6 +17,7 @@ registerGijinkokuModule();
 registerKeieiJikoShinsaLicense();
 registerNouchiTenyoLicense();
 registerInshokutenEigyoLicense();
+registerTokuteiGinouModule();
 
 /**
  * 複数クライアントのダミー許可情報。実在の顧客データは絶対に使用しない（NFR-5）。
