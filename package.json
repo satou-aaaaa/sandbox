@@ -60,6 +60,7 @@
     "gen:inshokuten-eigyo-checklist": "node scripts/generate-inshokuten-eigyo-checklist-sample.js",
     "gen:incorporation-teikan": "node scripts/generate-incorporation-teikan-sample.js",
     "gen:incorporation-hokininketteisho": "node scripts/generate-incorporation-hokininketteisho-sample.js",
+    "gen:incorporation-daihyoshaingosensho": "node scripts/generate-incorporation-daihyoshaingosensho-sample.js",
     "gen:incorporation-reminder-digest": "node scripts/generate-incorporation-reminder-digest-sample.js",
     "gen:succession-heirs": "node scripts/generate-succession-heirs-sample.js",
     "gen:succession-documents": "node scripts/generate-succession-documents-sample.js",

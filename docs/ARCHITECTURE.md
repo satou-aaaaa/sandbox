@@ -250,7 +250,7 @@ BtoB下請けポータルと同じく「許可の可否を判定する」業務�
   実装しない（NFR-I3）
 - `types.js` — `FounderInput`・`TeikanInput`（定款作成データ）・`IncorporationCaseRecord`のJSDoc型定義。`ApplicantProfile`・`ClientRecord`・`CaseRecord`（portal）とは意図的に型を共有しない
 - `caseStore.js` — `data/incorporation-cases.json`への永続化（`clientStore.js`・`portal/caseStore.js`と同じ設計パターン。`withFileLock`によるread-modify-write直列化を含む）
-- `documents/teikanSummary.js`（定款サマリー。会社形態〈株式会社/合同会社〉により出力項目が分岐。出資額合計の整合性チェックも含む）・`hokininKetteisho.js`（発起人決定書サマリー。株式会社のみ。合同会社を指定するとエラー） — 各様式のdocx自動生成
+- `documents/teikanSummary.js`（定款サマリー。会社形態〈株式会社/合同会社〉により出力項目が分岐。出資額合計の整合性チェックも含む。合同会社は`isDaihyoShain`に基づく「代表社員」行を表示）・`hokininKetteisho.js`（発起人決定書サマリー。株式会社のみ。合同会社を指定するとエラー）・`daihyoShainGosensho.js`（代表社員の互選書サマリー。合同会社のみ。株式会社を指定するとエラー。会社法599条3項に基づき、定款外で社員間の互選を書面化する。2026年9月追加） — 各様式のdocx自動生成
 - **合同会社の絶対的記載事項は6項目**（会社法第576条第1項第5号「社員が無限責任社員又は有限責任社員のいずれであるかの別」が株式会社〈第27条・5項目〉側に対応項目のない追加事項として存在する。同条第4項により合同会社では内容が固定されるため、`teikanSummary.js`で定型文の行として出力する。当初提案書の「両形態とも5項目」という誤りをe-Gov法令検索で発見・修正した経緯は`docs/DESIGN_kaisha-secchi-support.md` 3.1節参照）
 - `reminders/incorporationSchedule.js` — 定款認証予約日（株式会社のみ）・出資金払込期限から`ReminderAlert`相当を生成。**あえて`registerScheduleFn`を使わない設計**（案件ごとに一度きりの単発の期日であり、`LicenseEntry`として扱う必然性が薄いため。`docs/DESIGN_uketsuke-portal.md`と同じ設計判断）。許可のリマインド一覧・BtoB下請け案件の納期一覧とは別コマンド・別出力として扱う
 - `scripts/incorporation-*.js` — 案件の登録・納期リマインド表示のCLI

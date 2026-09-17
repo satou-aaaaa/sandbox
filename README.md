@@ -83,7 +83,8 @@
 - **会社設立サポートモジュール**: 許可の可否を判定する業務ではないため、
   BtoB下請けポータルと同じく要件判定エンジン・許可レジストリのいずれにも
   依存しない独立した業務ドメイン（`src/incorporation/`）。株式会社・合同
-  会社の定款・発起人決定書の記載内容サマリーのdocx生成、定款認証予約日・
+  会社の定款・発起人決定書（株式会社）・代表社員の互選書（合同会社。
+  会社法599条3項）の記載内容サマリーのdocx生成、定款認証予約日・
   出資金払込期限のリマインドに対応。設立登記の申請は司法書士の独占業務
   （司法書士法第3条・第73条・第78条）であるため、登記申請書に類する様式は
   一切実装しない（詳細は`docs/DESIGN_kaisha-secchi-support.md`）
@@ -191,6 +192,7 @@ npm run gen:portal-reminder-digest   # 下請けポータル: 案件納期リマ
 npm run gen:portal-monthly-seikyusho # 下請けポータル: 月次請求サマリーのdocx生成サンプル
 npm run gen:incorporation-teikan             # 会社設立サポート: 定款サマリー（株式会社・合同会社）のdocx生成サンプル
 npm run gen:incorporation-hokininketteisho   # 会社設立サポート: 発起人決定書サマリーのdocx生成サンプル
+npm run gen:incorporation-daihyoshaingosensho # 会社設立サポート: 代表社員の互選書サマリー（合同会社）のdocx生成サンプル
 npm run gen:incorporation-reminder-digest    # 会社設立サポート: 定款認証予約日/払込期限リマインドのダイジェスト出力サンプル
 npm run gen:succession-heirs                 # 相続支援: 法定相続人・法定相続分の試算サンプル実行
 npm run gen:succession-documents             # 相続支援: 財産目録/遺産分割協議書/自筆証書遺言文案のdocx生成サンプル
@@ -278,9 +280,10 @@ npm run incorporation:reminders                     # 未完了案件の定款�
 ```
 
 データは `data/incorporation-cases.json`（コミット対象外）にローカル保存
-される。外部への送信は行わない。定款・発起人決定書サマリーのdocx生成は
-`npm run gen:incorporation-teikan`・`npm run gen:incorporation-hokininketteisho`
-（サンプルデータ）を参照。
+される。外部への送信は行わない。定款・発起人決定書・代表社員の互選書
+サマリーのdocx生成は`npm run gen:incorporation-teikan`・
+`npm run gen:incorporation-hokininketteisho`・
+`npm run gen:incorporation-daihyoshaingosensho`（サンプルデータ）を参照。
 
 ### 相続関連（遺言書・遺産分割協議書）支援モジュールを使う
 

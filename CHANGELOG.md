@@ -6,6 +6,25 @@
 日付単位のリリースではなく `docs/PROPOSAL.md` のマイルストーン（M1〜）を
 単位として記録する。
 
+## 会社設立サポートに合同会社の代表社員の互選書を追加（2026年9月）
+
+`docs/DESIGN_kaisha-secchi-support.md` 9章に残っていた「合同会社における
+『代表社員の互選書』等、株式会社の発起人決定書に相当する付随書類の対応」
+を実装した。
+
+- e-Gov法令検索で会社法599条3項を確認し、持分会社（合同会社を含む）は
+  「定款」又は「定款の定めに基づく社員の互選」によって代表社員を定める
+  ことができ、代表社員の指定が相対的記載事項（絶対的記載事項ではない）
+  であることを検証した
+- `documents/daihyoShainGosensho.js`（`resolveDaihyoShainGosenshoRows`・
+  `buildDaihyoShainGosenshoDocument`・`writeDaihyoShainGosenshoDocx`）を
+  新設した。株式会社の`hokininKetteisho.js`（発起人決定書。定款外で
+  発起人が決定する事項の書面化）と対になる位置づけで、既存の
+  `FounderInput.isDaihyoShain`を社員間の互選結果として書面化する
+- 株式会社を指定した場合はエラーになる設計とし（発起人決定書の合同会社
+  エラーと対称的な、呼び出しミス防止）、`hokininKetteisho.js`側の
+  「合同会社は対象外」という古いコメントも実態に合わせて修正した
+
 ## 相続支援モジュールに法定相続情報一覧図の記載内容サマリー生成を追加（2026年9月）
 
 `docs/DESIGN_souzoku-support.md` 9章に残っていた「今後の拡張ポイント」を
