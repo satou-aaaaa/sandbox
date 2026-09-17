@@ -83,10 +83,11 @@ M11（`docs/DESIGN_kobutsu-core.md`）で、許可種別に依存しない共通
 - `eligibility/kekkaku.js` — 古物営業法第4条の欠格事由（一号〜九号）の判定
 - `eligibility/eigyosho.js` — 営業所・管理者要件（第13条）の判定
 - `eligibility/engine.js` — 上記2要件をまとめて判定（集約部分はコアの`aggregate.js`を再利用）
+- `eligibility/consistencyChecks.js` — 入力内容の整合性チェック（2026年9月追加。建設業許可の`consistencyChecks.js`と同じ設計思想。生年月日の妥当性・管理者の複数営業所重複・未成年者例外フラグの矛盾を検出。合否判定には影響しない）
 - `documents/shinseisho.js`（許可申請書）・`seiyakusho.js`（誓約書）・`rirekisho.js`（略歴書） — 各様式のdocx自動生成
 - `reminders/changeSchedule.js` — 書換申請（変更日から14日以内）・許可証返納（廃業日から10日以内）の期限計算、変更届出（3日以内）の即時警告
 - `index.js` — `registerKobutsuLicense()`でコアの`scheduleTypes.js`へ登録するエントリポイント
-- 法人申請・Webフォーム対応・整合性チェックは対象外（`docs/REQUIREMENTS_kobutsu-core.md` 4.6節）
+- 法人申請・Webフォーム対応は対象外（`docs/REQUIREMENTS_kobutsu-core.md` 4.6節）
 
 ### 産業廃棄物収集運搬業許可アドオン（`src/licenses/sanpai/`。コアの3例目）
 
@@ -312,8 +313,8 @@ BtoB下請けポータル・会社設立サポートとも異なり、判定す�
   永続化までは実装済みだが、実際の自動送信機能は未実装
   （外部サービス連携の要否を含め要検討）
 - 古物商許可のWebフォーム対応（`src/web/`は建設業許可専用のまま）・
-  整合性チェック（建設業許可の`consistencyChecks.js`相当）・法人申請対応
-  （`docs/DESIGN_kobutsu-core.md` 9章「今後の拡張ポイント」参照）
+  法人申請対応（`docs/DESIGN_kobutsu-core.md` 9章「今後の拡張ポイント」
+  参照。整合性チェックは2026年9月に実装済み）
 - `src/core/reminders/clientCsv.js`は各種`<種別>Detail`をCSV列としては
   意図的に持たせていない（`docs/DESIGN_kobutsu-core.md` 5.5節参照）。CSV
   エクスポート/インポートでは`<種別>Detail`が失われるため、これらを使う

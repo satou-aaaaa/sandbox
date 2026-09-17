@@ -1,6 +1,7 @@
 import { aggregateEligibility, formatChecksSection } from "../../../core/eligibility/aggregate.js";
 import { checkKobutsuKekkaku } from "./kekkaku.js";
 import { checkKobutsuEigyosho } from "./eigyosho.js";
+import { checkKobutsuConsistency } from "./consistencyChecks.js";
 
 /**
  * 古物商許可の要件（欠格事由・営業所/管理者要件）をまとめて判定する。
@@ -8,16 +9,19 @@ import { checkKobutsuEigyosho } from "./eigyosho.js";
  * 判定結果はあくまで「申請前のセルフチェック・要件充足の一次スクリーニング」であり、
  * 最終的な適格性の判断と申請書類への責任は、登録行政書士本人が負う。
  *
- * 古物商許可の整合性チェック（建設業許可のconsistencyChecks.js相当）は
- * 本フェーズでは実装しない（docs/REQUIREMENTS_kobutsu-core.md 4.6節スコープ外）。
- *
  * @param {import('./types.js').KobutsuApplicantProfile} profile
  * @returns {import('../../../core/eligibility/types.js').EligibilityResult}
  */
 export function evaluateKobutsuEligibility(profile) {
   const checks = [checkKobutsuKekkaku(profile.kekkaku), checkKobutsuEigyosho(profile.eigyoshoList)];
   const { eligible, blockingIssues } = aggregateEligibility(checks);
-  return { eligible, checks, blockingIssues };
+
+  // 入力内容の整合性チェック。合否判定（eligible/checks/blockingIssues）には
+  // 一切影響しない、追加のみの「気づき」情報として付与する（建設業許可の
+  // consistencyChecks.jsと同じ設計思想）。
+  const consistencyWarnings = checkKobutsuConsistency(profile);
+
+  return { eligible, checks, blockingIssues, consistencyWarnings };
 }
 
 /**
@@ -33,6 +37,10 @@ export function formatKobutsuEligibilityReport(profile, result) {
   if (!result.eligible) {
     lines.push("## 未充足の要因まとめ");
     for (const issue of result.blockingIssues) lines.push(`- ${issue}`);
+  }
+  if (result.consistencyWarnings?.length) {
+    lines.push("## 入力内容の確認事項（要確認・合否には影響しません）");
+    for (const w of result.consistencyWarnings) lines.push(`- ${w.message}`);
   }
   return lines.join("\n");
 }

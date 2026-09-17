@@ -42,3 +42,19 @@ test("formatKobutsuEligibilityReport: 不合格の要件があれば総合判定
   assert.match(report, /総合判定: ×/);
   assert.match(report, /未充足の要因まとめ/);
 });
+
+test("evaluateKobutsuEligibility: 整合性チェックの注記はconsistencyWarningsに含まれ、合否には影響しない", () => {
+  const profile = buildSampleKobutsuProfile();
+  profile.birthDate = "2999-01-01"; // 整合性チェックの警告を1件誘発する（合否には無関係）
+  const result = evaluateKobutsuEligibility(profile);
+  assert.equal(result.eligible, true);
+  assert.ok(result.consistencyWarnings.some((w) => w.key === "birthDateInFuture"));
+});
+
+test("formatKobutsuEligibilityReport: 整合性チェックの注記があれば「入力内容の確認事項」として出力される", () => {
+  const profile = buildSampleKobutsuProfile();
+  profile.birthDate = "2999-01-01";
+  const result = evaluateKobutsuEligibility(profile);
+  const report = formatKobutsuEligibilityReport(profile, result);
+  assert.match(report, /入力内容の確認事項/);
+});
