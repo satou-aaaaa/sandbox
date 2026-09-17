@@ -102,3 +102,54 @@ test("checkKobutsuKekkaku: 複数の欠格事由に同時に該当する場合�
   assert.equal(result.passed, false);
   assert.equal(result.reasons.length, 2);
 });
+
+/** @returns {import('../src/licenses/kobutsu/eligibility/types.js').KobutsuOfficerInput} */
+function cleanOfficer(name) {
+  return {
+    name,
+    isUndischargedBankrupt: false,
+    hasCriminalRecordWithin5Years: false,
+    hasBoryokuFuhouKoiRisk: false,
+    hasBoryokudanRelatedOrderWithin3Years: false,
+    isAddressUnknown: false,
+    hadLicenseRevokedWithin5Years: false,
+    hasSurrenderedLicenseDuringRevocationHearingWithin5Years: false,
+    hasMentalImpairmentAffectingDuties: false,
+  };
+}
+
+test("checkKobutsuKekkaku: 法人申請で役員全員が欠格事由に該当しなければ合格する（第十一号）", () => {
+  const result = checkKobutsuKekkaku(cleanInput(), [cleanOfficer("役員A"), cleanOfficer("役員B")]);
+  assert.equal(result.passed, true);
+});
+
+test("checkKobutsuKekkaku: 法人申請で役員の1人が欠格事由（破産）に該当すれば不合格になる（第十一号）", () => {
+  const officers = [cleanOfficer("役員A"), { ...cleanOfficer("役員B"), isUndischargedBankrupt: true }];
+  const result = checkKobutsuKekkaku(cleanInput(), officers);
+  assert.equal(result.passed, false);
+  assert.ok(result.reasons.some((r) => r.includes("役員（役員B）") && r.includes("破産") && r.includes("第十一号")));
+});
+
+test("checkKobutsuKekkaku: 申請者本人は欠格事由に該当しなくても役員が該当すれば不合格になる（第十一号）", () => {
+  const officers = [{ ...cleanOfficer("役員C"), hasBoryokudanRelatedOrderWithin3Years: true }];
+  const result = checkKobutsuKekkaku(cleanInput(), officers);
+  assert.equal(result.passed, false);
+});
+
+test("checkKobutsuKekkaku: officers未指定（個人申請）の場合は従来どおり本人のみで判定する", () => {
+  const result = checkKobutsuKekkaku(cleanInput());
+  assert.equal(result.passed, true);
+  assert.equal(result.reasons.length, 1);
+});
+
+test("checkKobutsuKekkaku: 複数の役員がそれぞれ別の欠格事由に該当する場合、両方が理由に含まれる", () => {
+  const officers = [
+    { ...cleanOfficer("役員D"), isAddressUnknown: true },
+    { ...cleanOfficer("役員E"), hasMentalImpairmentAffectingDuties: true },
+  ];
+  const result = checkKobutsuKekkaku(cleanInput(), officers);
+  assert.equal(result.passed, false);
+  assert.equal(result.reasons.length, 2);
+  assert.ok(result.reasons.some((r) => r.includes("役員D")));
+  assert.ok(result.reasons.some((r) => r.includes("役員E")));
+});

@@ -13,7 +13,8 @@ import { checkKobutsuConsistency } from "./consistencyChecks.js";
  * @returns {import('../../../core/eligibility/types.js').EligibilityResult}
  */
 export function evaluateKobutsuEligibility(profile) {
-  const checks = [checkKobutsuKekkaku(profile.kekkaku), checkKobutsuEigyosho(profile.eigyoshoList)];
+  const officers = profile.applicantType === "法人" ? profile.officers : undefined;
+  const checks = [checkKobutsuKekkaku(profile.kekkaku, officers), checkKobutsuEigyosho(profile.eigyoshoList)];
   const { eligible, blockingIssues } = aggregateEligibility(checks);
 
   // 入力内容の整合性チェック。合否判定（eligible/checks/blockingIssues）には

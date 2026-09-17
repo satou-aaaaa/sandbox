@@ -1,7 +1,12 @@
 /**
  * 古物商許可の要件判定に使うデータ型定義（JSDoc）。
- * 法人申請は本フェーズ対象外のため、法人固有フィールド（役員一覧等）は
- * 持たない（docs/REQUIREMENTS_kobutsu-core.md 4.6節スコープ外）。
+ *
+ * 【2026年9月・法人申請の欠格事由チェックのみ対応】当初は法人申請全体を
+ * 対象外としていたが（`docs/REQUIREMENTS_kobutsu-core.md` 4.6節）、
+ * 古物営業法第4条11号（法人役員の欠格）はチェックの意義が大きいため、
+ * `applicantType`・`officers`を追加し欠格事由の判定のみ対応した。
+ * 法人の許可申請書・略歴書（役員ごとに1通必要）等の書類生成フル対応は
+ * 引き続き対象外（`docs/DESIGN_kobutsu-core.md` 9章参照）。
  */
 
 /**
@@ -24,6 +29,24 @@
  */
 
 /**
+ * @typedef {Object} KobutsuOfficerInput 法人の役員1名分の欠格事由チェック入力
+ *   （古物営業法第4条11号: 法人でその役員のうちに第一号から第八号までの
+ *   いずれかに該当する者があるもの、は許可基準に抵触する）。
+ *   第九号（未成年者）・第十号（管理者選任見込み）は個人・営業所単位の
+ *   概念であり役員チェックの対象外のため、`KobutsuKekkakuInput`の
+ *   フィールドのうち一号〜八号に対応する8項目のみを持つ
+ * @property {string} name 役員の氏名
+ * @property {boolean} isUndischargedBankrupt 破産手続開始の決定を受けて復権を得ないか（第一号）
+ * @property {boolean} hasCriminalRecordWithin5Years 拘禁刑以上の刑等から5年を経過しないか（第二号）
+ * @property {boolean} hasBoryokuFuhouKoiRisk 集団的・常習的な暴力的不法行為等を行うおそれがあるか（第三号）
+ * @property {boolean} hasBoryokudanRelatedOrderWithin3Years 暴力団関連の命令・指示を受け3年を経過しないか（第四号）
+ * @property {boolean} isAddressUnknown 住居の定まらない者か（第五号）
+ * @property {boolean} hadLicenseRevokedWithin5Years 古物商・古物市場主の許可取消しから5年を経過しないか（第六号）
+ * @property {boolean} hasSurrenderedLicenseDuringRevocationHearingWithin5Years 許可取消しの聴聞公示後に許可証を返納してから5年を経過しないか（第七号）
+ * @property {boolean} hasMentalImpairmentAffectingDuties 心身の故障により業務を適正に行うことができないと認められるか（第八号）
+ */
+
+/**
  * @typedef {Object} KobutsuEigyoshoInput 営業所・管理者要件の判定に使う入力（営業所単位）
  * @property {string} officeName 対象営業所名
  * @property {boolean} hasLegitimateUsageRight 営業所の実在性・使用権限（賃貸借契約書等）を確認済みか
@@ -32,14 +55,18 @@
  */
 
 /**
- * @typedef {Object} KobutsuApplicantProfile 申請者（個人）の総合入力データ
- * @property {string} applicantName 申請者氏名
+ * @typedef {Object} KobutsuApplicantProfile 申請者の総合入力データ
+ * @property {"個人" | "法人"} [applicantType] 申請者区分（未指定の場合は
+ *   「個人」として扱う。後方互換のため必須にしない）
+ * @property {string} applicantName 申請者氏名（法人の場合は法人名を入れる。書類生成側の呼称は今後の課題）
  * @property {string} [applicantNameKana] 申請者氏名のフリガナ
- * @property {string} [birthDate] 生年月日（YYYY-MM-DD、任意）
+ * @property {string} [birthDate] 生年月日（YYYY-MM-DD、任意。法人の場合は使わない）
  * @property {string} [address] 住所
  * @property {string} [phoneNumber] 電話番号
  * @property {string} [businessName] 屋号（任意）
  * @property {KobutsuKekkakuInput} kekkaku
+ * @property {KobutsuOfficerInput[]} [officers] 法人の役員一覧（`applicantType`
+ *   が「法人」の場合のみ使用。古物営業法第4条11号の判定に使う）
  * @property {KobutsuEigyoshoInput[]} eigyoshoList 営業所ごとの情報（1件以上）
  * @property {string[]} [handledItemCategories] 取り扱う古物の区分（例: ["古物一般"]。届出書上は13区分から選択）
  * @property {boolean} [usesInternet] インターネットを利用して取引を行うか

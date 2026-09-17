@@ -18,6 +18,46 @@ test("evaluateKobutsuEligibility: 欠格事由に該当すればeligible=false�
   assert.ok(result.blockingIssues.some((i) => i.includes("破産")));
 });
 
+test("evaluateKobutsuEligibility: 法人申請で役員が欠格事由に該当すればeligible=falseになる（古物営業法第4条11号）", () => {
+  const profile = buildSampleKobutsuProfile();
+  profile.applicantType = "法人";
+  profile.officers = [
+    {
+      name: "役員テスト",
+      isUndischargedBankrupt: true,
+      hasCriminalRecordWithin5Years: false,
+      hasBoryokuFuhouKoiRisk: false,
+      hasBoryokudanRelatedOrderWithin3Years: false,
+      isAddressUnknown: false,
+      hadLicenseRevokedWithin5Years: false,
+      hasSurrenderedLicenseDuringRevocationHearingWithin5Years: false,
+      hasMentalImpairmentAffectingDuties: false,
+    },
+  ];
+  const result = evaluateKobutsuEligibility(profile);
+  assert.equal(result.eligible, false);
+  assert.ok(result.blockingIssues.some((i) => i.includes("役員テスト")));
+});
+
+test("evaluateKobutsuEligibility: applicantTypeが個人（または未指定）ならofficersが設定されていても無視される", () => {
+  const profile = buildSampleKobutsuProfile();
+  profile.officers = [
+    {
+      name: "無視されるはずの役員",
+      isUndischargedBankrupt: true,
+      hasCriminalRecordWithin5Years: false,
+      hasBoryokuFuhouKoiRisk: false,
+      hasBoryokudanRelatedOrderWithin3Years: false,
+      isAddressUnknown: false,
+      hadLicenseRevokedWithin5Years: false,
+      hasSurrenderedLicenseDuringRevocationHearingWithin5Years: false,
+      hasMentalImpairmentAffectingDuties: false,
+    },
+  ];
+  const result = evaluateKobutsuEligibility(profile);
+  assert.equal(result.eligible, true);
+});
+
 test("evaluateKobutsuEligibility: 営業所要件を満たさなければeligible=falseになる", () => {
   const profile = buildSampleKobutsuProfile();
   profile.eigyoshoList[0].managerName = "";

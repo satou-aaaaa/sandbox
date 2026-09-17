@@ -80,7 +80,7 @@ M11（`docs/DESIGN_kobutsu-core.md`）で、許可種別に依存しない共通
 ### 古物商許可アドオン（`src/licenses/kobutsu/`。M11新規・第2のパイロット）
 
 - `eligibility/types.js` — `KobutsuApplicantProfile`等、古物商許可固有のJSDoc型定義
-- `eligibility/kekkaku.js` — 古物営業法第4条の欠格事由（一号〜九号）の判定
+- `eligibility/kekkaku.js` — 古物営業法第4条の欠格事由（一号〜九号。法人申請の場合は役員の一号〜八号該当性も判定する十一号を含む。2026年9月追加）の判定
 - `eligibility/eigyosho.js` — 営業所・管理者要件（第13条）の判定
 - `eligibility/engine.js` — 上記2要件をまとめて判定（集約部分はコアの`aggregate.js`を再利用）
 - `eligibility/consistencyChecks.js` — 入力内容の整合性チェック（2026年9月追加。建設業許可の`consistencyChecks.js`と同じ設計思想。生年月日の妥当性・管理者の複数営業所重複・未成年者例外フラグの矛盾を検出。合否判定には影響しない）
@@ -318,9 +318,13 @@ BtoB下請けポータル・会社設立サポートとも異なり、判定す�
   「今どのリマインドが必要か」の計算・整形、`clientStore.js` によるローカル
   永続化までは実装済みだが、実際の自動送信機能は未実装
   （外部サービス連携の要否を含め要検討）
-- 古物商許可のWebフォーム対応（`src/web/`は建設業許可専用のまま）・
-  法人申請対応（`docs/DESIGN_kobutsu-core.md` 9章「今後の拡張ポイント」
-  参照。整合性チェックは2026年9月に実装済み）
+- 古物商許可のWebフォーム対応（`src/web/`は建設業許可専用のまま）
+  （`docs/DESIGN_kobutsu-core.md` 9章「今後の拡張ポイント」参照。
+  整合性チェックは2026年9月に実装済み）。法人申請対応は欠格事由の
+  判定（古物営業法第4条11号。役員一覧の`officers`・第4条1号〜8号の
+  役員ごとのチェック）のみ2026年9月に対応済みだが、法人向けの許可
+  申請書・略歴書（役員ごとに1通必要）等の書類生成フル対応は引き続き
+  対象外
 - `src/core/reminders/clientCsv.js`は各種`<種別>Detail`をCSV列としては
   意図的に持たせていない（`docs/DESIGN_kobutsu-core.md` 5.5節参照）。CSV
   エクスポート/インポートでは`<種別>Detail`が失われるため、これらを使う

@@ -907,7 +907,13 @@ CLIスクリプト（`scripts/generate-kobutsu-*.js` 等、新規追加分）・
   **2026年9月実装済み**。`eligibility/consistencyChecks.js`
   （生年月日の妥当性・管理者の複数営業所重複・未成年者例外フラグの矛盾）
 - 古物商許可のWebフォーム対応（`src/web/` の拡張）
-- 法人申請への対応拡大
+- 法人申請への対応拡大: **2026年9月・欠格事由の判定のみ実装済み**。
+  古物営業法第4条11号（法人でその役員のうちに第一号から第八号までの
+  いずれかに該当する者があるもの）を確認し、`KobutsuApplicantProfile`に
+  `applicantType`・`officers`（役員一覧。第4条1号〜8号のみを持つ
+  `KobutsuOfficerInput[]`）を追加、`checkKobutsuKekkaku`が役員ごとの
+  該当性もあわせて判定するようにした。法人向けの許可申請書・略歴書
+  （役員ごとに1通必要）等、書類生成のフル対応は引き続き対象外
 - 変更届（3日以内）の入力時警告（5.13節 `buildHenkoTodokedeWarning`）を、
   将来的に `src/web/` に組み込む際のUI設計（現状はCLI/スクリプト前提の
   ため、警告メッセージを返す関数を用意するのみに留めている）
