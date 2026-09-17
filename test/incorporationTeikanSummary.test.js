@@ -56,6 +56,23 @@ test("resolveTeikanSummaryRows: 合同会社は定款認証が不要である旨
   assert.equal(map["定款認証"], "不要（持分会社のため、公証人の認証手続きはありません）");
 });
 
+test("resolveTeikanSummaryRows: 合同会社でisDaihyoShainがtrueの社員がいれば「代表社員」行にその氏名が表示される（会社法599条3項）", () => {
+  const teikan = buildSampleGodoKaishaCase().teikan;
+  const rows = resolveTeikanSummaryRows(teikan);
+  const map = Object.fromEntries(rows);
+  const daihyoShain = teikan.founders.find((f) => f.isDaihyoShain);
+  assert.ok(daihyoShain, "サンプルデータにisDaihyoShain:trueの社員が含まれている前提");
+  assert.equal(map["代表社員"], daihyoShain.name);
+});
+
+test("resolveTeikanSummaryRows: 合同会社でisDaihyoShainの社員が誰もいなければ、業務執行社員全員が代表する旨を案内する（会社法599条1項・2項）", () => {
+  const teikan = buildSampleGodoKaishaCase().teikan;
+  teikan.founders = teikan.founders.map((f) => ({ ...f, isDaihyoShain: false }));
+  const rows = resolveTeikanSummaryRows(teikan);
+  const map = Object.fromEntries(rows);
+  assert.match(map["代表社員"], /業務執行社員全員/);
+});
+
 test("resolveTeikanSummaryRows: 公告方法未記載の場合は官報とみなす旨を案内する", () => {
   const teikan = buildSampleKabushikiKaishaCase().teikan;
   teikan.publicNoticeMethod = undefined;

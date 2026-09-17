@@ -68,6 +68,18 @@ export function resolveTeikanSummaryRows(teikan) {
     rows.push(["社員の責任", "社員の全部を有限責任社員とする（会社法第576条第1項第5号・第4項）"]);
     // 合同会社は定款認証が不要である旨を明記する（要件定義書1.3節・4.4節）。
     rows.push(["定款認証", "不要（持分会社のため、公証人の認証手続きはありません）"]);
+    // 代表社員は会社法599条3項の相対的記載事項（定めなければ業務執行社員
+    // 全員が各自代表する。599条1項・2項）。定款に直接定める場合は
+    // founders側でisDaihyoShainを立てるが、この行が出力されず定款サマリーに
+    // 反映されない不具合があったため追加した（e-Gov法令検索で確認済み・
+    // 2026年9月）。
+    const daihyoShainNames = (teikan.founders ?? []).filter((f) => f.isDaihyoShain).map((f) => f.name);
+    rows.push([
+      "代表社員",
+      daihyoShainNames.length > 0
+        ? daihyoShainNames.join("、")
+        : "定款に定めなし（業務執行社員全員が各自会社を代表します。会社法599条1項・2項）",
+    ]);
   }
   return rows;
 }
