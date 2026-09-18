@@ -81,6 +81,9 @@ src/
                                   農地転用許可対応。古物商許可は個人申請のみ・
                                   ローカルホスト限定）
 test/          node --test のユニットテスト（1ファイル1モジュール対応が基本）
+features/      Cucumber.js（BDD/Gherkin）の受け入れ基準（`.feature`・
+               `step_definitions/`。2026年9月・ADR-0016で例外的に導入。
+               対象は法令根拠が特に重要な判定ロジックに限定する）
 scripts/       動作確認用サンプル・CLIスクリプト（gen:*, client:*, reminders。
                portal/incorporation/succession等の独立ドメインは
                `<ドメイン>:case-add` / `<ドメイン>:reminders` 系で統一）
@@ -122,7 +125,7 @@ docs/          設計方針・アーキテクチャドキュメント（下記�
   年次反復型・条件履行期限型の7パターンまでは契約を変えずに実装側だけで
   対応できている（ADR-0014・ADR-0015）。
 
-## テスト（詳細は ADR-0011〜0013, `docs/DESIGN.md` 7章）
+## テスト（詳細は ADR-0011〜0013・0016, `docs/DESIGN.md` 7章）
 
 ```bash
 npm test                    # node --test（ユニット・アクセシビリティ・カオス・契約）。コミット前に必ず通すこと
@@ -130,13 +133,17 @@ npm run test:coverage       # 行・分岐カバレッジ付き（テキスト�
 npm run test:coverage:html  # カバレッジHTMLレポート生成（coverage/index.html。すぐ見たい時はこちら）
 npm run test:mutation       # Stryker（数分〜数十分。CIには含まれない。大きな変更の節目で手動実行）
 npm run test:e2e            # Playwright（実ブラウザ。初回は npx playwright install chromium が必要）
+npm run test:bdd            # Cucumber.js（Gherkin/BDD。features/。ADR-0016参照。npm testには含まれない）
 npm run test:load           # autocannon（同時アクセス下でのエラー・タイムアウト有無を確認）
 npm run typecheck           # tsc --noEmit（JSDoc型チェック）
 npm run lint                # ESLint（eslint-plugin-securityによる静的セキュリティ解析を含む）
 ```
 
 - テストは `test/` に1モジュール1ファイル対応で配置し、`node --test` で実行する
-  （Jest/Vitest等の外部フレームワークは導入しない）。
+  （Jest/Vitest等の外部フレームワークは導入しない）。**例外**: Gherkin/BDDに
+  限定してCucumber.jsを導入している（`features/`。発注者の明示的な依頼に
+  よるもの。ADR-0016参照）。新しい判定ロジックにGherkinシナリオを追加する
+  義務はなく、法令根拠が特に重要なモジュールに絞って任意で追加する。
 - Property-based testing（`fast-check`）は「入力の組み合わせが実質無限で、
   性質を明確に言語化できる」純粋関数（日付計算・CSV往復変換・HTMLエスケープ等）
   に限定して既存テストファイル末尾に追記する。専用ファイルに分離しない。乱用しない。

@@ -900,7 +900,10 @@ Webの `GET /clients.csv`（読み取り専用のダウンロードのみ。登�
 ## 7. テスト方針
 
 - テストランナーは `node --test`（Node.js標準機能）。外部テストフレームワークを
-  導入しない（NFR-1のビルドレス方針と整合させるため）。
+  導入しない（NFR-1のビルドレス方針と整合させるため）。**例外**:
+  Gherkin/BDD用のCucumber.jsのみ、発注者の明示的な依頼により2026年9月に
+  例外的に導入した（7.10節・ADR-0016）。トランスパイル・バンドルを伴わない
+  ランナーであるためビルドレス方針自体には抵触しない。
 - 「テストピラミッド」（Martin Fowler）の考え方に沿い、大半を高速な単体テスト
   （判定ロジック・日付計算・docx生成の純粋関数部分）とし、`test/web.test.js`
   のような結合テスト（実際にHTTPサーバーを起動しリクエストを送る）は
@@ -1099,6 +1102,24 @@ lost update。片方の登録が完全に失われる）を発見し、
 明文化し[ajv](https://ajv.js.org/)で検証する`test/contract.test.js`を
 追加した。許可種別固有の追加フィールドはコアが許可種別を知らないという
 設計原則に従い`additionalProperties: true`で許容する。詳細はADR-0013参照。
+
+### 7.10 Gherkin/BDD（Cucumber.js。2026年9月・例外的導入）
+
+発注者（行政書士）自身が、プログラムを読まなくても判定ロジックの
+振る舞いを自然文で確認できるよう、`@cucumber/cucumber`を導入した。
+本章の他の項目と異なり、これは「外部テストフレームワークを導入しない」
+という既存方針（1章・`docs/DEVELOPMENT_GUIDE.md`）に対する明示的な
+例外であり、発注者からのGherkin/BDD導入依頼を受けて採用した
+（ADR-0016）。
+
+対象は`features/`ディレクトリに配置し、`npm run test:bdd`
+（既存の`npm test`には含めない）で実行する。最初の実例として
+`features/construction-kekkaku.feature`（建設業法第8条の欠格要件。
+`src/licenses/construction/eligibility/rules/kekkaku.js`）を実装した。
+ステップ定義（`features/step_definitions/`）は判定ロジックを再実装せず、
+既存のeligibility関数をそのまま呼び出す。全モジュールへの機械的な
+展開はせず、法令根拠が特に重要なモジュールに絞って必要に応じて追加する
+方針とする。
 
 ## 8. 非機能設計
 

@@ -16,6 +16,7 @@
     "test:mutation": "stryker run",
     "test:a11y": "node --test test/accessibility.test.js",
     "test:e2e": "playwright test",
+    "test:bdd": "cucumber-js",
     "test:load": "node load/web-server.load.js",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
@@ -90,6 +91,7 @@
     "docx": "^9.0.2"
   },
   "devDependencies": {
+    "@cucumber/cucumber": "^13.2.1",
     "@eslint/js": "^10.0.1",
     "@playwright/test": "^1.63.0",
     "@stryker-mutator/core": "^9.6.1",

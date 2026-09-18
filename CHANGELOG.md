@@ -6,6 +6,28 @@
 日付単位のリリースではなく `docs/PROPOSAL.md` のマイルストーン（M1〜）を
 単位として記録する。
 
+## Gherkin/BDD（Cucumber.js）を例外的に導入（2026年9月）
+
+発注者からの明示的な依頼により、Gherkin記法によるBDDを導入した。
+CLAUDE.mdの既存方針「Jest/Vitest等の外部テストフレームワークは
+導入しない」に抵触するため、導入前に発注者へ確認した上で、
+Gherkin/BDDに限定した例外として採用した（詳細はADR-0016）。
+
+- `@cucumber/cucumber`をdevDependencyとして追加し、`features/`
+  （`.feature`ファイル）・`features/step_definitions/`
+  （ESMのステップ定義）を新設した
+- 日本語の鉤括弧（「...」）で文字列を囲む書き方に対応するため、
+  Cucumber標準の`{string}`（ASCII引用符のみ対応）とは別に独自の
+  `{quoted}`パラメータ型を定義した（`features/support/parameter_types.js`）
+- 最初の実例として、建設業法第8条の欠格要件
+  （`src/licenses/construction/eligibility/rules/kekkaku.js`）を
+  `features/construction-kekkaku.feature`に実装した（12シナリオ・
+  60ステップ）。ステップ定義は既存の`checkKekkaku`をそのまま呼び出し、
+  判定ロジックを二重実装しない
+- `npm run test:bdd`として独立させ、既存の`npm test`（`node --test`。
+  コミット前必須）には含めない
+- `docs/DESIGN.md` 7.10節・`CLAUDE.md`・`README.md`にBDD層を追記した
+
 ## コードの重複解消・ドキュメント整理（2026年9月）
 
 利用者からの依頼を受けて、リポジトリ全体のドキュメント・コードの

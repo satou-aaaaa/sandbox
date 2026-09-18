@@ -180,6 +180,7 @@ npm run test:coverage       # 行・分岐カバレッジ付きでユニット�
 npm run test:coverage:html  # カバレッジをブラウザで見れるHTMLレポートとして生成（coverage/index.html）
 npm run test:mutation       # ミューテーションテスト（Stryker。数分〜数十分かかるため随時実行）
 npm run test:e2e            # E2Eテスト（Playwright。実際にブラウザで操作して確認）
+npm run test:bdd            # Gherkin/BDDシナリオを実行（Cucumber.js。features/。ADR-0016参照）
 npm run test:load           # 負荷テスト（autocannon。同時アクセス下での安定性を確認）
 npm run gen:eligibility     # 要件判定のサンプル実行
 npm run gen:youshiki1       # 様式第一号サマリーのdocx生成サンプル

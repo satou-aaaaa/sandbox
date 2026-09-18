@@ -41,3 +41,4 @@ Architecture Decision Record（ADR）を管理する。
 | [0013](0013-load-chaos-contract-testing.md) | 負荷テスト・カオスエンジニアリング・契約テストの導入 | Accepted |
 | [0014](0014-schedulefn-pattern-generalization.md) | リマインド計算のレジストリ契約（ScheduleFn）を変更せず4パターンに対応させる | Accepted |
 | [0015](0015-schedulefn-pattern-extension-annual-and-condition-deadline.md) | ScheduleFn契約の汎用性の実証を年次反復型・条件履行期限型の2パターンへ拡張 | Accepted |
+| [0016](0016-cucumber-bdd-for-gherkin-acceptance-tests.md) | Gherkin/BDDの受け入れ基準用にCucumber.jsを例外的に導入する | Accepted |
