@@ -19,9 +19,7 @@
  * と同じパターンで、`SuccessionCaseRecord`から直接、コアの`ReminderAlert`と
  * 同じ形のオブジェクトを組み立てる（1.2節の設計原則）。
  */
-import { daysUntil } from "../../core/reminders/dateUtils.js";
-
-const DAY_MS = 24 * 60 * 60 * 1000;
+import { daysUntil, addDaysIso } from "../../core/reminders/dateUtils.js";
 
 /** @param {string} iso @param {number} months 暦月単位の加算（月末クランプ） */
 function addMonthsClamped(iso, months) {
@@ -37,12 +35,6 @@ function addMonthsClamped(iso, months) {
 /** @param {string} iso @param {number} years */
 function addYearsClamped(iso, years) {
   return addMonthsClamped(iso, years * 12);
-}
-
-/** @param {string} iso @param {number} days */
-function addDaysIso(iso, days) {
-  const [y, m, d] = iso.split("-").map(Number);
-  return new Date(Date.UTC(y, m - 1, d) + days * DAY_MS).toISOString().slice(0, 10);
 }
 
 /**

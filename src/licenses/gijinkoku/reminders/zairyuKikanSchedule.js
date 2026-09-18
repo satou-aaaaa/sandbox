@@ -14,8 +14,7 @@
  * （出入国在留管理庁公式サイト「特例期間とは？」参照。
  * https://www.moj.go.jp/isa/applications/procedures/tokureikikan_00001.html）。
  */
-
-const DAY_MS = 24 * 60 * 60 * 1000;
+import { addDaysIso } from "../../../core/reminders/dateUtils.js";
 
 /**
  * @typedef {Object} GijinkokuLicenseDetail 技人国ビザのクライアント側追加情報
@@ -40,10 +39,4 @@ export function calcZairyuKikanSchedule(license) {
       dueDateIso: addDaysIso(expiryDateIso, -30),
     },
   ];
-}
-
-/** @param {string} iso @param {number} days */
-function addDaysIso(iso, days) {
-  const [y, m, d] = iso.split("-").map(Number);
-  return new Date(Date.UTC(y, m - 1, d) + days * DAY_MS).toISOString().slice(0, 10);
 }

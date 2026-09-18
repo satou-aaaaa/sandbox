@@ -61,7 +61,7 @@ M11（`docs/DESIGN_kobutsu-core.md`）で、許可種別に依存しない共通
 - `src/core/eligibility/aggregate.js` — 個別の判定結果配列から総合判定・レポートの共通部分を集約する許可種別非依存のロジック
 - `src/core/documents/common.js` — 様式生成モジュール共通のdocxヘルパー（見出し・赤字注記・表・箇条書き・ファイル書き出し）
 - `src/core/reminders/scheduleTypes.js` — 許可種別ごとのリマインド・スケジュール計算関数を登録・取得するレジストリ（`prefectureRules.js`と同じパターン）
-- `src/core/reminders/dateUtils.js` — 許可種別に依存しない日数計算（`daysUntil`）
+- `src/core/reminders/dateUtils.js` — 許可種別に依存しない日付計算（`daysUntil`・`addDaysIso`・`addYearsIso`。2026年9月、複数モジュールに独立に再実装されていた重複をここへ集約した）
 - `src/core/reminders/digest.js` — 複数クライアント（1クライアントが複数許可を保有可能、`ClientRecord`/`LicenseEntry`、ADR-0008）のリマインドを`scheduleTypes.js`経由で集計・整形、残日数バケット分類、メール下書きURL生成（M4・M7。実送信は行わない）
 - `src/core/reminders/clientStore.js` — クライアント情報を `data/clients.json` へ読み書きするローカル永続化層（DB不使用。旧形式データ・`licenseCategory`未設定データの自動移行に対応）
 - `src/core/reminders/clientCsv.js` — クライアント一覧とCSVの相互変換（1行＝1許可。バックアップ・一括登録用。外部パッケージ不使用）

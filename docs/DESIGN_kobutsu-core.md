@@ -793,6 +793,10 @@ function addDaysIso(iso, days) {
 計算する関数）に置き換え、即時警告ではなく他の記載事項変更と同じ
 `ScheduleItem`ベースのリマインドとして5.14節の`registerKobutsuLicense`に
 組み込んだ（詳細は`docs/REQUIREMENTS_kobutsu-core.md`改訂履歴v0.3節）。
+あわせて、上記コード例内の`addDaysIso`（gijinkoku・tokutei-ginou・
+succession等にも同じ内容が独立に再実装されていた）を
+`src/core/reminders/dateUtils.js`へ集約し、本モジュールもそちらから
+importする形に変更した。
 
 ### 5.14 `src/licenses/kobutsu/index.js`（新規）
 

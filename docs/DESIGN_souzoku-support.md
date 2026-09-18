@@ -696,7 +696,17 @@ function addDaysIso(iso, days) {
   const [y, m, d] = iso.split("-").map(Number);
   return new Date(Date.UTC(y, m - 1, d) + days * DAY_MS).toISOString().slice(0, 10);
 }
+```
 
+⚠ **2026年9月・重複解消**: 上記の`addDaysIso`はgijinkoku・kobutsu・
+tokutei-ginou等、複数モジュールに同じ内容が独立に再実装されていたため、
+`src/core/reminders/dateUtils.js`へ集約し、本モジュールもそちらから
+importする形に変更した（既にimport済みだった`daysUntil`と同じ場所）。
+一方`addMonthsClamped`・`addYearsClamped`は、9章で述べているとおり
+Date型かISO文字列型かのインターフェース統一が必要なため、引き続き
+本モジュール内に残している。
+
+```js
 /**
  * 相続放棄の熟慮期間の期限（民法915条1項: 自己のために相続の開始が
  * あったことを知った時から3ヶ月）。

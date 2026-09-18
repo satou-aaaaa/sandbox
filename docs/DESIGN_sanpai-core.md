@@ -192,6 +192,13 @@ export function calcSanpaiSchedule(license) {
 }
 ```
 
+⚠ **2026年9月・重複解消**: `addYearsIso`は`koushu.js`（欠格事由判定側）と
+`renewalAndKoushuSchedule.js`（リマインド計算側）の両方に同じ内容が
+独立に再実装されていた。年数加算のみの単純な計算であり、シグネチャの
+差異は無かったため、`src/core/reminders/dateUtils.js`（`daysUntil`・
+`addDaysIso`と同じ場所）へ集約し、両ファイルともそちらからimportする形に
+変更した。
+
 `LicenseEntry`に`sanpaiDetail: { validityYears?: 5 | 7, koushuCompletionDateIso?: string }`を
 追加する（`docs/DESIGN_kobutsu-core.md` 4.4節の`kobutsuDetail`と同じ
 パターンで、許可種別ごとの詳細情報を持つフィールドを追加する設計を踏襲）。

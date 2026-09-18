@@ -206,6 +206,11 @@ function addDaysIso(iso, days) {
 }
 ```
 
+⚠ **2026年9月・重複解消**: 上記の`addDaysIso`はkobutsu・tokutei-ginou・
+succession等、複数モジュールに同じ内容が独立に再実装されていたため、
+`src/core/reminders/dateUtils.js`へ集約し、本モジュールもそちらから
+importする形に変更した（`daysUntil`と同じ経緯）。
+
 **設計上のポイント**: 建設業許可・産廃許可は「許可年月日」から満了日を
 `calcRenewalSchedule`で「計算」していたのに対し、本モジュールは
 「満了日そのもの」を入力として受け取る（在留期間が可変で、許可日から

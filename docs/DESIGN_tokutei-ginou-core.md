@@ -463,6 +463,11 @@ function addDaysIso(iso, days) {
 }
 ```
 
+⚠ **2026年9月・重複解消**: 上記の`addDaysIso`はgijinkoku・kobutsu・
+succession等、複数モジュールに同じ内容が独立に再実装されていたため、
+`src/core/reminders/dateUtils.js`へ集約し、本モジュールもそちらから
+importする形に変更した。
+
 **設計上のポイント**: `ScheduleFn`が1回の呼び出しで「満了リマインド」
 「通算上限の接近警告」という異なる性質のリマインドを1つの配列に
 混在させてよいかは、gijinkoku-coreの実装時点では検証されていなかった。

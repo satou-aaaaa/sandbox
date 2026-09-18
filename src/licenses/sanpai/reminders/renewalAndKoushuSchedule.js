@@ -11,6 +11,7 @@
  * `validityYears` は利用者が別途確認して入力する前提の参考値とする。
  */
 import { calcExpirySchedule } from "../../../core/reminders/expirySchedule.js";
+import { addYearsIso } from "../../../core/reminders/dateUtils.js";
 
 const DEFAULT_VALIDITY_YEARS = 5;
 
@@ -21,12 +22,6 @@ const DEFAULT_VALIDITY_YEARS = 5;
  * @property {5 | 7} [validityYears] 有効期間（年）。未設定時は5年（優良認定なし）として扱う
  * @property {string} [koushuCompletionDateIso] 直近の講習修了証発行日（YYYY-MM-DD）
  */
-
-/** @param {string} iso @param {number} years */
-function addYearsIso(iso, years) {
-  const [y, m, d] = iso.split("-").map(Number);
-  return `${y + years}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
-}
 
 /**
  * @param {import('../../../core/reminders/digest.js').LicenseEntry & { sanpaiDetail?: SanpaiLicenseDetail }} license

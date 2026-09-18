@@ -22,6 +22,7 @@
  *   併せて書換えを受ける（法第7条第5項）。本モジュールの
  *   `calcShokanShinseiDeadline`（14日後）はこちらに対応する
  */
+import { addDaysIso } from "../../../core/reminders/dateUtils.js";
 
 /**
  * @typedef {Object} KobutsuLicenseDetail 古物商許可のクライアント側追加情報
@@ -33,8 +34,6 @@
  * @property {string} [plannedEigyoshoChangeDateIso] 営業所又は古物市場の名称・所在地変更の予定日（事前届出の期限計算の入力）
  * @property {string} [closureDateIso] 廃業日（返納期限の計算の入力。廃業していない場合は未設定）
  */
-
-const DAY_MS = 24 * 60 * 60 * 1000;
 
 /**
  * 記載事項変更日から、書換申請（届出）の期限（14日後）を計算する。
@@ -69,11 +68,4 @@ export function calcEigyoshoHenkoJizenTodokedeDeadline(plannedChangeDateIso) {
  */
 export function calcHenoukiDeadline(closureDateIso) {
   return addDaysIso(closureDateIso, 10);
-}
-
-/** @param {string} iso @param {number} days */
-function addDaysIso(iso, days) {
-  const [y, m, d] = iso.split("-").map(Number);
-  const date = new Date(Date.UTC(y, m - 1, d) + days * DAY_MS);
-  return date.toISOString().slice(0, 10);
 }

@@ -27,6 +27,7 @@
  * （帰国、または他の在留資格への変更検討）が必要になる旨を明記する。
  */
 import { getField } from "../eligibility/fieldRegistry.js";
+import { addDaysIso } from "../../../core/reminders/dateUtils.js";
 
 /**
  * @typedef {Object} TokuteiGinouLicenseDetail LicenseEntry.tokuteiGinouDetail の中身
@@ -108,11 +109,4 @@ export function calcGonenJougenDate(startDateIso) {
 export function checkExceedsGonenJougen(cumulativeStayStartDateIso, candidateNextExpiryDateIso) {
   const capDateIso = calcGonenJougenDate(cumulativeStayStartDateIso);
   return { exceedsCap: candidateNextExpiryDateIso > capDateIso, capDateIso };
-}
-
-/** @param {string} iso @param {number} days */
-function addDaysIso(iso, days) {
-  const [y, m, d] = iso.split("-").map(Number);
-  const DAY_MS = 24 * 60 * 60 * 1000;
-  return new Date(Date.UTC(y, m - 1, d) + days * DAY_MS).toISOString().slice(0, 10);
 }

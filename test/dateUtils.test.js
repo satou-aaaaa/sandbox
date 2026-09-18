@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import fc from "fast-check";
-import { daysUntil } from "../src/core/reminders/dateUtils.js";
+import { daysUntil, addDaysIso } from "../src/core/reminders/dateUtils.js";
 
 test("daysUntil: 基準日からの残り日数を返す", () => {
   assert.equal(daysUntil("2026-10-01", "2026-09-01"), 30);
@@ -50,6 +50,30 @@ test("daysUntil: fromDateIso省略時は本日0時(UTC)を基準日として扱�
   }
 });
 
+test("addDaysIso: 指定日数を暦日で単純加算する", () => {
+  assert.equal(addDaysIso("2026-09-01", 14), "2026-09-15");
+});
+
+test("addDaysIso: 月をまたぐ場合も正しく計算する（境界値）", () => {
+  assert.equal(addDaysIso("2026-09-20", 14), "2026-10-04");
+});
+
+test("addDaysIso: 年をまたぐ場合も正しく計算する（境界値）", () => {
+  assert.equal(addDaysIso("2026-12-25", 14), "2027-01-08");
+});
+
+test("addDaysIso: 負の日数を渡すと過去の日付を計算する", () => {
+  assert.equal(addDaysIso("2026-09-10", -3), "2026-09-07");
+});
+
+test("addDaysIso: 負の日数で月をまたぐ場合も正しく計算する（境界値）", () => {
+  assert.equal(addDaysIso("2026-09-01", -3), "2026-08-29");
+});
+
+test("addDaysIso: 0日を渡すと同じ日付を返す", () => {
+  assert.equal(addDaysIso("2026-09-15", 0), "2026-09-15");
+});
+
 /**
  * ここからProperty-based testing（fast-check）。
  * 日付計算は「うるう年」「月ごとの日数の違い」「年またぎ」等の境界条件が
@@ -92,5 +116,14 @@ test("daysUntil [property]: 同じ日付同士なら常に0になる（反射性
     fc.property(isoDateArb, (a) => {
       assert.equal(daysUntil(a, a), 0);
     })
+  );
+});
+
+test("addDaysIso [property]: addDaysIso(a, n)からaまでのdaysUntilは常にnになる（daysUntilとの整合性）", () => {
+  fc.assert(
+    fc.property(isoDateArb, fc.integer({ min: -36500, max: 36500 }), (a, n) => {
+      assert.equal(daysUntil(addDaysIso(a, n), a), n);
+    }),
+    { numRuns: 500 }
   );
 });
