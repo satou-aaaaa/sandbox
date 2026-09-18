@@ -14,6 +14,25 @@ test("frac: 分母が負の場合は符号を分子側へ正規化する", () =>
   assert.equal(f.d, 2n);
 });
 
+test("frac: 分子が負で約分を要する場合も分母は常に正になる（gcd内部の符号正規化）", () => {
+  // gcd()内部でnの符号を正規化する処理（a = a < 0n ? -a : a）が壊れると、
+  // gcd自体が負の値を返し、結果の分母が負になってしまう不具合を検出する。
+  const f = frac(-6, 4);
+  assert.equal(f.n, -3n);
+  assert.equal(f.d, 2n);
+  assert.equal(formatFrac(f), "-3/2");
+});
+
+test("frac: 分母が負で約分を要する場合も分母は常に正になる（gcd内部の符号正規化）", () => {
+  // 上記と対になるテスト。gcd()内部でdの符号を正規化する処理
+  // （b = b < 0n ? -b : b）が壊れると、分子・分母を約分する除数
+  // （gcdの戻り値）自体が負になり、結果の符号が反転してしまう不具合を検出する。
+  const f = frac(4, -6);
+  assert.equal(f.n, -2n);
+  assert.equal(f.d, 3n);
+  assert.equal(formatFrac(f), "-2/3");
+});
+
 test("frac: 分母0はエラーになる", () => {
   assert.throws(() => frac(1, 0), /分母が0/);
 });
