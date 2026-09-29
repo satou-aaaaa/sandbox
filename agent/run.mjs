@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * GitHub Issue 自律処理ループ（オーケストレーター）。
+ * GitHub Issue 自律処理ループ（オーケストレーター。ホスト側で動く）。
  *
  * `agent-ready` ラベル付きのIssue（起票者が所有者本人のものだけ）を1件ずつ
  * 取り出し、隔離した git worktree でClaude Agent SDKに実装させ、
@@ -8,56 +8,53 @@
  * PRを作る。【マージは行わない】。最終判断は常に人間が行う。
  *
  * 権限の分離:
- *   - エージェント: 作業ツリー内のファイル編集とテスト実行のみ（policy.js）
- *   - このスクリプト: commit / push / PR作成（決定的なコード。LLMは介在しない）
+ *   - ホスト（このスクリプト）: Issue選別 / worktree作成 / commit / push / PR作成。
+ *     GitHub認証情報を持つのはここだけ。LLMは介在しない。
+ *   - エージェント実行（install / agent / verify）: 既定ではDockerコンテナ内
+ *     （AGENT_SANDBOX=docker。作業ツリーのみマウント・認証情報なし）。
+ *     `AGENT_SANDBOX=none` を明示した場合のみホストで直接実行する（隔離なし）。
  *
  * 多層防御（docs/adr/0017-agent-sdk-issue-loop.md）:
  *   1. 許可リスト（dontAsk）＋拒否リスト  2. PreToolUseフックによる最終判定と監査ログ
  *   3. 保護パス検査  4. 検証ゲート  5. 日次上限・1件あたりの上限・壁時計上限
- *   6. キルスイッチ（agent/.disabled または AGENT_DISABLED=1）
+ *   6. キルスイッチ（agent/.disabled または AGENT_DISABLED=1）  7. コンテナ隔離
  *
  * 使い方:
  *   node run.mjs --dry-run           対象Issueとエージェント設定を表示（API呼び出しなし）
  *   node run.mjs                     agent-ready のIssueを最大 --max 件処理
  *   node run.mjs --issue 81          指定Issueのみ処理（ラベル条件は同じく必須）
  *
- * 前提: `gh` にログイン済み、環境変数 ANTHROPIC_API_KEY が設定済み。
+ * 前提: `gh` にログイン済み、環境変数 ANTHROPIC_API_KEY が設定済み、Docker起動済み。
  */
 import { execFileSync } from "node:child_process";
-import { appendFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   ALLOWED_TOOLS,
   DISALLOWED_TOOLS,
+  DOCKER_IMAGE,
   LABEL_DONE,
   LABEL_PR,
   LABEL_READY,
   LABEL_WORKING,
   branchNameForIssue,
-  buildAgentEnv,
+  buildDockerArgs,
   buildPrompt,
   buildRetryPrompt,
   checkDailyBudget,
-  decideToolUse,
   findProtectedPaths,
   isEligibleIssue,
   normalizeState,
   recordRun,
 } from "./policy.js";
+import { AGENT_TIMEOUT_MS, MAX_BUDGET_USD, MAX_TURNS, MODEL, installDeps, runAgent, verifyAll } from "./runner.mjs";
 
 const REPO = "satou-aaaaa/sandbox";
 const BASE = "main";
 const AGENT_DIR = resolve(dirname(fileURLToPath(import.meta.url)));
 const REPO_ROOT = resolve(AGENT_DIR, "..");
-/** 1件あたりの上限（暴走・費用超過の歯止め） */
-const MAX_TURNS = 40;
-const MAX_BUDGET_USD = 3;
-/** 1回のエージェント実行の壁時計上限（ハング対策） */
-const AGENT_TIMEOUT_MS = 20 * 60 * 1000;
-/** 使用モデル（環境変数 AGENT_MODEL で上書き可）。 */
-const MODEL = process.env.AGENT_MODEL || "claude-sonnet-5-5";
 /** 状態・監査ログの置き場（.gitignore済み。実データは含まない） */
 const STATE_FILE = join(AGENT_DIR, ".state", "daily.json");
 const LOG_DIR = join(AGENT_DIR, "logs");
@@ -65,6 +62,8 @@ const LOG_DIR = join(AGENT_DIR, "logs");
 const KILL_SWITCH_FILE = join(AGENT_DIR, ".disabled");
 const COMMIT_TRAILER = "Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>";
 const PR_TRAILER = "🤖 Generated with [Claude Code](https://claude.com/claude-code)";
+/** 隔離モード。docker（既定）または none（隔離なし。明示指定が必要）。 */
+const SANDBOX = process.env.AGENT_SANDBOX || "docker";
 
 const args = process.argv.slice(2);
 const DRY_RUN = args.includes("--dry-run");
@@ -77,6 +76,7 @@ function run(cmd, cmdArgs, cwd = REPO_ROOT) {
     cwd,
     encoding: "utf8",
     stdio: ["ignore", "pipe", "pipe"],
+    maxBuffer: 64 * 1024 * 1024,
     // Windowsでは npm が .cmd のためシェル経由が必要（引数は固定の安全な値のみ）
     shell: process.platform === "win32" && cmd === "npm",
   }).trim();
@@ -135,84 +135,69 @@ function fetchCandidates() {
     .slice(0, MAX_ISSUES);
 }
 
-/**
- * エージェントを1回実行する。PreToolUseフックで全ツール呼び出しを監査ログへ記録し、
- * policy.decideToolUse で二重に可否判定する（許可リストと独立した最終防衛線。
- * フックのdenyはどの権限モードでも効く）。
- * @param {string} prompt
- * @param {string} workDir
- * @param {string} auditFile
- * @returns {Promise<{ok: boolean, cost: number, summary: string}>}
- */
-async function runAgent(prompt, workDir, auditFile) {
-  const { query } = await import("@anthropic-ai/claude-agent-sdk");
-  const abortController = new AbortController();
-  const timer = setTimeout(() => abortController.abort(), AGENT_TIMEOUT_MS);
-  const audit = (entry) => appendFileSync(auditFile, `${JSON.stringify({ t: new Date().toISOString(), ...entry })}\n`);
-  /** @type {import("@anthropic-ai/claude-agent-sdk").HookCallback} */
-  const preToolUse = async (input) => {
-    const { tool_name: tool, tool_input: toolInput } = /** @type {any} */ (input);
-    const verdict = decideToolUse(tool, toolInput ?? {}, workDir);
-    audit({ event: "tool", tool, input: toolInput, decision: verdict.decision, reason: verdict.decision === "deny" ? verdict.reason : undefined });
-    if (verdict.decision === "deny") {
-      return { hookSpecificOutput: { hookEventName: "PreToolUse", permissionDecision: "deny", permissionDecisionReason: verdict.reason } };
-    }
-    return {};
-  };
-  let cost = 0;
-  let ok = false;
-  let summary = "";
+// ---------------------------------------------------------------------------
+// 実行バックエンド（docker: コンテナ内 / none: ホスト直接）
+// ---------------------------------------------------------------------------
+
+/** Dockerが使えるか（daemonに接続できるか）。 */
+function dockerAvailable() {
   try {
-    for await (const message of query({
-      prompt,
-      options: {
-        cwd: workDir,
-        model: MODEL,
-        abortController,
-        maxTurns: MAX_TURNS,
-        maxBudgetUsd: MAX_BUDGET_USD,
-        permissionMode: "dontAsk",
-        allowedTools: ALLOWED_TOOLS,
-        disallowedTools: DISALLOWED_TOOLS,
-        hooks: { PreToolUse: [{ hooks: [preToolUse] }] },
-        settingSources: ["project"],
-        systemPrompt: { type: "preset", preset: "claude_code" },
-        env: buildAgentEnv(process.env),
-        persistSession: false,
-      },
-    })) {
-      if (message.type === "result") {
-        cost = message.total_cost_usd ?? 0;
-        ok = message.subtype === "success";
-        summary = "result" in message ? String(message.result ?? "") : "";
-        audit({ event: "result", subtype: message.subtype, cost, turns: message.num_turns });
-        log(`エージェント終了: ${message.subtype}（費用 $${cost.toFixed(4)}, ${message.num_turns}ターン）`);
-      }
-    }
-  } catch (err) {
-    audit({ event: "error", message: err instanceof Error ? err.message : String(err) });
-    log(`エージェント実行エラー: ${err instanceof Error ? err.message.split("\n")[0] : String(err)}`);
-  } finally {
-    clearTimeout(timer);
+    run("docker", ["info", "--format", "{{.ServerVersion}}"]);
+    return true;
+  } catch {
+    return false;
   }
-  return { ok, cost, summary };
+}
+
+/** 隔離イメージをビルドする（キャッシュが効くため毎回呼んでよい）。 */
+function buildImage() {
+  run("docker", ["build", "-q", "-t", DOCKER_IMAGE, AGENT_DIR]);
 }
 
 /**
- * 検証コマンドを順に実行し、最初の失敗を返す。
+ * コンテナ内でフェーズを実行し、最終行の `RESULT:` JSONを返す。
+ * @param {"install"|"agent"|"verify"} phase
  * @param {string} workDir
- * @returns {{name: string, output: string} | null}
+ * @param {string} auditName
+ * @param {string} [prompt] agentフェーズの依頼文
+ * @returns {any}
  */
-function verify(workDir) {
-  for (const script of [["test"], ["run", "typecheck"], ["run", "lint"], ["run", "check-secrets"]]) {
-    try {
-      run("npm", script, workDir);
-    } catch (err) {
-      const e = /** @type {any} */ (err);
-      return { name: `npm ${script.join(" ")}`, output: `${e.stdout ?? ""}\n${e.stderr ?? ""}` };
-    }
+function dockerPhase(phase, workDir, auditName, prompt) {
+  const taskDir = mkdtempSync(join(tmpdir(), "kkt-task-"));
+  try {
+    if (prompt !== undefined) writeFileSync(join(taskDir, "prompt.txt"), prompt);
+    mkdirSync(LOG_DIR, { recursive: true });
+    const out = run("docker", buildDockerArgs({ phase, workDir, logDir: LOG_DIR, taskDir, auditName, env: process.env }));
+    const line = out.split("\n").reverse().find((l) => l.startsWith("RESULT:"));
+    if (!line) throw new Error(`コンテナからRESULTが返りませんでした（phase=${phase}）`);
+    return JSON.parse(line.slice("RESULT:".length));
+  } finally {
+    rmSync(taskDir, { recursive: true, force: true });
   }
-  return null;
+}
+
+/** @returns {{install: (w: string) => void, agent: (p: string, w: string, a: string) => Promise<{ok: boolean, cost: number, summary: string}>, verify: (w: string) => {name: string, output: string} | null}} */
+function backend() {
+  if (SANDBOX === "docker") {
+    return {
+      install: (w) => void dockerPhase("install", w, ""),
+      agent: async (p, w, a) => dockerPhase("agent", w, a.split(/[\\/]/).pop() ?? "audit.jsonl", p),
+      verify: (w) => {
+        const failure = dockerPhase("verify", w, "").failure;
+        if (failure) return failure;
+        // gitを使う check-secrets はホスト側で実行する（フックはmain由来で、エージェントは変更不可）
+        try {
+          run("npm", ["run", "check-secrets"], w);
+          return null;
+        } catch (err) {
+          const e = /** @type {any} */ (err);
+          return { name: "npm run check-secrets", output: `${e.stdout ?? ""}
+${e.stderr ?? ""}` };
+        }
+      },
+    };
+  }
+  return { install: installDeps, agent: runAgent, verify: verifyAll };
 }
 
 /** @param {string} workDir @returns {string[]} 変更ファイル一覧 */
@@ -227,7 +212,8 @@ function changedFiles(workDir) {
 async function processIssue(issue) {
   const branch = branchNameForIssue(issue.number);
   const workDir = join(mkdtempSync(join(tmpdir(), "kkt-agent-")), `issue-${issue.number}`);
-  log(`#${issue.number} 「${issue.title}」を処理します（worktree: ${workDir}）`);
+  const be = backend();
+  log(`#${issue.number} 「${issue.title}」を処理します（隔離: ${SANDBOX} / worktree: ${workDir}）`);
 
   gh("issue", "edit", String(issue.number), "--repo", REPO, "--add-label", LABEL_WORKING, "--remove-label", LABEL_READY);
   const giveBack = (reason) => {
@@ -239,13 +225,13 @@ async function processIssue(issue) {
   try {
     run("git", ["fetch", "origin", BASE]);
     run("git", ["worktree", "add", "-B", branch, workDir, `origin/${BASE}`]);
-    run("npm", ["ci", "--no-audit", "--no-fund"], workDir);
+    be.install(workDir);
 
     mkdirSync(LOG_DIR, { recursive: true });
     const auditFile = join(LOG_DIR, `${new Date().toISOString().replace(/[:.]/g, "-")}-issue-${issue.number}.jsonl`);
     log(`監査ログ: ${auditFile}`);
 
-    const first = await runAgent(buildPrompt(issue), workDir, auditFile);
+    const first = await be.agent(buildPrompt(issue), workDir, auditFile);
     let cost = first.cost;
     let summary = first.summary;
     saveState(recordRun(loadState(), first.cost));
@@ -257,10 +243,10 @@ async function processIssue(issue) {
     if (protectedHits.length > 0) return giveBack(`保護対象パスへの変更が含まれていました: ${protectedHits.join(", ")}`);
 
     // 検証に失敗した場合は、失敗出力を渡して1回だけ修正させる（評価→最適化パターン）。
-    let failure = verify(workDir);
+    let failure = be.verify(workDir);
     if (failure) {
       log(`#${issue.number} 検証失敗（${failure.name}）。1回だけ修正を依頼します`);
-      const retry = await runAgent(buildRetryPrompt(failure.name, failure.output), workDir, auditFile);
+      const retry = await be.agent(buildRetryPrompt(failure.name, failure.output), workDir, auditFile);
       cost += retry.cost;
       // 実行回数は1件として数えるため、費用のみ加算する
       const s = loadState();
@@ -269,7 +255,7 @@ async function processIssue(issue) {
       if (!retry.ok) return giveBack("修正依頼が正常終了しませんでした");
       const after = findProtectedPaths(changedFiles(workDir));
       if (after.length > 0) return giveBack(`保護対象パスへの変更が含まれていました: ${after.join(", ")}`);
-      failure = verify(workDir);
+      failure = be.verify(workDir);
       if (failure) return giveBack(`検証 \`${failure.name}\` に失敗しました（修正後も未解決）`);
     }
 
@@ -288,7 +274,7 @@ async function processIssue(issue) {
       "- 追加テストが要件を実際に検証しているか",
       "- 実データが含まれていないか",
       "",
-      `検証済み: npm test / typecheck / lint / check-secrets（エージェント実行環境）。費用: $${cost.toFixed(4)}。監査ログ: 実行端末の agent/logs/`,
+      `検証済み: npm test / typecheck / lint / check-secrets（隔離: ${SANDBOX}）。費用: $${cost.toFixed(4)}。監査ログ: 実行端末の agent/logs/`,
       "",
       PR_TRAILER,
     ].join("\n");
@@ -308,12 +294,17 @@ async function processIssue(issue) {
 }
 
 async function main() {
+  if (!["docker", "none"].includes(SANDBOX)) {
+    console.error(`AGENT_SANDBOX は docker または none を指定してください（現在: ${SANDBOX}）`);
+    process.exit(1);
+  }
   if (DRY_RUN) {
     const issues = fetchCandidates();
     log(`ドライラン: 対象 ${issues.length} 件`);
     for (const i of issues) {
       log(`  #${i.number} ${i.title}`);
     }
+    log(`隔離: ${SANDBOX}${SANDBOX === "docker" ? `（Docker ${dockerAvailable() ? "利用可能" : "利用不可"}）` : "（隔離なし・明示指定）"}`);
     log(`許可ツール: ${ALLOWED_TOOLS.join(", ")}`);
     log(`禁止ツール: ${DISALLOWED_TOOLS.join(", ")}`);
     log(`モデル: ${MODEL} / 壁時計上限 ${AGENT_TIMEOUT_MS / 60000}分 / 本日の状態: ${JSON.stringify(loadState())}`);
@@ -327,6 +318,14 @@ async function main() {
   if (!process.env.ANTHROPIC_API_KEY) {
     console.error("ANTHROPIC_API_KEY が未設定です。");
     process.exit(1);
+  }
+  if (SANDBOX === "docker") {
+    // フェイルクローズ: 隔離が使えない場合は実行しない（隔離なしは AGENT_SANDBOX=none の明示が必要）
+    if (!dockerAvailable()) {
+      console.error("Dockerに接続できません。Docker Desktopを起動するか、隔離なしで実行する場合は AGENT_SANDBOX=none を明示してください。");
+      process.exit(1);
+    }
+    buildImage();
   }
   ensureLabels();
   const issues = fetchCandidates();

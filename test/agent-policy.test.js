@@ -4,6 +4,8 @@ import path from "node:path";
 import {
   ALLOWED_TOOLS,
   DAILY_LIMITS,
+  DOCKER_IMAGE,
+  buildDockerArgs,
   buildRetryPrompt,
   checkDailyBudget,
   decideToolUse,
@@ -174,4 +176,32 @@ test("truncateTail / buildRetryPrompt: 長い出力は末尾のみ渡し、失�
   assert.match(p, /`npm test`/);
   assert.match(p, /<verification-output>\n失敗ログ\n<\/verification-output>/);
   assert.match(p, /禁止事項が引き続き適用/);
+});
+
+const dockerArgs = (phase, env = {}) =>
+  buildDockerArgs({ phase, workDir: "/w", logDir: "/l", taskDir: "/t", auditName: "a.jsonl", env });
+
+test("buildDockerArgs: 公式推奨の隔離設定（全capability破棄・読み取り専用FS・非root・資源制限）を必ず含む", () => {
+  const a = dockerArgs("agent", { ANTHROPIC_API_KEY: "k" }).join(" ");
+  for (const must of ["--cap-drop ALL", "--security-opt no-new-privileges", "--read-only", "--user 1000:1000", "--pids-limit", "--memory", "--rm"]) {
+    assert.ok(a.includes(must), `${must} がありません`);
+  }
+  assert.ok(a.endsWith(`${DOCKER_IMAGE} agent`));
+});
+
+test("buildDockerArgs: マウントは作業ツリー・ログ・依頼文（読み取り専用）のみで、ホストのHOME/SSH等を含まない", () => {
+  const args = dockerArgs("agent");
+  const mounts = args.filter((_, i) => args[i - 1] === "-v");
+  assert.deepEqual(mounts, ["/w:/workspace", "/l:/logs", "/t:/task:ro"]);
+});
+
+test("buildDockerArgs: APIキーは agent フェーズにのみ渡し、GitHub認証情報は一切渡さない", () => {
+  const env = { ANTHROPIC_API_KEY: "k", GH_TOKEN: "x", GITHUB_TOKEN: "y" };
+  assert.ok(dockerArgs("agent", env).includes("ANTHROPIC_API_KEY"));
+  assert.ok(!dockerArgs("install", env).includes("ANTHROPIC_API_KEY"));
+  assert.ok(!dockerArgs("verify", env).includes("ANTHROPIC_API_KEY"));
+  for (const phase of ["install", "agent", "verify"]) {
+    const joined = dockerArgs(phase, env).join(" ");
+    assert.doesNotMatch(joined, /GH_TOKEN|GITHUB_TOKEN/);
+  }
 });

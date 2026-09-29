@@ -82,9 +82,23 @@ Anthropicの公式ガイド（Securely deploying AI agents／Hooks／Building ef
 
 ### 未対応（既知の残リスクと次の一手）
 
-- **OS/コンテナ隔離**: 推奨されるsandbox-runtime（bubblewrap/sandbox-exec）はWindows非対応。
-  現状のローカル実行はOSレベルのファイル/ネットワーク隔離が無く、上記の論理的防御に依存する。
-  Dockerは利用可能なため、`--cap-drop ALL --read-only --user` 等で固めたコンテナ内実行
-  ＋API宛のみ許可するプロキシ（クレデンシャルをコンテナ外で注入）への移行が次の一手。
-  実運用の実績（PRの品質・費用）が出て、実行頻度が上がった段階で着手する。
+- **OS/コンテナ隔離**: → Amendment 2 で対応。
 - **Actions上での実行**: `GITHUB_TOKEN` 起点のPRは必須CIを起動しない。GitHub App導入後に検討。
+
+## Amendment 2（2026-09-29）: Dockerコンテナ隔離の導入
+
+推奨されるsandbox-runtimeがWindows非対応のため、公式ガイドの「Containers」構成を採用した。
+
+- **ホスト（`run.mjs`）**: Issue選別・worktree作成・commit・push・PR作成。GitHub認証情報を持つのはここだけ。
+- **コンテナ（`worker.mjs`, `agent/Dockerfile`）**: `npm ci`・エージェント実行・検証（test/typecheck/lint）。
+  マウントは作業ツリー・ログ・依頼文（読み取り専用）のみ。`--cap-drop ALL` `--read-only`
+  `no-new-privileges` 非root 資源制限。GitHub認証情報・ホストのHOME/SSH鍵は渡さない。
+  APIキーは `agent` フェーズにのみ環境変数で渡す。
+- **check-secrets** はgitを使うためホスト側で実行する（フックは保護パスでエージェントは変更不可）。
+- **フェイルクローズ**: 既定は `AGENT_SANDBOX=docker`。Dockerに接続できなければ実行しない。
+  隔離なしは `AGENT_SANDBOX=none` の明示が必要。
+- `docker run` の引数は `policy.js` の `buildDockerArgs`（純粋関数）で組み立て、安全設定の欠落をテストで検出する。
+
+残リスク: コンテナはネットワークegress無制限（API・npmレジストリ到達に必要）。
+エージェントのBashはネットワーク系コマンドを拒否しているが、OSレベルでの宛先制限は無い。
+次の一手は、API宛のみ許可するプロキシ経由（`--network none`＋Unixソケット、クレデンシャルはコンテナ外で注入）。
