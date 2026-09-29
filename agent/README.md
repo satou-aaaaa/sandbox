@@ -121,6 +121,18 @@ node revert.mjs --sweep --dry-run   # 取り消し対象の確認のみ
 node revert.mjs --pr 99 --reason "理由"   # 指定したマージ済みPRを取り消す
 ```
 
+### 自己修復（CI失敗・レビュー指摘への対応）
+
+エージェントのPRのCIが失敗した、またはAIレビューで不承認となった場合、`fix.mjs` がフィードバック（失敗ログ・指摘）を渡して同じブランチ上で修正する（ADR-0017 Amendment 13）。
+
+```bash
+node fix.mjs --dry-run   # 対象と対応内容の確認のみ
+node fix.mjs             # 修正する（既定で1件）
+```
+
+- 最大2回（`agent-fix-1/2`）。上限に達したら `agent-needs-human`。修正後はCIとAIレビューを最初から受け直す
+- テストを削除・弱めて通すことは禁止。実装と同じ多層防御（許可リスト・保護パス・検証ゲート・Docker隔離）で動く
+
 ### Issueのクローズ
 
 - PRがマージされると、PR本文の `Closes #N` によりGitHubがIssueを**自動でクローズ**する。

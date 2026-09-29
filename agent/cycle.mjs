@@ -5,7 +5,7 @@
  *   1. キルスイッチ確認 → 排他ロック取得（他の実行が進行中なら何もしない）
  *   2. 回復: 異常終了の残骸（agent-working のまま放置されたIssue・一時worktree）を片付ける
  *   3. スカウト（scout.mjs。作業の自動起票）→ トリアージ（triage.mjs）→ 実装とPR作成（run.mjs）
- *      → AIレビュー（review.mjs。承認が必要なPRを独立したレビュアーが判定）
+ *      → 自己修復（fix.mjs。CI失敗・レビュー指摘のPRを修正）→ AIレビュー（review.mjs。承認が必要なPRを独立したレビュアーが判定）
  *   4. 結果を要約して標準出力と agent/logs/cycle-latest.txt に残す
  *
  * 各ステップは別プロセスで実行し、1つが失敗しても後始末（ロック解放・要約）は必ず行う。
@@ -148,7 +148,7 @@ async function main() {
     // 1. 事後の取消: 問題のあるマージを取り消す（所有者のラベル、またはmainのCI失敗）
     let out = runStep("revert.mjs", ["--sweep", ...flag]);
     // 2. ブレーカーが作動していなければ、通常の流れ（スカウト→トリアージ→実装→レビュー）を実行する
-    if (!breakerTripped()) out += runStep("scout.mjs", flag) + runStep("triage.mjs", flag) + runStep("run.mjs", flag) + runStep("review.mjs", flag);
+    if (!breakerTripped()) out += runStep("scout.mjs", flag) + runStep("triage.mjs", flag) + runStep("run.mjs", flag) + runStep("fix.mjs", flag) + runStep("review.mjs", flag);
     const summary = formatSummary(summarizeOutput(out), recovered);
     log(`サマリー: ${summary}`);
     mkdirSync(LOG_DIR, { recursive: true });

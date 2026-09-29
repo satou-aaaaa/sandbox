@@ -187,7 +187,7 @@ export function dockerPhase(phase, workDir, auditName, prompt) {
 }
 
 /** @returns {{install: (w: string) => void, agent: (p: string, w: string, a: string) => Promise<{ok: boolean, cost: number, summary: string}>, verify: (w: string) => {name: string, output: string} | null}} */
-function backend() {
+export function backend() {
   if (SANDBOX === "docker") {
     return {
       install: (w) => void dockerPhase("install", w, ""),
@@ -211,7 +211,7 @@ ${e.stderr ?? ""}` };
 }
 
 /** @param {string} workDir @returns {string[]} 変更ファイル一覧 */
-function changedFiles(workDir) {
+export function changedFiles(workDir) {
   return run("git", ["status", "--porcelain"], workDir)
     .split("\n")
     .filter(Boolean)
