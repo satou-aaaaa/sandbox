@@ -9,6 +9,8 @@
  * 設計の根拠は docs/adr/0017-agent-sdk-issue-loop.md を参照。
  */
 
+import path from "node:path";
+
 /** Issueを処理してよい唯一の起票者（プロンプトインジェクション対策）。 */
 export const TRUSTED_AUTHOR = "satou-aaaaa";
 
@@ -168,5 +170,137 @@ export function buildPrompt(issue) {
     "<issue-body>",
     issue.body,
     "</issue-body>",
+  ].join("\n");
+}
+
+// ---------------------------------------------------------------------------
+// ツール呼び出しの判定（PreToolUseフックから呼ぶ。全権限判定より先に評価され、
+// denyはbypassモードでも効くため、許可リスト/拒否リストとは独立した最終防衛線になる）
+// ---------------------------------------------------------------------------
+
+/** Bashコマンド中に現れてはならない語（ネットワーク・push・依存追加・設定変更など）。 */
+const FORBIDDEN_BASH =
+  /(^|[\s;&|(])(curl|wget|ssh|scp|sftp|nc|ncat|telnet|gh|sudo|rm\s+-rf?\s+[/~]|git\s+(push|remote|config|credential)|npm\s+(publish|install|i|add|ci|exec|x|config|login)|npx|pnpm|yarn)(\s|$)/;
+
+/** Read/Glob/Grep で対象にしてはならないパス。 */
+const SENSITIVE_READ = /(^|\/)(\.env[^/]*|\.git\/config|\.npmrc|id_rsa[^/]*|[^/]*\.pem|[^/]*\.key)$/;
+
+/**
+ * @typedef {{decision: "allow"} | {decision: "deny", reason: string}} ToolDecision
+ */
+
+/**
+ * @param {string} cwd 作業ディレクトリ（絶対パス）
+ * @param {string} target 対象パス（相対/絶対）
+ * @returns {{outside: boolean, rel: string}} cwd からの相対パス（`/`区切り）と、cwd外か否か
+ */
+function relativeToCwd(cwd, target) {
+  const abs = path.resolve(cwd, target);
+  const rel = path.relative(cwd, abs);
+  const outside = rel === ".." || rel.startsWith(`..${path.sep}`) || path.isAbsolute(rel);
+  return { outside, rel: rel.split(path.sep).join("/") };
+}
+
+/**
+ * ツール呼び出し1件の可否を判定する。
+ * @param {string} toolName
+ * @param {Record<string, unknown>} toolInput
+ * @param {string} cwd
+ * @returns {ToolDecision}
+ */
+export function decideToolUse(toolName, toolInput, cwd) {
+  if (toolName === "Edit" || toolName === "Write" || toolName === "NotebookEdit") {
+    const target = String(toolInput.file_path ?? toolInput.notebook_path ?? "");
+    if (!target) return { decision: "deny", reason: "対象パスが指定されていません" };
+    const { outside, rel } = relativeToCwd(cwd, target);
+    if (outside) return { decision: "deny", reason: `作業ディレクトリ外への書き込みは禁止です: ${target}` };
+    const hits = findProtectedPaths([rel]);
+    if (hits.length > 0) return { decision: "deny", reason: `保護対象パスは変更できません: ${rel}` };
+    return { decision: "allow" };
+  }
+  if (toolName === "Read" || toolName === "Glob" || toolName === "Grep") {
+    const target = String(toolInput.file_path ?? toolInput.path ?? "");
+    if (!target) return { decision: "allow" };
+    const { outside, rel } = relativeToCwd(cwd, target);
+    if (outside) return { decision: "deny", reason: `作業ディレクトリ外の参照は禁止です: ${target}` };
+    if (SENSITIVE_READ.test(rel)) return { decision: "deny", reason: `機微ファイルは参照できません: ${rel}` };
+    return { decision: "allow" };
+  }
+  if (toolName === "Bash") {
+    const command = String(toolInput.command ?? "");
+    if (FORBIDDEN_BASH.test(command)) return { decision: "deny", reason: "禁止されたコマンドが含まれています（ネットワーク・push・依存追加など）" };
+    if (/\$\(|`/.test(command)) return { decision: "deny", reason: "コマンド置換は使用できません" };
+    return { decision: "allow" };
+  }
+  return { decision: "allow" };
+}
+
+// ---------------------------------------------------------------------------
+// 日次の実行上限（費用・件数の歯止め）
+// ---------------------------------------------------------------------------
+
+/** 1日あたりの上限。想定外の暴走・費用超過を機械的に止める。 */
+export const DAILY_LIMITS = { maxRuns: 5, maxCostUsd: 10 };
+
+/**
+ * @typedef {{date: string, runs: number, costUsd: number}} DailyState
+ */
+
+/**
+ * @param {DailyState | null | undefined} state 保存済みの状態（別日・破損時は無視して新規扱い）
+ * @param {string} today `YYYY-MM-DD`
+ * @returns {DailyState}
+ */
+export function normalizeState(state, today) {
+  if (state && state.date === today && Number.isFinite(state.runs) && Number.isFinite(state.costUsd)) return state;
+  return { date: today, runs: 0, costUsd: 0 };
+}
+
+/**
+ * これから1件処理してよいか。
+ * @param {DailyState} state
+ * @param {{maxRuns: number, maxCostUsd: number}} [limits]
+ * @returns {{allowed: true} | {allowed: false, reason: string}}
+ */
+export function checkDailyBudget(state, limits = DAILY_LIMITS) {
+  if (state.runs >= limits.maxRuns) return { allowed: false, reason: `本日の実行回数上限（${limits.maxRuns}件）に達しました` };
+  if (state.costUsd >= limits.maxCostUsd) return { allowed: false, reason: `本日の費用上限（$${limits.maxCostUsd}）に達しました` };
+  return { allowed: true };
+}
+
+/**
+ * 1件分の実行結果を状態へ加算する（新しいオブジェクトを返す）。
+ * @param {DailyState} state
+ * @param {number} costUsd
+ * @returns {DailyState}
+ */
+export function recordRun(state, costUsd) {
+  return { ...state, runs: state.runs + 1, costUsd: state.costUsd + (Number.isFinite(costUsd) ? costUsd : 0) };
+}
+
+/**
+ * 検証失敗時に、エージェントへ渡す出力を末尾側だけに切り詰める。
+ * @param {string} text
+ * @param {number} [max]
+ * @returns {string}
+ */
+export function truncateTail(text, max = 4000) {
+  return text.length <= max ? text : `…（省略）\n${text.slice(text.length - max)}`;
+}
+
+/**
+ * 検証失敗後の1回限りの修正依頼プロンプト。
+ * @param {string} scriptName 失敗したコマンド（例: `npm test`）
+ * @param {string} output その出力
+ * @returns {string}
+ */
+export function buildRetryPrompt(scriptName, output) {
+  return [
+    `直前の変更に対する検証 \`${scriptName}\` が失敗しました。原因を調べて、作業ツリー内で修正してください。`,
+    "元の依頼の範囲を超えて変更しないこと。同じ禁止事項が引き続き適用されます。",
+    "",
+    "<verification-output>",
+    truncateTail(output),
+    "</verification-output>",
   ].join("\n");
 }

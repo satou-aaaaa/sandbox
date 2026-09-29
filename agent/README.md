@@ -51,3 +51,26 @@ Issueに `agent-ready` を付けるのが「実行してよい」という人間
   Actionsで動かす場合は別途GitHub App等のトークンが必要（ADR-0017）。
 - 安全側の判断は `policy.js` に集約し `test/agent-policy.test.js` で検証している。
   権限を緩める変更は必ずテストとADRを更新すること。
+
+## 安全機構（多層防御）
+
+| 層 | 内容 |
+|---|---|
+| 許可リスト/拒否リスト | `dontAsk` で列挙外を拒否。push・`gh`・ネットワーク・保護パス編集を明示禁止 |
+| PreToolUseフック | 全ツール呼び出しを `decideToolUse` で再判定（作業ディレクトリ外・`.env`・鍵・危険コマンドを拒否）。**全呼び出しを `agent/logs/*.jsonl` に監査記録** |
+| 保護パス検査 | 変更に保護対象が含まれれば中止 |
+| 検証ゲート | `npm test` / `typecheck` / `lint` / `check-secrets`。失敗時は1回だけ自己修正させ、再失敗で差し戻し |
+| 上限 | 1件あたり40ターン・$3・20分。日次で5件・$10（`agent/.state/daily.json`） |
+| キルスイッチ | `agent/.disabled` ファイルを作る、または `AGENT_DISABLED=1` で即停止 |
+
+### 緊急停止・確認
+
+```bash
+touch agent/.disabled      # 停止（rm agent/.disabled で再開）
+ls agent/logs              # 監査ログ（1行1JSON: ツール名・入力・判定・結果）
+```
+
+### 既知の制約
+
+Windowsでは推奨のOSサンドボックスが使えないため、隔離は論理的な防御のみ。
+コンテナ隔離への移行方針は ADR-0017 の Amendment 1 を参照。
