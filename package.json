@@ -88,14 +88,14 @@
     "web": "node src/web/server.js"
   },
   "dependencies": {
-    "docx": "^9.0.2"
+    "docx": "^9.7.2"
   },
   "devDependencies": {
     "@cucumber/cucumber": "^13.2.1",
     "@eslint/js": "^10.0.1",
     "@playwright/test": "^1.63.0",
-    "@stryker-mutator/core": "^9.6.1",
-    "@types/node": "^26.6.2",
+    "@stryker-mutator/core": "^10.0.0",
+    "@types/node": "^26.6.3",
     "ajv": "^8.20.0",
     "ajv-formats": "^3.0.1",
     "autocannon": "^8.0.0",
