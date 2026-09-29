@@ -153,3 +153,39 @@ test("checkKobutsuKekkaku: 複数の役員がそれぞれ別の欠格事由に�
   assert.ok(result.reasons.some((r) => r.includes("役員D")));
   assert.ok(result.reasons.some((r) => r.includes("役員E")));
 });
+
+// 法人の役員チェック（第十一号）の8項目それぞれについて、その項目だけが真の役員1名で
+// 不合格になり、理由に役員名と「第十一号」が含まれることを確認する（#71・#79。
+// ミューテーションテストで、hasBoryokuFuhouKoiRisk・hadLicenseRevokedWithin5Years・
+// hasSurrenderedLicenseDuringRevocationHearingWithin5Yearsの判定を空にしても全テストが
+// 通ることが判明したため、全項目を単独で網羅する）。
+/** @type {[keyof import('../src/licenses/kobutsu/eligibility/types.js').KobutsuOfficerInput, string][]} */
+const OFFICER_FLAG_CASES = [
+  ["isUndischargedBankrupt", "破産"],
+  ["hasCriminalRecordWithin5Years", "拘禁刑"],
+  ["hasBoryokuFuhouKoiRisk", "暴力的不法行為"],
+  ["hasBoryokudanRelatedOrderWithin3Years", "暴力団関連"],
+  ["isAddressUnknown", "住居"],
+  ["hadLicenseRevokedWithin5Years", "許可の取消し"],
+  ["hasSurrenderedLicenseDuringRevocationHearingWithin5Years", "許可証を返納"],
+  ["hasMentalImpairmentAffectingDuties", "心身の故障"],
+];
+
+for (const [flag, keyword] of OFFICER_FLAG_CASES) {
+  test(`checkKobutsuKekkaku: 役員の${flag}だけが真なら不合格になり、理由に役員名・第十一号・内容が含まれる`, () => {
+    const officers = [cleanOfficer("役員X"), { ...cleanOfficer("役員Y"), [flag]: true }];
+    const result = checkKobutsuKekkaku(cleanInput(), officers);
+    assert.equal(result.passed, false);
+    assert.equal(result.reasons.length, 1, "該当した項目1件のみが理由に出る");
+    assert.ok(result.reasons[0].includes("役員（役員Y）"), `役員名が含まれる: ${result.reasons[0]}`);
+    assert.ok(result.reasons[0].includes("第十一号"), `号数が含まれる: ${result.reasons[0]}`);
+    assert.ok(result.reasons[0].includes(keyword), `内容（${keyword}）が含まれる: ${result.reasons[0]}`);
+  });
+}
+
+test("checkKobutsuKekkaku: 出力の形（key・label・warnings）が保たれる", () => {
+  const result = checkKobutsuKekkaku(cleanInput(), [cleanOfficer("役員A")]);
+  assert.equal(result.key, "kobutsuKekkaku");
+  assert.equal(result.label, "欠格事由に該当しないこと");
+  assert.deepEqual(result.warnings, []);
+});

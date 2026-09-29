@@ -333,9 +333,13 @@ BtoB下請けポータル・会社設立サポートとも異なり、判定す�
   同じ理由で対象外のまま
 - `src/core/reminders/clientCsv.js`は各種`<種別>Detail`をCSV列としては
   意図的に持たせていない（`docs/DESIGN_kobutsu-core.md` 5.5節参照）。CSV
-  エクスポート/インポートでは`<種別>Detail`が失われるため、これらを使う
-  クライアントはCSVではなく`scripts/add-client.js`または
-  `data/clients.json`の直接編集で管理すること
+  エクスポートには`<種別>Detail`が含まれない（エクスポート→インポートの往復
+  では復元できない）ため、これらを使うクライアントはCSVではなく
+  `scripts/add-client.js`または`data/clients.json`の直接編集で管理すること。
+  一方、CSVのインポート（`scripts/import-clients-csv.js`）は2026年9月に
+  `importClients`へ切り替え、既存クライアントの`<種別>Detail`・CSVに無い既存の
+  許可を削除せずマージする（従来は`upsertClient`で丸ごと置換され、Detailが
+  黙って消えていた。#74）
   （2026年9月・`scripts/add-client.js`が`--license-category`と
   種別ごとの詳細フラグに対応済み。`npm run client:add -- --help`相当は
   無いため、スクリプト冒頭のコメントで使い方を確認すること）

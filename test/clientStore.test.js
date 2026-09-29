@@ -9,6 +9,7 @@ import {
   saveClients,
   upsertClient,
   upsertClientLicense,
+  importClients,
   removeClient,
 } from "../src/core/reminders/clientStore.js";
 
@@ -312,6 +313,150 @@ test("loadClients: 配列でないJSONの場合はエラーを投げる", async 
     // その後の`.map`呼び出しで別のエラーが投げられてしまい、単なる
     // assert.rejects(fn)だけでは検出できないため）。
     await assert.rejects(() => loadClients(filePath), /の内容が配列ではありません/);
+  } finally {
+    await fs.rm(dir, { recursive: true, force: true });
+  }
+});
+
+test("importClients: 既存クライアントへ取り込んでも、CSVに無い<種別>Detailは保持される（#74）", async () => {
+  const { filePath, dir } = await tempClientsPath();
+  try {
+    await saveClients(
+      [
+        {
+          clientName: "ダミー商店",
+          contactEmail: "old@example.invalid",
+          licenses: [
+            {
+              licenseId: "古物-1",
+              licenseCategory: "kobutsu",
+              kobutsuDetail: { grantDateIso: "2026-01-10" },
+            },
+          ],
+        },
+      ],
+      filePath
+    );
+
+    // CSV由来のレコード: Detailを持たず、空欄の項目はキー自体が無い
+    const result = await importClients(
+      [{ clientName: "ダミー商店", licenses: [{ licenseId: "古物-1", licenseCategory: "kobutsu" }] }],
+      filePath
+    );
+    assert.deepEqual(result, { added: 0, updated: 1 });
+
+    const [client] = await loadClients(filePath);
+    assert.deepEqual(client.licenses[0].kobutsuDetail, { grantDateIso: "2026-01-10" });
+    assert.equal(client.contactEmail, "old@example.invalid", "取り込み側に値が無いクライアント単位の項目は既存を保持する");
+  } finally {
+    await fs.rm(dir, { recursive: true, force: true });
+  }
+});
+
+test("importClients: CSVに無い既存の許可は削除されず、新しい許可は追記される", async () => {
+  const { filePath, dir } = await tempClientsPath();
+  try {
+    await saveClients(
+      [
+        {
+          clientName: "ダミー商店",
+          licenses: [
+            { licenseId: "般-建築", licenseCategory: "construction", grantDateIso: "2021-04-01" },
+            { licenseId: "古物-1", licenseCategory: "kobutsu", kobutsuDetail: { grantDateIso: "2026-01-10" } },
+          ],
+        },
+      ],
+      filePath
+    );
+
+    await importClients(
+      [
+        {
+          clientName: "ダミー商店",
+          licenses: [
+            { licenseId: "般-建築", licenseCategory: "construction", grantDateIso: "2022-04-01" },
+            { licenseId: "般-電気", licenseCategory: "construction", grantDateIso: "2023-04-01" },
+          ],
+        },
+      ],
+      filePath
+    );
+
+    const [client] = await loadClients(filePath);
+    assert.deepEqual(
+      client.licenses.map((l) => l.licenseId),
+      ["般-建築", "古物-1", "般-電気"]
+    );
+    assert.equal(client.licenses[0].grantDateIso, "2022-04-01", "取り込み側の値で上書きする");
+    assert.deepEqual(client.licenses[1].kobutsuDetail, { grantDateIso: "2026-01-10" });
+  } finally {
+    await fs.rm(dir, { recursive: true, force: true });
+  }
+});
+
+test("importClients: 同じlicenseIdでも許可種別が異なる場合は取り込み側で置き換える（古い種別のDetailを引き継がない）", async () => {
+  const { filePath, dir } = await tempClientsPath();
+  try {
+    await saveClients(
+      [
+        {
+          clientName: "ダミー商店",
+          licenses: [{ licenseId: "A", licenseCategory: "kobutsu", kobutsuDetail: { grantDateIso: "2026-01-10" } }],
+        },
+      ],
+      filePath
+    );
+
+    await importClients(
+      [{ clientName: "ダミー商店", licenses: [{ licenseId: "A", licenseCategory: "construction", grantDateIso: "2021-04-01" }] }],
+      filePath
+    );
+
+    const [client] = await loadClients(filePath);
+    assert.equal(client.licenses.length, 1);
+    assert.equal(client.licenses[0].licenseCategory, "construction");
+    assert.equal("kobutsuDetail" in client.licenses[0], false);
+  } finally {
+    await fs.rm(dir, { recursive: true, force: true });
+  }
+});
+
+test("importClients: 新規クライアントは追加され、件数を返す。取り込み側に値があるクライアント単位の項目は上書きする", async () => {
+  const { filePath, dir } = await tempClientsPath();
+  try {
+    await saveClients(
+      [{ clientName: "既存社", contactEmail: "old@example.invalid", licenses: [{ licenseId: "既定", grantDateIso: "2021-04-01" }] }],
+      filePath
+    );
+
+    const result = await importClients(
+      [
+        { clientName: "既存社", contactEmail: "new@example.invalid", licenses: [{ licenseId: "既定", grantDateIso: "2021-04-01" }] },
+        { clientName: "新規社", licenses: [{ licenseId: "既定", grantDateIso: "2022-04-01" }] },
+      ],
+      filePath
+    );
+    assert.deepEqual(result, { added: 1, updated: 1 });
+
+    const clients = await loadClients(filePath);
+    assert.equal(clients.length, 2);
+    assert.equal(clients[0].contactEmail, "new@example.invalid");
+    assert.equal(clients[1].clientName, "新規社");
+  } finally {
+    await fs.rm(dir, { recursive: true, force: true });
+  }
+});
+
+test("importClients: 同時に複数回呼んでも更新が失われない（withFileLockで直列化）", async () => {
+  const { filePath, dir } = await tempClientsPath();
+  try {
+    await Promise.all(
+      Array.from({ length: 8 }, (_, i) =>
+        importClients([{ clientName: `社${i}`, licenses: [{ licenseId: "既定", grantDateIso: "2021-04-01" }] }], filePath)
+      )
+    );
+    const clients = await loadClients(filePath);
+    assert.equal(clients.length, 8);
   } finally {
     await fs.rm(dir, { recursive: true, force: true });
   }
