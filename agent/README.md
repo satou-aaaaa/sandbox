@@ -63,6 +63,11 @@ Issueに `agent-ready` を付けるのが「実行してよい」という人間
 
 中止時はIssueにコメントが付き、`agent-ready` に戻る。
 
+### Issueのクローズ
+
+- PRがマージされると、PR本文の `Closes #N` によりGitHubがIssueを**自動でクローズ**する。
+- PRがマージされずに閉じられた場合は、`agent-issue-sync` workflowがIssueを `agent-needs-human` に戻し、理由をコメントする（`agent-done` のまま放置しない）。
+
 ## 注意
 
 - ソースコードとIssue本文がAnthropic APIへ送信される。Issueに実データを書かない。

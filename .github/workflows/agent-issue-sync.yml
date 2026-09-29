@@ -1,0 +1,47 @@
+name: Agent issue sync
+
+# エージェントが作ったPR（ブランチ名 agent/issue-<番号>）が閉じられたとき、対応するIssueの状態を揃える。
+#  - マージされた: PR本文の `Closes #N` でIssueは自動クローズされる。開いたままなら閉じ、
+#    処理中ラベルを整理して完了コメントを残す（安全網）
+#  - マージされずに閉じられた: Issueを agent-done のまま放置せず、agent-needs-human に戻して理由を残す
+# Issue番号はブランチ名から正規表現で取り出し、数字のみを許可する（シェルへ直接展開しない）。
+on:
+  pull_request:
+    types: [closed]
+
+permissions:
+  issues: write
+  pull-requests: read
+
+jobs:
+  sync:
+    # 同一リポジトリのブランチ（forkからのPRは対象外）で、エージェントのブランチ名のものだけ
+    if: github.event.pull_request.head.repo.full_name == github.repository && startsWith(github.event.pull_request.head.ref, 'agent/issue-')
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Issueの状態を揃える
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          MERGED: ${{ github.event.pull_request.merged }}
+        run: |
+          set -euo pipefail
+          if [[ ! "$HEAD_REF" =~ ^agent/issue-([0-9]+)$ ]]; then
+            echo "ブランチ名が想定の形式ではないため何もしません: $HEAD_REF"
+            exit 0
+          fi
+          ISSUE="${BASH_REMATCH[1]}"
+          if [ "$MERGED" = "true" ]; then
+            STATE="$(gh issue view "$ISSUE" --repo "$REPO" --json state --jq .state)"
+            if [ "$STATE" = "OPEN" ]; then
+              gh issue close "$ISSUE" --repo "$REPO" --reason completed --comment "エージェントのPRがマージされたためクローズします: $PR_URL"
+            fi
+            gh issue edit "$ISSUE" --repo "$REPO" --remove-label agent-working --remove-label agent-ready --remove-label agent-needs-human || true
+          else
+            gh issue edit "$ISSUE" --repo "$REPO" --remove-label agent-done --remove-label agent-working --add-label agent-needs-human || true
+            BODY="$(printf '%s\n\n%s' "エージェントのPRがマージされずに閉じられました: $PR_URL" "人手での対応が必要なため「agent-needs-human」に戻しました。内容を具体化して再度エージェントに任せる場合は、「agent-triaged」と「agent-needs-human」を外してください（再判定されます）。")"
+            gh issue comment "$ISSUE" --repo "$REPO" --body "$BODY"
+          fi

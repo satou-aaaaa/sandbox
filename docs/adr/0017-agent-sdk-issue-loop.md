@@ -135,3 +135,12 @@ Anthropicの公式ガイド（Securely deploying AI agents／Hooks／Building ef
 法令に基づく判定・期限計算のロジックに関わるIssueは、設計上、自動では ready にならない。
 
 実機の読み取り専用ドライランで、3件のIssue（#79〜#81）がいずれも「人手が必要」と判定され、理由も妥当だった。
+
+## Amendment 5（2026-09-30）: Issue の自動クローズと状態の同期
+
+- エージェントのPR本文には `Closes #N` を入れており、**PRがマージされるとGitHubがIssueを自動でクローズ**する（squashマージでも有効）。
+- 穴になる「マージされずにPRが閉じられた」場合に備え、`.github/workflows/agent-issue-sync.yml` を追加した。
+  ブランチ名 `agent/issue-<番号>` のPRが閉じられたとき:
+  - マージ済み: Issueが開いていれば閉じ、処理中ラベル（agent-working / agent-ready / agent-needs-human）を整理する（安全網）
+  - 未マージ: `agent-done` のまま放置せず、`agent-needs-human` に戻して理由を残す
+- Issue番号はブランチ名から数字のみを正規表現で取り出す（シェルへ未検証の値を展開しない）。forkからのPRは対象外。
