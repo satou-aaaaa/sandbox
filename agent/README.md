@@ -21,12 +21,23 @@ cd agent && npm ci
 - 環境に `ANTHROPIC_API_KEY` があっても既定では**使わない**（従量課金の防止）。APIキーを使う場合だけ `AGENT_AUTH=api-key` を明示する。
 - サブスクリプションの利用枠は対話利用と共有される。日次上限（5件）と1件あたりの上限は、この枠を使い切らないための歯止めでもある。
 
+## 1サイクルの実行（定期実行のエントリポイント）
+
+```bash
+node cycle.mjs --dry-run   # 判定・対象の確認のみ（書き込みなし）
+node cycle.mjs             # 回復 → トリアージ → 実装/PR作成 → 要約 を1回
+```
+
+- **排他制御**: 実行が重なった場合、後発は何もせずスキップ（`agent/.state/cycle.lock`。残骸は自動で奪取）
+- **異常終了からの回復**: `agent-working` のまま90分以上放置されたIssueを `agent-needs-human` に戻し、古い一時worktreeを片付ける
+- **要約**: 結果を1行にまとめ、`agent/logs/cycle-latest.txt` に保存（1サイクルの全出力は `agent/logs/cycle-*.log`）
+
 ## Issue の自動トリアージ（`agent-ready` を自動で付けるか判断する）
 
 ```bash
 node triage.mjs --dry-run   # 判定結果を表示するのみ（ラベル・コメントは変更しない）
 node triage.mjs             # 判定してラベルとコメントを付ける（既定で最大5件）
-node triage.mjs && node run.mjs   # 判定 → 実装 → PR作成までを1回で
+node cycle.mjs             # 判定 → 実装 → PR作成までを1回で（排他制御・回復つき）
 ```
 
 - 対象: **所有者本人が起票**した未判定のIssue（第三者のIssueは一切対象にしない）

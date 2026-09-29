@@ -508,3 +508,77 @@ export function decideTriage(verdict) {
   if (verdict.estimatedFiles > TRIAGE_MAX_FILES) return { ready: false, reason: `変更規模が大きい見込み（${verdict.estimatedFiles}ファイル）のため、人手で分割してください。（${verdict.reason}）` };
   return { ready: true, reason: verdict.reason };
 }
+
+// ---------------------------------------------------------------------------
+// 定期実行（cycle）: 排他制御・異常終了からの回復・実行結果の要約
+// ---------------------------------------------------------------------------
+
+/** ロックがこの時間を超えて残っていたら（プロセスが生きていても）残骸とみなす。 */
+export const LOCK_STALE_MS = 2 * 60 * 60 * 1000;
+/** `agent-working` がこの時間更新されなければ、異常終了した実行の残骸とみなす。 */
+export const WORKING_STALE_MS = 90 * 60 * 1000;
+/** 一時作業ディレクトリ（worktree）をこの時間を超えて放置したものは片付ける。 */
+export const TMP_STALE_MS = 3 * 60 * 60 * 1000;
+
+/**
+ * ロックが残骸か。所有プロセスが死んでいる、または古すぎる場合は残骸。
+ * @param {{pid: number, startedAt: number} | null} info
+ * @param {number} now
+ * @param {(pid: number) => boolean} isAlive
+ * @returns {boolean}
+ */
+export function isLockStale(info, now, isAlive) {
+  if (!info || !Number.isInteger(info.pid) || !Number.isFinite(info.startedAt)) return true;
+  if (now - info.startedAt > LOCK_STALE_MS) return true;
+  return !isAlive(info.pid);
+}
+
+/**
+ * 処理中（agent-working）のまま放置された、異常終了の疑いがあるIssueか。
+ * @param {{labels: {name: string}[], updatedAt: string}} issue
+ * @param {number} now
+ * @param {number} [thresholdMs]
+ * @returns {boolean}
+ */
+export function isStaleWorking(issue, now, thresholdMs = WORKING_STALE_MS) {
+  if (!issue.labels.some((l) => l.name === LABEL_WORKING)) return false;
+  const updated = Date.parse(issue.updatedAt);
+  return Number.isFinite(updated) && now - updated > thresholdMs;
+}
+
+/**
+ * triage.mjs / run.mjs の出力から、実行結果の要約を作る。
+ * @param {string} text 出力全体
+ * @returns {{ready: number, needsHuman: number, prs: string[], aborted: number}}
+ */
+export function summarizeOutput(text) {
+  const lines = String(text).split("\n");
+  const prs = [];
+  let ready = 0;
+  let needsHuman = 0;
+  let aborted = 0;
+  for (const line of lines) {
+    if (line.includes("→ ready")) ready++;
+    else if (line.includes("→ needs-human")) needsHuman++;
+    const pr = line.match(/PRを作成しました: (https:\/\/github\.com\/\S+)/);
+    if (pr) prs.push(pr[1]);
+    if (/#\d+ 中止:/.test(line)) aborted++;
+  }
+  return { ready, needsHuman, prs, aborted };
+}
+
+/**
+ * 通知用の日本語サマリー。
+ * @param {ReturnType<typeof summarizeOutput>} s
+ * @param {number} recovered 異常終了から回復したIssue数
+ * @returns {string}
+ */
+export function formatSummary(s, recovered) {
+  const parts = [
+    `トリアージ: 実行可 ${s.ready}件 / 人手 ${s.needsHuman}件`,
+    `PR作成: ${s.prs.length}件${s.prs.length ? `（${s.prs.join(", ")}）` : ""}`,
+    `中止: ${s.aborted}件`,
+  ];
+  if (recovered > 0) parts.push(`異常終了から回復: ${recovered}件`);
+  return parts.join(" / ");
+}
