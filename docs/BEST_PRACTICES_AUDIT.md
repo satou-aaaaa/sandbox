@@ -57,10 +57,10 @@ Martin Fowler・OWASP・Google Cloud DORAチーム等の公開資料を出典と
 | 項目 | 状態 | 補足 |
 |---|---|---|
 | ユニットテスト | ✅ | `node --test`（Node.js標準機能）。全件通過を維持中（正確な件数はモジュール追加のたびに変わるため`npm test`の実行結果を確認すること。件数のハードコードは第7回監査で撤廃） |
-| CI（push/PR時の自動テスト） | ✅ | `.github/workflows/test.yml`。Node.js 20.x/22.x × ubuntu-latest/windows-latest の計4通りで実行（2026年9月にWindows環境を追加。開発機がWindowsであり、過去に改行コード関連の問題が実際に発生した経緯を踏まえた対応） |
+| CI（push/PR時の自動テスト） | ✅ | `.github/workflows/test.yml`。Node.js 22.x/24.x × ubuntu-latest/windows-latest（windowsは22.xのみ）の計3通りで実行（2026年9月にWindows環境を追加。2026年9月・#78でNode 20.x/22.xから変更。開発機がWindowsであり、過去に改行コード関連の問題が実際に発生した経緯を踏まえた対応） |
 | CIの実行効率・堅牢性 | ✅ | 2026年9月追加。`concurrency`設定で同一ブランチ・PRへの連続pushの古い実行を自動キャンセル、`timeout-minutes: 10`でハング時のActions利用時間浪費を防止、`fail-fast: false`でOS/Node.jsバージョンの組み合わせごとの結果を最後まで確認できるようにした |
 | CI実行結果のサマリー表示 | ✅ | 2026年9月追加。テスト件数・カバレッジ数値を`$GITHUB_STEP_SUMMARY`に出力し、ログを展開しなくてもActionsの実行画面で概要を確認できるようにした |
-| テストカバレッジ計測 | ✅ | `npm run test:coverage`（`--experimental-test-coverage`）。CIでは22.xのジョブでのみ表示（Node 20系に既知の不具合があるため）。継続してライン・分岐とも99%超を維持中（直近確認: 2026年9月、ライン約99.8%・分岐約99.1%。新規モジュール追加のたびに変動するため、正確な数値は`npm run test:coverage`の実行結果を確認すること）。`npm run test:coverage:html`（c8）でドリルダウン可能なHTMLレポートも生成できる（`coverage/index.html`） |
+| テストカバレッジ計測 | ✅ | `npm run test:coverage`（`--experimental-test-coverage`）。CIでは22.xのジョブでのみ実行（結果がバージョンに依存しないため。従来はNode 20系の既知の不具合も理由だった）。継続してライン・分岐とも99%超を維持中（直近確認: 2026年9月、ライン約99.8%・分岐約99.1%。新規モジュール追加のたびに変動するため、正確な数値は`npm run test:coverage`の実行結果を確認すること）。`npm run test:coverage:html`（c8）でドリルダウン可能なHTMLレポートも生成できる（`coverage/index.html`） |
 | カバレッジの閾値強制 | ⛔ | `--test-coverage-lines` 等で閾値未達を失敗にする設定は未導入。個人開発でカバレッジ数値そのものを目的化しないため、情報表示に留めている |
 | ミューテーションテスト | ✅ | 2026年9月追加。Stryker Mutatorで要件判定・欠格事由判定・日付/金額計算・CSV相互変換に対象を絞って導入（`npm run test:mutation`）。カバレッジでは検出できないアサーション不足の実バグを複数発見・修正した。詳細は[ADR-0011](adr/0011-mutation-and-property-based-testing.md) |
 | Property-based testing | ✅ | 2026年9月追加。fast-checkで日付計算・CSV往復変換・HTMLエスケープにランダム入力での性質検証を追加。[ADR-0011](adr/0011-mutation-and-property-based-testing.md) |

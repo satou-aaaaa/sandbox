@@ -8,16 +8,6 @@ updates:
     schedule:
       interval: "weekly"
     open-pull-requests-limit: 5
-    ignore:
-      # jsdom 30.x系はundici ^8.xに依存し、webidl.util.markAsUncloneable
-      # （Node 22.5以降のnode:worker_threadsにのみ存在するAPI）を無条件に
-      # 参照するため、本リポジトリがサポートするNode 20.x（package.jsonの
-      # engines・CIマトリクス参照）で TypeError: webidl.util.markAsUncloneable
-      # is not a function となり動作しない（2026年9月確認。#67で発覚し
-      # jsdom 29.1.1へ固定して解消した）。Node 20サポートを終了するまで
-      # メジャーバージョンの提案を止める。
-      - dependency-name: "jsdom"
-        update-types: ["version-update:semver-major"]
 
   # GitHub Actions（.github/workflows/*.yml）自体のバージョン更新も対象にする。
   - package-ecosystem: "github-actions"
