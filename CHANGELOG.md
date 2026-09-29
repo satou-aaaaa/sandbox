@@ -6,6 +6,25 @@
 日付単位のリリースではなく `docs/PROPOSAL.md` のマイルストーン（M1〜）を
 単位として記録する。
 
+## jsdomのメジャーアップデートがNode 20.xを壊す非互換を回避（2026年9月）
+
+Dependabotのjsdom更新PR（26.1.0→30.1.1）がCIのNode 20.xジョブでのみ
+失敗する事象を調査した。
+
+- jsdom 30.x系はundici ^8.xに依存し、その`webidl.util.markAsUncloneable`
+  （Node 22.5以降の`node:worker_threads`にのみ存在するAPI）を無条件に
+  参照するため、Node 20.x上では`TypeError: webidl.util.markAsUncloneable
+  is not a function`で`test/accessibility.test.js`・
+  `test/formPageClient.test.js`が失敗することを特定した
+- 本リポジトリの`package.json`は`"engines": {"node": ">=20"}`を宣言し、
+  CIもNode 20.x/22.xの両方でテストしているため、Node 20を壊す30.x系は
+  マージせず、undici ^7.x系に依存する最後のメジャーバージョンである
+  jsdom 29.1.1へ更新した（Node 20との互換性を維持しつつ26.1.0からの
+  実質的なアップデートは得られる）
+- `.github/dependabot.yml`にjsdomのメジャーバージョン更新を無視する
+  ルールを追加し、Node 20サポートを終了するまで同じ提案が繰り返されない
+  ようにした
+
 ## 法定相続人計算モジュールのミューテーションテストのカバレッジを強化（2026年9月）
 
 利用者からの「テストをより充実させたい」という依頼を受けて、`npm run
