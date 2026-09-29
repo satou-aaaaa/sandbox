@@ -582,3 +582,48 @@ export function formatSummary(s, recovered) {
   if (recovered > 0) parts.push(`異常終了から回復: ${recovered}件`);
   return parts.join(" / ");
 }
+
+// ---------------------------------------------------------------------------
+// エージェントPRの自動マージ（リスク分類）
+//
+// 人手の接点を減らすため、低リスクなPRだけをCI成功後に自動マージする。
+// 「低リスク」は意図的に狭く定義する（広げるのは運用実績を見てから）:
+//   - README.md / CHANGELOG.md（説明文のみ。設計上の前提を書くDESIGN/ADR等は含めない）
+//   - test/ 配下の変更のうち、削除行が0のもの（テストを追加するだけで、弱められない）
+// それ以外（src/・docs/の設計文書・設定・依存・保護パス）は高リスクとして人手（承認ラベル1つ）に回す。
+// 分類は main 側のコードで実行する（PR自身が分類ロジックを書き換えて自己承認できないように）。
+// ---------------------------------------------------------------------------
+
+/** 自動マージの対象にしてよい変更ファイル数の上限。 */
+export const AUTOMERGE_MAX_FILES = 8;
+/** 低リスクとみなす文書（完全一致）。 */
+const LOW_RISK_DOCS = ["README.md", "CHANGELOG.md"];
+
+/**
+ * @typedef {{path: string, additions: number, deletions: number}} PrFile
+ */
+
+/**
+ * PRの変更ファイルからリスクを分類する。
+ * @param {PrFile[]} files
+ * @returns {{level: "low"|"high", reasons: string[]}} high の場合は理由（人手に回す根拠）
+ */
+export function classifyPrRisk(files) {
+  /** @type {string[]} */
+  const reasons = [];
+  if (files.length === 0) return { level: "high", reasons: ["変更ファイルを取得できませんでした"] };
+  if (files.length > AUTOMERGE_MAX_FILES) reasons.push(`変更ファイルが多い（${files.length}件 > ${AUTOMERGE_MAX_FILES}件）`);
+  const protectedHits = findProtectedPaths(files.map((f) => f.path));
+  if (protectedHits.length > 0) reasons.push(`保護対象パスの変更: ${protectedHits.join(", ")}`);
+  for (const f of files) {
+    const p = f.path.replaceAll("\\", "/");
+    if (protectedHits.includes(p)) continue;
+    if (LOW_RISK_DOCS.includes(p)) continue;
+    if (p.startsWith("test/")) {
+      if (!Number.isInteger(f.deletions) || f.deletions !== 0) reasons.push(`テストの削除・書き換えを含む: ${p}（削除行 ${f.deletions}）`);
+      continue;
+    }
+    reasons.push(`低リスクの範囲外: ${p}`);
+  }
+  return reasons.length === 0 ? { level: "low", reasons } : { level: "high", reasons };
+}

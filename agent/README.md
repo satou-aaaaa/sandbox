@@ -74,6 +74,13 @@ Issueに `agent-ready` を付けるのが「実行してよい」という人間
 
 中止時はIssueにコメントが付き、`agent-ready` に戻る。
 
+### PRの自動マージ（人手の接点を減らす）
+
+`agent-pr-automerge` workflowが、エージェントのPRをリスクで振り分ける（ADR-0017 Amendment 7）。
+
+- **低リスク**（`README.md` / `CHANGELOG.md`、削除行0のテスト追加のみ、8ファイル以下）: 必須チェック成功後に**自動マージ**
+- **それ以外**: 理由がPRにコメントされ、`agent-needs-review` が付く。内容を確認して問題なければ **`agent-approved` ラベルを付ける**（所有者のみ有効）と、必須チェック成功後に自動マージされる（スマホからでも可）
+
 ### Issueのクローズ
 
 - PRがマージされると、PR本文の `Closes #N` によりGitHubがIssueを**自動でクローズ**する。

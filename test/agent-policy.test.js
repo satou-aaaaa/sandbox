@@ -6,6 +6,8 @@ import {
   DAILY_LIMITS,
   DOCKER_IMAGE,
   buildDockerArgs,
+  AUTOMERGE_MAX_FILES,
+  classifyPrRisk,
   TRIAGE_MAX_FILES,
   buildTriagePrompt,
   decideTriage,
@@ -319,4 +321,54 @@ test("buildDockerArgs: triage フェーズは作業ツリーを読み取り専�
   assert.ok(a.includes("CLAUDE_CODE_OAUTH_TOKEN"));
   const impl = buildDockerArgs({ phase: "agent", workDir: "/w", logDir: "/l", taskDir: "/t", auditName: "a" });
   assert.ok(impl.includes("/w:/workspace"));
+});
+
+const f = (path, additions = 1, deletions = 0) => ({ path, additions, deletions });
+
+test("classifyPrRisk: README.md と CHANGELOG.md のみなら low", () => {
+  assert.equal(classifyPrRisk([f("README.md"), f("CHANGELOG.md", 20, 2)]).level, "low");
+});
+
+test("classifyPrRisk: 削除行0のテスト追加だけなら low", () => {
+  assert.equal(classifyPrRisk([f("test/a.test.js", 30, 0), f("test/b.test.js", 5, 0)]).level, "low");
+});
+
+test("classifyPrRisk: テストの削除・書き換え（削除行あり）は high（テストを弱められない）", () => {
+  const r = classifyPrRisk([f("test/a.test.js", 3, 1)]);
+  assert.equal(r.level, "high");
+  assert.match(r.reasons.join(" "), /テストの削除・書き換え/);
+});
+
+test("classifyPrRisk: src/・設計文書・ADR・設定・依存は high", () => {
+  for (const p of ["src/core/x.js", "docs/DESIGN.md", "docs/adr/0018-x.md", "package.json", "eslint.config.js", "scripts/x.js"]) {
+    assert.equal(classifyPrRisk([f(p)]).level, "high", p);
+  }
+});
+
+test("classifyPrRisk: 保護パス（.github/ agent/ hooks/ CLAUDE.md 等）は high で、理由に保護パスと出る", () => {
+  for (const p of [".github/workflows/test.yml", "agent/policy.js", "hooks/check-secrets.mjs", "CLAUDE.md", "package-lock.json", "data/clients.json"]) {
+    const r = classifyPrRisk([f(p)]);
+    assert.equal(r.level, "high", p);
+    assert.match(r.reasons.join(" "), /保護対象パス/, p);
+  }
+});
+
+test("classifyPrRisk: 低リスクのファイルに高リスクが1つでも混ざれば high", () => {
+  assert.equal(classifyPrRisk([f("README.md"), f("src/a.js")]).level, "high");
+});
+
+test("classifyPrRisk: ファイル数が上限を超えたら high、変更なし（取得失敗）も high", () => {
+  const many = Array.from({ length: AUTOMERGE_MAX_FILES + 1 }, (_, i) => f(`test/t${i}.test.js`));
+  assert.equal(classifyPrRisk(many).level, "high");
+  assert.equal(classifyPrRisk(Array.from({ length: AUTOMERGE_MAX_FILES }, (_, i) => f(`test/t${i}.test.js`))).level, "low");
+  assert.equal(classifyPrRisk([]).level, "high");
+});
+
+test("classifyPrRisk: 削除行が数値でない（不正値）は high 側に倒す", () => {
+  assert.equal(classifyPrRisk([{ path: "test/a.test.js", additions: 1, deletions: /** @type {any} */ (undefined) }]).level, "high");
+});
+
+test("classifyPrRisk: Windows区切りでも同様に判定する", () => {
+  assert.equal(classifyPrRisk([f("test\\a.test.js", 1, 0)]).level, "low");
+  assert.equal(classifyPrRisk([f("src\\a.js")]).level, "high");
 });
