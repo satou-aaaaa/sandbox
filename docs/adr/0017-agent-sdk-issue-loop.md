@@ -206,3 +206,19 @@ Anthropicの公式ガイド（Securely deploying AI agents／Hooks／Building ef
 - **コンテナ隔離**: Actionsのランナーでもコンテナ隔離を使う。ランナーのuid（1001）に合わせて `--user` を指定する（`buildDockerArgs` の `uid`/`gid`）。
 - **既知の制約**: 日次上限（`agent/.state`）はランナー間で共有されない。1日1回のスケジュールと、1回あたりの上限（実装1件・起票2件）で抑える。
   未検証: シークレット登録前のため、Actions上での実行は未確認。有効化前に `workflow_dispatch`（dry_run=true）で確認すること。
+
+## Amendment 10（2026-09-30）: 原則は人が介入しない — 事後に取り消し、問題はAIが自己解決する
+
+方針の転換: 「マージ前に人が承認する」から「**原則は人が介入せず、問題があれば事後に取り消す**」へ。
+Amendment 7 の低リスク範囲を広げ、自動マージを既定とした（`classifyPrRisk`）。
+
+| 区分 | 対象 | 扱い |
+|---|---|---|
+| 自動マージ（既定） | README/CHANGELOG、docs直下の文書（設計文書・ADRを除く）、テスト（追加≧削除）、法令ロジックを含まないコード（src/web・src/core/documents・src/portal・scripts・e2e・load）、12ファイル以下 | 必須チェック成功後に自動マージ |
+| 承認が必要 | 法令判定・期限計算・様式生成（src/licenses・src/core/eligibility・src/core/reminders・src/succession・src/incorporation・src/documents・features）、設定・スキーマ・設計文書・ADR | 承認ラベル（所有者、またはAIレビュアー）で自動マージ。変数 `AGENT_AUTOMERGE_LEGAL=true` で法令領域も自動マージに切替可 |
+| 常に人手 | 保護パス（.github・agent・hooks・data・package*.json・CLAUDE.md・.env*） | エージェントが触れず、AIも承認しない（信頼の根拠であるため） |
+
+**なぜ法令領域は既定で承認を要するか**: CIでは検出できない「静かな誤り」（法令解釈の誤りで判定が黙って変わる）が起こり得るため。
+事後の取消（リバート）はテスト失敗のような**検知できる問題**には有効だが、静かな誤りは検知が遅れる。
+
+この方針の残りの構成要素（事後の取消・自己解決・AIレビュアーによる承認）は、続くAmendmentで追加する。
