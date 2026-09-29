@@ -304,3 +304,43 @@ export function buildRetryPrompt(scriptName, output) {
     "</verification-output>",
   ].join("\n");
 }
+
+// ---------------------------------------------------------------------------
+// コンテナ隔離（Docker）。公式の "Securely deploying AI agents" の推奨構成に準拠。
+// ---------------------------------------------------------------------------
+
+/** 隔離イメージ名（agent/Dockerfile からローカルビルドする）。 */
+export const DOCKER_IMAGE = "kkt-agent:local";
+
+/**
+ * `docker run` の引数を組み立てる（純粋関数。テストで安全設定の欠落を検出する）。
+ * - 作業ツリー（/workspace）と監査ログ（/logs）と依頼文（/task, 読み取り専用）のみマウント
+ * - ルートFS読み取り専用・全capability破棄・no-new-privileges・非root・資源制限
+ * - GitHub認証情報・ホストのHOME・SSH鍵は一切渡さない
+ * @param {{phase: "install"|"agent"|"verify", workDir: string, logDir: string, taskDir: string, auditName: string, env?: Record<string,string|undefined>}} p
+ * @returns {string[]}
+ */
+export function buildDockerArgs({ phase, workDir, logDir, taskDir, auditName, env = {} }) {
+  const passEnv = phase === "agent" ? ["ANTHROPIC_API_KEY", "AGENT_MODEL"] : [];
+  const envArgs = passEnv.filter((k) => env[k]).flatMap((k) => ["-e", k]);
+  return [
+    "run",
+    "--rm",
+    "--cap-drop", "ALL",
+    "--security-opt", "no-new-privileges",
+    "--read-only",
+    "--tmpfs", "/tmp:rw,nosuid,size=512m",
+    "--tmpfs", "/home/node:rw,nosuid,uid=1000,gid=1000,size=1g",
+    "--memory", "4g",
+    "--cpus", "2",
+    "--pids-limit", "512",
+    "--user", "1000:1000",
+    "-v", `${workDir}:/workspace`,
+    "-v", `${logDir}:/logs`,
+    "-v", `${taskDir}:/task:ro`,
+    "-e", `AUDIT_NAME=${auditName}`,
+    ...envArgs,
+    DOCKER_IMAGE,
+    phase,
+  ];
+}

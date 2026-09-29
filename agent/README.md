@@ -8,6 +8,8 @@
 
 ## 準備（初回のみ）
 
+Docker Desktop を起動しておく（既定でコンテナ隔離。ADR-0017 Amendment 2）。隔離なしで動かす場合のみ `AGENT_SANDBOX=none` を明示する。
+
 ```bash
 cd agent && npm ci
 ```
@@ -61,6 +63,7 @@ Issueに `agent-ready` を付けるのが「実行してよい」という人間
 | 保護パス検査 | 変更に保護対象が含まれれば中止 |
 | 検証ゲート | `npm test` / `typecheck` / `lint` / `check-secrets`。失敗時は1回だけ自己修正させ、再失敗で差し戻し |
 | 上限 | 1件あたり40ターン・$3・20分。日次で5件・$10（`agent/.state/daily.json`） |
+| コンテナ隔離 | 既定で `npm ci`・エージェント・検証をDockerコンテナ内で実行（作業ツリーのみマウント・`--cap-drop ALL`・読み取り専用FS・非root・認証情報なし）。Docker不可なら実行しない |
 | キルスイッチ | `agent/.disabled` ファイルを作る、または `AGENT_DISABLED=1` で即停止 |
 
 ### 緊急停止・確認
@@ -72,5 +75,4 @@ ls agent/logs              # 監査ログ（1行1JSON: ツール名・入力・�
 
 ### 既知の制約
 
-Windowsでは推奨のOSサンドボックスが使えないため、隔離は論理的な防御のみ。
-コンテナ隔離への移行方針は ADR-0017 の Amendment 1 を参照。
+コンテナのネットワークegressは無制限（API・npmレジストリ到達のため）。API宛のみ許可するプロキシへの移行が次の一手（ADR-0017 Amendment 2）。
