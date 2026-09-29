@@ -146,7 +146,9 @@ async function main() {
     if (!DRY_RUN) recovered = recover();
     const flag = DRY_RUN ? ["--dry-run"] : [];
     // 1. 事後の取消: 問題のあるマージを取り消す（所有者のラベル、またはmainのCI失敗）
-    let out = runStep("revert.mjs", ["--sweep", ...flag]);
+    // 0. Issueの完了同期（自動マージでは、キーワードによる自動クローズやclosedイベントのworkflowが働かないため）
+    let out = runStep("sync.mjs", flag);
+    out += runStep("revert.mjs", ["--sweep", ...flag]);
     // 2. ブレーカーが作動していなければ、通常の流れ（スカウト→トリアージ→実装→レビュー）を実行する
     if (!breakerTripped()) out += runStep("scout.mjs", flag) + runStep("triage.mjs", flag) + runStep("run.mjs", flag) + runStep("fix.mjs", flag) + runStep("review.mjs", flag);
     const summary = formatSummary(summarizeOutput(out), recovered);

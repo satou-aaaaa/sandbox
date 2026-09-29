@@ -6,6 +6,7 @@ import {
   DAILY_LIMITS,
   DOCKER_IMAGE,
   buildDockerArgs,
+  shouldCloseAsCompleted,
   buildFixPrompt,
   decideFix,
   fixCount,
@@ -738,4 +739,26 @@ test("summarizeOutput/formatSummary: 自己修復を数える", () => {
   assert.equal(s.fixed, 1);
   assert.match(formatSummary(s, 0), /自己修復: 1件/);
   assert.doesNotMatch(formatSummary(summarizeOutput(""), 0), /自己修復/);
+});
+
+test("shouldCloseAsCompleted: agent-done かつ、エージェントのPRがマージ済み（未取消）ならクローズしてよい", () => {
+  const done = { labels: [{ name: "agent-done" }] };
+  assert.equal(shouldCloseAsCompleted(done, [{ mergedAt: "2026-09-30T00:00:00Z", labels: [] }]), true);
+});
+
+test("shouldCloseAsCompleted: 未マージ・取り消し済み・agent-doneなし・PRなしはクローズしない", () => {
+  const done = { labels: [{ name: "agent-done" }] };
+  assert.equal(shouldCloseAsCompleted(done, [{ mergedAt: null, labels: [] }]), false);
+  assert.equal(shouldCloseAsCompleted(done, [{ mergedAt: "2026-09-30T00:00:00Z", labels: [{ name: "agent-reverted" }] }]), false);
+  assert.equal(shouldCloseAsCompleted({ labels: [] }, [{ mergedAt: "2026-09-30T00:00:00Z", labels: [] }]), false);
+  assert.equal(shouldCloseAsCompleted(done, []), false);
+});
+
+test("shouldCloseAsCompleted: 取り消されたPRと、その後の再挑戦のPR（マージ済み）が混在する場合は、再挑戦のPRでクローズしてよい", () => {
+  const done = { labels: [{ name: "agent-done" }] };
+  const prs = [
+    { mergedAt: "2026-09-30T00:00:00Z", labels: [{ name: "agent-reverted" }] },
+    { mergedAt: "2026-09-30T01:00:00Z", labels: [] },
+  ];
+  assert.equal(shouldCloseAsCompleted(done, prs), true);
 });
