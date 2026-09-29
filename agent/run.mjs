@@ -233,7 +233,8 @@ async function processIssue(issue) {
   };
 
   try {
-    run("git", ["fetch", "origin", BASE]);
+    // 削除済みブランチの古い追跡情報を掃除する（残っていると、同じIssueの再挑戦で push --force-with-lease が「古い情報」として拒否される）
+    run("git", ["fetch", "--prune", "origin"]);
     run("git", ["worktree", "add", "-B", branch, workDir, `origin/${BASE}`]);
     be.install(workDir);
 
