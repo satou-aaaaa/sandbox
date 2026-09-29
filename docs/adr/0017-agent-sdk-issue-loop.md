@@ -102,3 +102,19 @@ Anthropicの公式ガイド（Securely deploying AI agents／Hooks／Building ef
 残リスク: コンテナはネットワークegress無制限（API・npmレジストリ到達に必要）。
 エージェントのBashはネットワーク系コマンドを拒否しているが、OSレベルでの宛先制限は無い。
 次の一手は、API宛のみ許可するプロキシ経由（`--network none`＋Unixソケット、クレデンシャルはコンテナ外で注入）。
+
+## Amendment 3（2026-09-29）: 認証は既定でClaudeサブスクリプション（APIキー不使用）
+
+発注者の方針（追加の従量課金を避ける）により、認証方式を次のとおりとした。
+
+- **既定は `AGENT_AUTH=subscription`**。Claude Code / Agent SDK は claude.ai のPro/Maxログインで認証でき、
+  無人実行向けには `claude setup-token` で発行する `CLAUDE_CODE_OAUTH_TOKEN`（1年有効・モデル呼び出し専用）を使う。
+  この端末で、APIキー無し・サブスクリプションのログインのみでSDKが動作することを実機で確認した。
+- **Docker隔離時はトークンのみをコンテナへ渡す**。ホストの `~/.claude/.credentials.json`（リフレッシュトークンを含む）は
+  マウントしない。トークンはモデル呼び出し専用で、GitHub操作やRemote Controlには使えない。
+- **APIキーは既定で除外**する。環境に `ANTHROPIC_API_KEY` があっても渡さない（認証の優先順位でAPIキーが
+  サブスクリプションより優先され、意図せず従量課金になるのを防ぐ）。使う場合は `AGENT_AUTH=api-key` を明示する。
+- 費用の上限（`maxBudgetUsd`・日次$10）はサブスクリプションでは請求額ではなく推定値として働き、
+  利用枠を使い切らないための歯止めとなる。利用枠は対話利用と共有されるため、日次件数（5件）も維持する。
+
+見直しのトリガー: 利用枠の枯渇で対話利用に支障が出る場合は、件数上限を下げる、または実行時間帯を分ける。

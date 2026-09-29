@@ -130,17 +130,55 @@ export const DISALLOWED_TOOLS = [
  * エージェント実行に引き継ぐ環境変数を絞り込む。
  * GitHubの認証情報は渡さない（万一Bashが通ってもghを使えないように）。
  * @param {NodeJS.ProcessEnv} env
+ * @param {string[]} [stripEnv] 追加で除外する変数名（認証方式の切り分けに使う）
  * @returns {Record<string, string>}
  */
-export function buildAgentEnv(env) {
+export function buildAgentEnv(env, stripEnv = []) {
   /** @type {Record<string, string>} */
   const out = {};
   for (const [k, v] of Object.entries(env)) {
     if (v === undefined) continue;
     if (/^(GH_|GITHUB_)/.test(k)) continue;
+    if (stripEnv.includes(k)) continue;
     out[k] = v;
   }
   return out;
+}
+
+/**
+ * @typedef {{method: "subscription"|"api-key", passEnv: string[], stripEnv: string[], error?: undefined}
+ *   | {error: string}} AuthPlan
+ */
+
+/**
+ * 認証方式を決める。既定は Claude サブスクリプション（追加課金なし）。
+ * - `subscription`（既定）: APIキー系の環境変数はエージェントに渡さない（誤って従量課金に
+ *   ならないよう、環境に ANTHROPIC_API_KEY があっても除外する）。
+ *   Docker隔離時は `claude setup-token` で発行した CLAUDE_CODE_OAUTH_TOKEN のみをコンテナへ渡す
+ *   （ホストのログイン情報 credentials.json はマウントしない）。隔離なし時は、この端末の
+ *   Claude Codeログイン（サブスクリプション）をそのまま使う。
+ * - `api-key`: `AGENT_AUTH=api-key` の明示指定時のみ。従量課金になる。
+ * @param {NodeJS.ProcessEnv} env
+ * @param {"docker"|"none"} sandbox
+ * @returns {AuthPlan}
+ */
+export function resolveAuth(env, sandbox) {
+  const method = env.AGENT_AUTH || "subscription";
+  if (method === "api-key") {
+    return env.ANTHROPIC_API_KEY
+      ? { method: "api-key", passEnv: ["ANTHROPIC_API_KEY"], stripEnv: [] }
+      : { error: "AGENT_AUTH=api-key には ANTHROPIC_API_KEY が必要です（従量課金になります）" };
+  }
+  if (method !== "subscription") {
+    return { error: `AGENT_AUTH は subscription または api-key を指定してください（現在: ${method}）` };
+  }
+  const stripEnv = ["ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN"];
+  if (sandbox === "docker") {
+    return env.CLAUDE_CODE_OAUTH_TOKEN
+      ? { method: "subscription", passEnv: ["CLAUDE_CODE_OAUTH_TOKEN"], stripEnv }
+      : { error: "Docker隔離ではサブスクリプション用トークンが必要です。`claude setup-token` で発行し、環境変数 CLAUDE_CODE_OAUTH_TOKEN に設定してください" };
+  }
+  return { method: "subscription", passEnv: [], stripEnv };
 }
 
 /**
@@ -317,11 +355,12 @@ export const DOCKER_IMAGE = "kkt-agent:local";
  * - 作業ツリー（/workspace）と監査ログ（/logs）と依頼文（/task, 読み取り専用）のみマウント
  * - ルートFS読み取り専用・全capability破棄・no-new-privileges・非root・資源制限
  * - GitHub認証情報・ホストのHOME・SSH鍵は一切渡さない
- * @param {{phase: "install"|"agent"|"verify", workDir: string, logDir: string, taskDir: string, auditName: string, env?: Record<string,string|undefined>}} p
+ * - 認証用の環境変数（authEnv。resolveAuth の passEnv）は agent フェーズにのみ渡す
+ * @param {{phase: "install"|"agent"|"verify", workDir: string, logDir: string, taskDir: string, auditName: string, authEnv?: string[], env?: Record<string,string|undefined>}} p
  * @returns {string[]}
  */
-export function buildDockerArgs({ phase, workDir, logDir, taskDir, auditName, env = {} }) {
-  const passEnv = phase === "agent" ? ["ANTHROPIC_API_KEY", "AGENT_MODEL"] : [];
+export function buildDockerArgs({ phase, workDir, logDir, taskDir, auditName, authEnv = [], env = {} }) {
+  const passEnv = phase === "agent" ? [...authEnv, "AGENT_MODEL", "AGENT_AUTH"] : [];
   const envArgs = passEnv.filter((k) => env[k]).flatMap((k) => ["-e", k]);
   return [
     "run",
