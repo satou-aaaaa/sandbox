@@ -71,3 +71,16 @@ test("evaluateEligibility: prefecture未入力の場合も共通5要件のみで
   const result = evaluateEligibility(profile);
   assert.equal(result.checks.length, 5);
 });
+
+test("getPrefectureRules/evaluateEligibility: Object.prototypeのキー名を都道府県に指定しても関数として呼び出されない（CodeQL js/unvalidated-dynamic-method-call は誤検知）", () => {
+  // レジストリは Map のため、"constructor" 等のプロトタイプ由来の名前を引いても
+  // undefined になり、共通5要件のみで判定される。将来レジストリを素のオブジェクトへ
+  // 変更した場合にこの前提が崩れないよう、回帰テストとして固定する。
+  for (const key of ["constructor", "__proto__", "toString", "hasOwnProperty", "valueOf"]) {
+    assert.equal(getPrefectureRules(key), undefined, key);
+    const profile = buildSampleApplicantProfile();
+    profile.prefecture = key;
+    const result = evaluateEligibility(profile);
+    assert.equal(result.checks.length, 5, key);
+  }
+});
