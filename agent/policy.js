@@ -356,10 +356,10 @@ export const DOCKER_IMAGE = "kkt-agent:local";
  * - ルートFS読み取り専用・全capability破棄・no-new-privileges・非root・資源制限
  * - GitHub認証情報・ホストのHOME・SSH鍵は一切渡さない
  * - 認証用の環境変数（authEnv。resolveAuth の passEnv）は agent フェーズにのみ渡す
- * @param {{phase: "install"|"agent"|"verify"|"triage", workDir: string, logDir: string, taskDir: string, auditName: string, authEnv?: string[], env?: Record<string,string|undefined>}} p
+ * @param {{phase: "install"|"agent"|"verify"|"triage", workDir: string, logDir: string, taskDir: string, auditName: string, authEnv?: string[], uid?: number, gid?: number, env?: Record<string,string|undefined>}} p
  * @returns {string[]}
  */
-export function buildDockerArgs({ phase, workDir, logDir, taskDir, auditName, authEnv = [], env = {} }) {
+export function buildDockerArgs({ phase, workDir, logDir, taskDir, auditName, authEnv = [], uid = 1000, gid = 1000, env = {} }) {
   // agent / triage フェーズはモデルを呼ぶため認証用の環境変数を渡す。triage は作業ツリーを読み取り専用でマウントする
   const usesModel = phase === "agent" || phase === "triage";
   const passEnv = usesModel ? [...authEnv, "AGENT_MODEL", "AGENT_AUTH"] : [];
@@ -371,11 +371,12 @@ export function buildDockerArgs({ phase, workDir, logDir, taskDir, auditName, au
     "--security-opt", "no-new-privileges",
     "--read-only",
     "--tmpfs", "/tmp:rw,nosuid,size=512m",
-    "--tmpfs", "/home/node:rw,nosuid,uid=1000,gid=1000,size=1g",
+    "--tmpfs", `/home/node:rw,nosuid,uid=${uid},gid=${gid},size=1g`,
     "--memory", "4g",
     "--cpus", "2",
     "--pids-limit", "512",
-    "--user", "1000:1000",
+    // 非root。Linuxではホストのuid/gidに合わせる（マウントした作業ツリーへ書き込めるように）
+    "--user", `${uid}:${gid}`,
     "-v", `${workDir}:/workspace${phase === "triage" ? ":ro" : ""}`,
     "-v", `${logDir}:/logs`,
     "-v", `${taskDir}:/task:ro`,
