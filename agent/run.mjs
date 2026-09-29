@@ -24,7 +24,9 @@
  *   node run.mjs                     agent-ready のIssueを最大 --max 件処理
  *   node run.mjs --issue 81          指定Issueのみ処理（ラベル条件は同じく必須）
  *
- * 前提: `gh` にログイン済み、環境変数 ANTHROPIC_API_KEY が設定済み、Docker起動済み。
+ * 前提: `gh` にログイン済み、Docker起動済み。認証は既定でClaudeサブスクリプション（追加課金なし）:
+ *   Docker隔離時は `claude setup-token` で発行した CLAUDE_CODE_OAUTH_TOKEN を環境変数に設定する。
+ *   APIキー（従量課金）を使う場合のみ AGENT_AUTH=api-key と ANTHROPIC_API_KEY を明示する。
  */
 import { execFileSync } from "node:child_process";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
@@ -41,6 +43,7 @@ import {
   LABEL_WORKING,
   branchNameForIssue,
   buildDockerArgs,
+  resolveAuth,
   buildPrompt,
   buildRetryPrompt,
   checkDailyBudget,
@@ -64,6 +67,8 @@ const COMMIT_TRAILER = "Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com
 const PR_TRAILER = "🤖 Generated with [Claude Code](https://claude.com/claude-code)";
 /** 隔離モード。docker（既定）または none（隔離なし。明示指定が必要）。 */
 const SANDBOX = process.env.AGENT_SANDBOX || "docker";
+/** 認証方式の決定結果（subscription既定）。 */
+const AUTH = resolveAuth(process.env, /** @type {"docker"|"none"} */ (SANDBOX === "none" ? "none" : "docker"));
 
 const args = process.argv.slice(2);
 const DRY_RUN = args.includes("--dry-run");
@@ -167,7 +172,7 @@ function dockerPhase(phase, workDir, auditName, prompt) {
   try {
     if (prompt !== undefined) writeFileSync(join(taskDir, "prompt.txt"), prompt);
     mkdirSync(LOG_DIR, { recursive: true });
-    const out = run("docker", buildDockerArgs({ phase, workDir, logDir: LOG_DIR, taskDir, auditName, env: process.env }));
+    const out = run("docker", buildDockerArgs({ phase, workDir, logDir: LOG_DIR, taskDir, auditName, authEnv: AUTH.error ? [] : AUTH.passEnv, env: process.env }));
     const line = out.split("\n").reverse().find((l) => l.startsWith("RESULT:"));
     if (!line) throw new Error(`コンテナからRESULTが返りませんでした（phase=${phase}）`);
     return JSON.parse(line.slice("RESULT:".length));
@@ -305,6 +310,7 @@ async function main() {
       log(`  #${i.number} ${i.title}`);
     }
     log(`隔離: ${SANDBOX}${SANDBOX === "docker" ? `（Docker ${dockerAvailable() ? "利用可能" : "利用不可"}）` : "（隔離なし・明示指定）"}`);
+    log(`認証: ${AUTH.error ? `未設定（${AUTH.error}）` : AUTH.method === "subscription" ? "Claudeサブスクリプション（追加課金なし）" : "APIキー（従量課金）"}`);
     log(`許可ツール: ${ALLOWED_TOOLS.join(", ")}`);
     log(`禁止ツール: ${DISALLOWED_TOOLS.join(", ")}`);
     log(`モデル: ${MODEL} / 壁時計上限 ${AGENT_TIMEOUT_MS / 60000}分 / 本日の状態: ${JSON.stringify(loadState())}`);
@@ -315,8 +321,8 @@ async function main() {
     log("キルスイッチが有効です（agent/.disabled または AGENT_DISABLED=1）。何もせず終了します");
     return;
   }
-  if (!process.env.ANTHROPIC_API_KEY) {
-    console.error("ANTHROPIC_API_KEY が未設定です。");
+  if (AUTH.error) {
+    console.error(AUTH.error);
     process.exit(1);
   }
   if (SANDBOX === "docker") {

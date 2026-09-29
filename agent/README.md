@@ -14,8 +14,12 @@ Docker Desktop を起動しておく（既定でコンテナ隔離。ADR-0017 Am
 cd agent && npm ci
 ```
 
-環境変数 `ANTHROPIC_API_KEY` を設定する（キーはリポジトリ・チャットに書かない）。
-`gh auth status` でログイン済みであること（push・PR作成に使う）。
+**認証は既定でClaudeサブスクリプション（Pro/Max。追加課金なし）**。APIキーは不要。
+
+- Docker隔離（既定）: `claude setup-token` を実行して表示されるトークンを、環境変数 `CLAUDE_CODE_OAUTH_TOKEN` に設定する（PowerShell: `[Environment]::SetEnvironmentVariable("CLAUDE_CODE_OAUTH_TOKEN", "<トークン>", "User")` のあとターミナルを再起動）。コンテナにはこのトークンだけを渡し、ホストのログイン情報は渡さない。
+- 隔離なし（`AGENT_SANDBOX=none`）: この端末のClaude Codeログインをそのまま使うためトークン不要（隔離は無くなる）。
+- 環境に `ANTHROPIC_API_KEY` があっても既定では**使わない**（従量課金の防止）。APIキーを使う場合だけ `AGENT_AUTH=api-key` を明示する。
+- サブスクリプションの利用枠は対話利用と共有される。日次上限（5件）と1件あたりの上限は、この枠を使い切らないための歯止めでもある。
 
 ## 使い方
 

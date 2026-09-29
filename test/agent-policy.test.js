@@ -6,6 +6,7 @@ import {
   DAILY_LIMITS,
   DOCKER_IMAGE,
   buildDockerArgs,
+  resolveAuth,
   buildRetryPrompt,
   checkDailyBudget,
   decideToolUse,
@@ -95,6 +96,11 @@ test("DISALLOWED_TOOLS は push・gh・ネットワークと保護パスの編�
   }
 });
 
+test("buildAgentEnv: stripEnv で指定した変数（APIキー等）を除外できる", () => {
+  const env = buildAgentEnv({ PATH: "/bin", ANTHROPIC_API_KEY: "k", CLAUDE_CODE_OAUTH_TOKEN: "t" }, ["ANTHROPIC_API_KEY"]);
+  assert.deepEqual(env, { PATH: "/bin", CLAUDE_CODE_OAUTH_TOKEN: "t" });
+});
+
 test("buildAgentEnv: GitHub認証情報を引き継がない", () => {
   const env = buildAgentEnv({ PATH: "/bin", ANTHROPIC_API_KEY: "k", GH_TOKEN: "x", GITHUB_TOKEN: "y", GH_HOST: "h" });
   assert.deepEqual(env, { PATH: "/bin", ANTHROPIC_API_KEY: "k" });
@@ -178,11 +184,11 @@ test("truncateTail / buildRetryPrompt: 長い出力は末尾のみ渡し、失�
   assert.match(p, /禁止事項が引き続き適用/);
 });
 
-const dockerArgs = (phase, env = {}) =>
-  buildDockerArgs({ phase, workDir: "/w", logDir: "/l", taskDir: "/t", auditName: "a.jsonl", env });
+const dockerArgs = (phase, env = {}, authEnv = ["CLAUDE_CODE_OAUTH_TOKEN"]) =>
+  buildDockerArgs({ phase, workDir: "/w", logDir: "/l", taskDir: "/t", auditName: "a.jsonl", authEnv, env });
 
 test("buildDockerArgs: 公式推奨の隔離設定（全capability破棄・読み取り専用FS・非root・資源制限）を必ず含む", () => {
-  const a = dockerArgs("agent", { ANTHROPIC_API_KEY: "k" }).join(" ");
+  const a = dockerArgs("agent", { CLAUDE_CODE_OAUTH_TOKEN: "t" }).join(" ");
   for (const must of ["--cap-drop ALL", "--security-opt no-new-privileges", "--read-only", "--user 1000:1000", "--pids-limit", "--memory", "--rm"]) {
     assert.ok(a.includes(must), `${must} がありません`);
   }
@@ -195,13 +201,41 @@ test("buildDockerArgs: マウントは作業ツリー・ログ・依頼文（読
   assert.deepEqual(mounts, ["/w:/workspace", "/l:/logs", "/t:/task:ro"]);
 });
 
-test("buildDockerArgs: APIキーは agent フェーズにのみ渡し、GitHub認証情報は一切渡さない", () => {
-  const env = { ANTHROPIC_API_KEY: "k", GH_TOKEN: "x", GITHUB_TOKEN: "y" };
-  assert.ok(dockerArgs("agent", env).includes("ANTHROPIC_API_KEY"));
-  assert.ok(!dockerArgs("install", env).includes("ANTHROPIC_API_KEY"));
-  assert.ok(!dockerArgs("verify", env).includes("ANTHROPIC_API_KEY"));
+test("buildDockerArgs: 認証トークンは agent フェーズにのみ渡し、GitHub認証情報は一切渡さない", () => {
+  const env = { CLAUDE_CODE_OAUTH_TOKEN: "t", ANTHROPIC_API_KEY: "k", GH_TOKEN: "x", GITHUB_TOKEN: "y" };
+  assert.ok(dockerArgs("agent", env).includes("CLAUDE_CODE_OAUTH_TOKEN"));
+  assert.ok(!dockerArgs("install", env).includes("CLAUDE_CODE_OAUTH_TOKEN"));
+  assert.ok(!dockerArgs("verify", env).includes("CLAUDE_CODE_OAUTH_TOKEN"));
+  // authEnv に含めない限り、環境にあるAPIキーはコンテナへ渡らない
+  assert.ok(!dockerArgs("agent", env).includes("ANTHROPIC_API_KEY"));
   for (const phase of ["install", "agent", "verify"]) {
     const joined = dockerArgs(phase, env).join(" ");
     assert.doesNotMatch(joined, /GH_TOKEN|GITHUB_TOKEN/);
   }
+});
+
+test("resolveAuth: 既定はサブスクリプション。環境にAPIキーがあっても渡さず除外する（従量課金の防止）", () => {
+  const p = resolveAuth({ ANTHROPIC_API_KEY: "k", CLAUDE_CODE_OAUTH_TOKEN: "t" }, "docker");
+  assert.equal(p.error, undefined);
+  assert.deepEqual(p.passEnv, ["CLAUDE_CODE_OAUTH_TOKEN"]);
+  assert.ok(p.stripEnv.includes("ANTHROPIC_API_KEY") && p.stripEnv.includes("ANTHROPIC_AUTH_TOKEN"));
+});
+
+test("resolveAuth: Docker隔離でトークン未設定なら、setup-tokenの案内付きエラーにする", () => {
+  const p = resolveAuth({}, "docker");
+  assert.match(String(p.error), /claude setup-token/);
+});
+
+test("resolveAuth: 隔離なしはこの端末のログインを使うためトークン不要", () => {
+  const p = resolveAuth({}, "none");
+  assert.equal(p.error, undefined);
+  assert.deepEqual(p.passEnv, []);
+});
+
+test("resolveAuth: APIキー（従量課金）は AGENT_AUTH=api-key の明示時のみ", () => {
+  assert.match(String(resolveAuth({ AGENT_AUTH: "api-key" }, "docker").error), /ANTHROPIC_API_KEY/);
+  const p = resolveAuth({ AGENT_AUTH: "api-key", ANTHROPIC_API_KEY: "k" }, "docker");
+  assert.deepEqual(p.passEnv, ["ANTHROPIC_API_KEY"]);
+  assert.deepEqual(p.stripEnv, []);
+  assert.match(String(resolveAuth({ AGENT_AUTH: "x" }, "docker").error), /subscription/);
 });

@@ -64,7 +64,8 @@ export async function runAgent(prompt, workDir, auditFile) {
         hooks: { PreToolUse: [{ hooks: [preToolUse] }] },
         settingSources: ["project"],
         systemPrompt: { type: "preset", preset: "claude_code" },
-        env: buildAgentEnv(process.env),
+        // サブスクリプション認証（既定）では、環境にあってもAPIキー系は渡さない（従量課金の防止）
+        env: buildAgentEnv(process.env, process.env.AGENT_AUTH === "api-key" ? [] : ["ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN"]),
         persistSession: false,
       },
     })) {
