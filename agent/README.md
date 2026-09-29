@@ -133,6 +133,18 @@ node fix.mjs             # 修正する（既定で1件）
 - 最大2回（`agent-fix-1/2`）。上限に達したら `agent-needs-human`。修正後はCIとAIレビューを最初から受け直す
 - テストを削除・弱めて通すことは禁止。実装と同じ多層防御（許可リスト・保護パス・検証ゲート・Docker隔離）で動く
 
+### 自動の点検（セルフテスト）
+
+週1回、ダミーのIssueで「実装→自動マージ→完了同期→取消→再挑戦」を実際に通し、パイプラインの回帰を検知する（ADR-0017 Amendment 15）。`cycle.mjs` が `--if-due` で呼ぶ。
+
+```bash
+node selftest.mjs --dry-run   # 実施内容の表示のみ
+node selftest.mjs             # 実施する（CIとマージを待つため、20〜30分かかる）
+```
+
+- 触るのは `docs/SELFTEST.md` だけ。成功のたびに1行残る（この行が増えている間は、パイプラインが正常）
+- 失敗したら、障害Issue（`agent-incident`）を1件だけ立てる。トリアージのLLM判定は対象外（非決定的なため）
+
 ### Issueのクローズ
 
 - PRがマージされると、PR本文の `Closes #N` によりGitHubがIssueを**自動でクローズ**する。
