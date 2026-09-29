@@ -88,7 +88,7 @@
     "web": "node src/web/server.js"
   },
   "dependencies": {
-    "docx": "^9.0.2"
+    "docx": "^9.7.2"
   },
   "devDependencies": {
     "@cucumber/cucumber": "^13.2.1",
