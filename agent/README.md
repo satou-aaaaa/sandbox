@@ -25,12 +25,23 @@ cd agent && npm ci
 
 ```bash
 node cycle.mjs --dry-run   # 判定・対象の確認のみ（書き込みなし）
-node cycle.mjs             # 回復 → トリアージ → 実装/PR作成 → 要約 を1回
+node cycle.mjs             # 回復 → スカウト → トリアージ → 実装/PR作成 → 要約 を1回
 ```
 
 - **排他制御**: 実行が重なった場合、後発は何もせずスキップ（`agent/.state/cycle.lock`。残骸は自動で奪取）
 - **異常終了からの回復**: `agent-working` のまま90分以上放置されたIssueを `agent-needs-human` に戻し、古い一時worktreeを片付ける
 - **要約**: 結果を1行にまとめ、`agent/logs/cycle-latest.txt` に保存（1サイクルの全出力は `agent/logs/cycle-*.log`）
+
+## 作業の自動起票（スカウト）
+
+```bash
+node scout.mjs --dry-run   # 提案を表示するのみ（起票しない）
+node scout.mjs             # 起票する（1回最大2件。未完了のスカウトIssueが5件以上なら起票しない）
+```
+
+読み取り専用のエージェントが、テストの追加やREADME/CHANGELOGの食い違い修正といった**自動マージできる低リスクな作業**だけを、
+`agent-scouted` ラベル付きで起票する。起票されたIssueはトリアージ→実装→PR→自動マージへ進む（`cycle.mjs` が順に実行する）。
+法令判定・期限計算・src/の実装変更・保護パスに関わる提案は対象外。
 
 ## Issue の自動トリアージ（`agent-ready` を自動で付けるか判断する）
 
@@ -73,6 +84,28 @@ Issueに `agent-ready` を付けるのが「実行してよい」という人間
 5. commit → push → PR作成（`agent-authored` ラベル）→ Issueを `agent-done` に
 
 中止時はIssueにコメントが付き、`agent-ready` に戻る。
+
+### PRの自動マージ（原則は人が介入しない）
+
+`agent-pr-automerge` workflowが、エージェントのPRをリスクで振り分ける（ADR-0017 Amendment 10）。
+
+- **自動マージ（既定）**: README/CHANGELOG、docs直下の文書（設計文書・ADRを除く）、テスト（追加≧削除）、法令ロジックを含まないコード（src/web・src/core/documents・src/portal・scripts・e2e・load）。12ファイル以下。必須チェック成功後にマージされる
+- **承認が必要**: 法令判定・期限計算・様式生成の領域、設定・スキーマ・設計文書・ADR。理由がPRにコメントされ `agent-needs-review` が付く。`agent-approved` ラベル（所有者、またはAIレビュアー）で自動マージ。リポジトリ変数 `AGENT_AUTOMERGE_LEGAL=true` にすると法令領域も自動マージ
+- **常に人手**: 保護パス（.github・agent・hooks・data・package*.json・CLAUDE.md・.env*）
+
+### AIレビュアーによる承認（人の承認とみなす）
+
+承認が必要なPR（法令ロジック・設定・設計文書など）は、`review.mjs` の独立したレビュアーが判定する（ADR-0017 Amendment 11）。
+
+```bash
+node review.mjs --dry-run   # 判定のみ（ラベル・コメントは変更しない）
+node review.mjs             # 承認なら agent-approved を付ける（自動マージへ）、不承認なら理由をコメント
+```
+
+- 別の強いモデル・読み取り専用・観点の異なる2回。**全員一致**で承認。解釈不能・失敗は不承認
+- 承認しないもの: 保護パスの変更、必須チェック未完了・失敗、差分が大きすぎるPR
+- 承認後に問題があれば、PRに `agent-revert` ラベルを付けて取り消す（事後の取消。順次追加）
+- `cycle.mjs` が実装/PR作成の後に自動で実行する
 
 ### Issueのクローズ
 

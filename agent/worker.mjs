@@ -34,6 +34,11 @@ if (phase === "install") {
   const prompt = readFileSync("/task/prompt.txt", "utf8");
   const auditFile = `/logs/${process.env.AUDIT_NAME || "triage.jsonl"}`;
   result(await runAgent(prompt, WORKSPACE, auditFile, "triage"));
+} else if (phase === "review") {
+  // 独立したレビュアー。作業ツリーは読み取り専用（PRの状態）。別の強いモデルで判定する
+  const prompt = readFileSync("/task/prompt.txt", "utf8");
+  const auditFile = `/logs/${process.env.AUDIT_NAME || "review.jsonl"}`;
+  result(await runAgent(prompt, WORKSPACE, auditFile, "review"));
 } else if (phase === "verify") {
   // check-secrets はgitを使うため、コンテナ外（ホスト側）で実行する
   result({ failure: verifyAll(WORKSPACE, { secrets: false }) });

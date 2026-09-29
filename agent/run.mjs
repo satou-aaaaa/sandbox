@@ -68,6 +68,9 @@ const PR_TRAILER = "🤖 Generated with [Claude Code](https://claude.com/claude-
 /** 隔離モード。docker（既定）または none（隔離なし。明示指定が必要）。 */
 export const SANDBOX = process.env.AGENT_SANDBOX || "docker";
 /** 認証方式の決定結果（subscription既定）。 */
+/** コンテナの実行ユーザー。Linuxではホストのuid/gidに合わせる（Windows/Docker Desktopでは既定の1000）。 */
+const HOST_UID = typeof process.getuid === "function" ? process.getuid() : 1000;
+const HOST_GID = typeof process.getgid === "function" ? process.getgid() : 1000;
 export const AUTH = resolveAuth(process.env, /** @type {"docker"|"none"} */ (SANDBOX === "none" ? "none" : "docker"));
 
 const args = process.argv.slice(2);
@@ -161,7 +164,7 @@ export function buildImage() {
 
 /**
  * コンテナ内でフェーズを実行し、最終行の `RESULT:` JSONを返す。
- * @param {"install"|"agent"|"verify"|"triage"} phase
+ * @param {"install"|"agent"|"verify"|"triage"|"review"} phase
  * @param {string} workDir
  * @param {string} auditName
  * @param {string} [prompt] agentフェーズの依頼文
@@ -172,7 +175,7 @@ export function dockerPhase(phase, workDir, auditName, prompt) {
   try {
     if (prompt !== undefined) writeFileSync(join(taskDir, "prompt.txt"), prompt);
     mkdirSync(LOG_DIR, { recursive: true });
-    const out = run("docker", buildDockerArgs({ phase, workDir, logDir: LOG_DIR, taskDir, auditName, authEnv: AUTH.error ? [] : AUTH.passEnv, env: process.env }));
+    const out = run("docker", buildDockerArgs({ phase, workDir, logDir: LOG_DIR, taskDir, auditName, authEnv: AUTH.error ? [] : AUTH.passEnv, uid: HOST_UID, gid: HOST_GID, env: process.env }));
     const line = out.split("\n").reverse().find((l) => l.startsWith("RESULT:"));
     if (!line) throw new Error(`コンテナからRESULTが返りませんでした（phase=${phase}）`);
     return JSON.parse(line.slice("RESULT:".length));
