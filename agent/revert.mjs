@@ -121,7 +121,14 @@ function revertPr(prNumber, reason, logExcerpt = "") {
       /* 後始末の失敗は結果に影響させない */
     }
   }
-  if (ok) reopenIssue(info, reason, logExcerpt);
+  if (ok) {
+    // 取り消し自体は成功している。Issueの再オープン処理の失敗で、全体を異常終了させない
+    try {
+      reopenIssue(info, reason, logExcerpt);
+    } catch (err) {
+      log(`Issueの再オープン処理に失敗しました（取り消しは完了）: ${err instanceof Error ? err.message.split("\n")[0] : String(err)}`);
+    }
+  }
   return ok;
 }
 
@@ -147,8 +154,9 @@ function reopenIssue(info, reason, logExcerpt) {
     decision.reason,
   ].join("\n");
   if (decision.retry) {
-    gh("issue", "edit", String(issueNo), "--repo", REPO, "--remove-label", LABEL_DONE, "--remove-label", LABEL_NEEDS_HUMAN, "--add-label", String(decision.nextLabel), "--add-label", LABEL_READY);
+    // ラベルは、付ける前に作成しておく（存在しないラベルは付けられない）
     gh("label", "create", String(decision.nextLabel), "--repo", REPO, "--color", "fbca04", "--description", "取り消し後の再挑戦の回数", "--force");
+    gh("issue", "edit", String(issueNo), "--repo", REPO, "--remove-label", LABEL_DONE, "--remove-label", LABEL_NEEDS_HUMAN, "--add-label", String(decision.nextLabel), "--add-label", LABEL_READY);
   } else {
     gh("issue", "edit", String(issueNo), "--repo", REPO, "--remove-label", LABEL_DONE, "--add-label", LABEL_NEEDS_HUMAN);
   }
