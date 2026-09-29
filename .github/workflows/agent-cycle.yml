@@ -1,0 +1,88 @@
+name: Agent cycle
+
+# リポジトリ運用エージェントの1サイクル（回復→スカウト→トリアージ→実装/PR→要約）を、GitHub Actions上で実行する。
+# PCの起動に依存せずに自律運用を続けるための環境（ADR-0017 Amendment 9）。
+#
+# 【有効化の手順（人手が必要なのは初回のみ）】
+#  1. リポジトリのシークレットを2つ登録する（Settings → Secrets and variables → Actions → Secrets）
+#     - CLAUDE_CODE_OAUTH_TOKEN : `claude setup-token` で発行したサブスクリプション用トークン（APIキーではない）
+#     - AGENT_GH_TOKEN          : このリポジトリ限定のFine-grained PAT
+#                                 権限: Contents=Read/write, Pull requests=Read/write, Issues=Read/write, Metadata=Read
+#                                 （GITHUB_TOKEN で作ったPRは他のworkflowを起動せず必須CIが走らないため、PATが必要）
+#  2. リポジトリ変数 AGENT_CYCLE_ENABLED を true にする（Settings → Secrets and variables → Actions → Variables）
+#     - true 以外では定期実行されない。これが停止スイッチ（false/削除で即停止）
+#  3. ローカルの定期実行（Claudeのスケジュールタスク agent-cycle）は無効にする（二重実行を避けるため）
+#
+# 手動実行（workflow_dispatch）は、変数に関わらず常に実行できる（試運転用。dry_run=true なら書き込みなし）。
+on:
+  schedule:
+    # 平日 09:00 JST（= 00:00 UTC）。GitHubのcronは数分〜数十分遅れることがある
+    - cron: "0 0 * * 1-5"
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "書き込みなしの確認のみ（判定・提案を表示するだけ）"
+        type: boolean
+        default: true
+
+# 同時に2つのサイクルを走らせない（実行中なら後続は待つ。二重処理の防止）
+concurrency:
+  group: agent-cycle
+  cancel-in-progress: false
+
+# GITHUB_TOKEN は読み取りのみ。書き込みは AGENT_GH_TOKEN（PAT）だけが行う
+permissions:
+  contents: read
+
+jobs:
+  cycle:
+    if: github.event_name == 'workflow_dispatch' || vars.AGENT_CYCLE_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      GH_TOKEN: ${{ secrets.AGENT_GH_TOKEN }}
+      CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+      AGENT_SANDBOX: docker
+      AGENT_AUTH: subscription
+    steps:
+      - name: シークレットの存在を確認
+        run: |
+          missing=0
+          if [ -z "$GH_TOKEN" ]; then echo "::error::シークレット AGENT_GH_TOKEN が未設定です"; missing=1; fi
+          if [ -z "$CLAUDE_CODE_OAUTH_TOKEN" ]; then echo "::error::シークレット CLAUDE_CODE_OAUTH_TOKEN が未設定です"; missing=1; fi
+          exit "$missing"
+      - uses: actions/checkout@v7
+        with:
+          token: ${{ secrets.AGENT_GH_TOKEN }}
+          fetch-depth: 0
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22.x
+      - name: エージェントの依存をインストール
+        working-directory: agent
+        run: npm ci --no-audit --no-fund
+      - name: コミット用の識別情報を設定
+        run: |
+          git config user.name "kensetsu-agent"
+          git config user.email "kensetsu-agent@users.noreply.github.com"
+      - name: サイクルを実行
+        env:
+          DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run }}
+        run: |
+          if [ "$DRY_RUN" = "true" ]; then
+            node agent/cycle.mjs --dry-run
+          else
+            node agent/cycle.mjs
+          fi
+      - name: サマリーをジョブに出力
+        if: always()
+        run: |
+          if [ -f agent/logs/cycle-latest.txt ]; then
+            {
+              echo '## エージェントサイクルの結果'
+              echo
+              echo '```'
+              cat agent/logs/cycle-latest.txt
+              echo '```'
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi

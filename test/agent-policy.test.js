@@ -445,3 +445,13 @@ test("summarizeOutput/formatSummary: スカウト起票を数える", () => {
   assert.equal(s.scouted, 2);
   assert.match(formatSummary(s, 0), /スカウト起票: 2件/);
 });
+
+test("buildDockerArgs: 実行ユーザーは既定で1000:1000。指定すればホストのuid/gidに合わせ、tmpfsの所有者も揃える", () => {
+  const base = { phase: "verify", workDir: "/w", logDir: "/l", taskDir: "/t", auditName: "a" };
+  const d = buildDockerArgs(base);
+  assert.ok(d.join(" ").includes("--user 1000:1000"));
+  const h = buildDockerArgs({ ...base, uid: 1001, gid: 1002 });
+  assert.ok(h.join(" ").includes("--user 1001:1002"));
+  assert.ok(h.some((x) => x.includes("uid=1001,gid=1002")));
+  assert.ok(!h.join(" ").includes("--user 0"), "rootでは実行しない");
+});

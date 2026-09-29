@@ -192,3 +192,17 @@ Anthropicの公式ガイド（Securely deploying AI agents／Hooks／Building ef
 - **サイクル**: `cycle.mjs` は「回復→スカウト→トリアージ→実装/PR→要約」の順に実行する。
 - 残るリスク: スカウトはリポジトリの内容を読むため、リポジトリ内の文章（README等）が誤誘導に使われ得る。
   ただし提案は形式検証・保護パス検査を通り、実装後も検証ゲートと自動マージの範囲制限（Amendment 7）が効く。
+## Amendment 9（2026-09-30）: PC非依存の実行環境（GitHub Actions）
+
+ローカルのスケジュールタスクはアプリが起動している間しか動かない。人手（PCを起動しておくこと）への依存をなくすため、
+`.github/workflows/agent-cycle.yml` で1サイクルをGitHub Actions上で実行できるようにした。
+
+- **認証**: サブスクリプション用トークン（`CLAUDE_CODE_OAUTH_TOKEN`）と、リポジトリ限定のFine-grained PAT（`AGENT_GH_TOKEN`）をシークレットに登録する。
+  `GITHUB_TOKEN` で作ったPRは他のworkflowを起動せず必須CIが走らないため、PR作成・pushはPATで行う（Amendment 1〜の既知の制約への対処）。
+  `GITHUB_TOKEN` 自体は読み取りのみ。エージェントのコンテナには引き続きGitHub認証情報を渡さない。
+- **有効化のスイッチ**: リポジトリ変数 `AGENT_CYCLE_ENABLED=true` のときだけ定期実行（平日 09:00 JST）。false/削除で即停止（キルスイッチの役割）。
+  手動実行（workflow_dispatch）は常に可能で、既定は `dry_run=true`（書き込みなし）。
+- **同時実行の防止**: `concurrency` グループで直列化する。ローカルのスケジュールタスクとの二重実行を避けるため、Actionsを有効にしたらローカル側は無効にする。
+- **コンテナ隔離**: Actionsのランナーでもコンテナ隔離を使う。ランナーのuid（1001）に合わせて `--user` を指定する（`buildDockerArgs` の `uid`/`gid`）。
+- **既知の制約**: 日次上限（`agent/.state`）はランナー間で共有されない。1日1回のスケジュールと、1回あたりの上限（実装1件・起票2件）で抑える。
+  未検証: シークレット登録前のため、Actions上での実行は未確認。有効化前に `workflow_dispatch`（dry_run=true）で確認すること。
