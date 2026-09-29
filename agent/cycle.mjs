@@ -23,13 +23,16 @@ import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
+  LABEL_INCIDENT,
   LABEL_NEEDS_HUMAN,
+  LABEL_REVERT_PR,
   LABEL_READY,
   LABEL_WORKING,
   TMP_STALE_MS,
   WORKING_STALE_MS,
   formatSummary,
   isStaleWorking,
+  shouldTripBreaker,
   summarizeOutput,
 } from "./policy.js";
 import { acquireLock, releaseLock } from "./lock.mjs";
@@ -95,6 +98,25 @@ function recover() {
 }
 
 /**
+ * サーキットブレーカー: 直近24時間に自動リバートが続いていれば、自動運用を止める（同じ失敗を繰り返さない）。
+ * 止めた場合は、障害の記録用Issueを1件だけ立てて人手に知らせる。
+ * @returns {boolean} 止めるべきなら true
+ */
+function breakerTripped() {
+  const prs = JSON.parse(gh("pr", "list", "--repo", REPO, "--state", "all", "--label", LABEL_REVERT_PR, "--json", "createdAt", "--limit", "20"));
+  if (!shouldTripBreaker(prs.map((p) => p.createdAt), Date.now())) return false;
+  log("サーキットブレーカー: 直近24時間に自動リバートが続いたため、今回の自動運用を停止します");
+  if (!DRY_RUN) {
+    const open = JSON.parse(gh("issue", "list", "--repo", REPO, "--state", "open", "--label", LABEL_INCIDENT, "--json", "number", "--limit", "1"));
+    if (open.length === 0) {
+      gh("label", "create", LABEL_INCIDENT, "--repo", REPO, "--color", "b60205", "--description", "エージェントの自動運用の障害記録", "--force");
+      gh("issue", "create", "--repo", REPO, "--title", "incident: 自動リバートが続いたため、エージェントの自動運用を停止しました", "--label", LABEL_INCIDENT, "--label", LABEL_NEEDS_HUMAN, "--body", ["直近24時間に、エージェントのPRの自動リバートが複数回発生したため、自動運用（スカウト・トリアージ・実装・レビュー）を停止しました。", "", "原因を確認し、解消したら、このIssueをクローズしてください（クローズ後、次のサイクルから再開します）。リバートPR（agent-revert-pr）と、取り消されたPRの理由を確認してください。"].join("\n"));
+    }
+  }
+  return true;
+}
+
+/**
  * 子スクリプトを実行し、出力を返す（表示もする）。
  * @param {string} script
  * @param {string[]} args
@@ -123,7 +145,10 @@ async function main() {
     let recovered = 0;
     if (!DRY_RUN) recovered = recover();
     const flag = DRY_RUN ? ["--dry-run"] : [];
-    const out = runStep("scout.mjs", flag) + runStep("triage.mjs", flag) + runStep("run.mjs", flag) + runStep("review.mjs", flag);
+    // 1. 事後の取消: 問題のあるマージを取り消す（所有者のラベル、またはmainのCI失敗）
+    let out = runStep("revert.mjs", ["--sweep", ...flag]);
+    // 2. ブレーカーが作動していなければ、通常の流れ（スカウト→トリアージ→実装→レビュー）を実行する
+    if (!breakerTripped()) out += runStep("scout.mjs", flag) + runStep("triage.mjs", flag) + runStep("run.mjs", flag) + runStep("review.mjs", flag);
     const summary = formatSummary(summarizeOutput(out), recovered);
     log(`サマリー: ${summary}`);
     mkdirSync(LOG_DIR, { recursive: true });
