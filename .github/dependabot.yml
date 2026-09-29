@@ -24,3 +24,9 @@ updates:
     directory: "/"
     schedule:
       interval: "weekly"
+
+  # エージェントループ（agent/。ADR-0017）の依存。本体とは別パッケージのため個別に監視する。
+  - package-ecosystem: "npm"
+    directory: "/agent"
+    schedule:
+      interval: "weekly"

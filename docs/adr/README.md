@@ -42,3 +42,4 @@ Architecture Decision Record（ADR）を管理する。
 | [0014](0014-schedulefn-pattern-generalization.md) | リマインド計算のレジストリ契約（ScheduleFn）を変更せず4パターンに対応させる | Accepted |
 | [0015](0015-schedulefn-pattern-extension-annual-and-condition-deadline.md) | ScheduleFn契約の汎用性の実証を年次反復型・条件履行期限型の2パターンへ拡張 | Accepted |
 | [0016](0016-cucumber-bdd-for-gherkin-acceptance-tests.md) | Gherkin/BDDの受け入れ基準用にCucumber.jsを例外的に導入する | Accepted |
+| [0017](0017-agent-sdk-issue-loop.md) | Agent SDKによるIssue自律処理ループ（`agent/`）を、本体と依存を分離し「PR作成まで・マージは人手」で導入する | Accepted |
