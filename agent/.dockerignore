@@ -1,0 +1,8 @@
+node_modules
+logs
+.state
+.disabled
+README.md
+Dockerfile
+.dockerignore
+run.mjs

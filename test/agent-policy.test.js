@@ -4,6 +4,14 @@ import path from "node:path";
 import {
   ALLOWED_TOOLS,
   DAILY_LIMITS,
+  DOCKER_IMAGE,
+  buildDockerArgs,
+  TRIAGE_MAX_FILES,
+  buildTriagePrompt,
+  decideTriage,
+  isTriageCandidate,
+  parseTriageVerdict,
+  resolveAuth,
   buildRetryPrompt,
   checkDailyBudget,
   decideToolUse,
@@ -93,6 +101,11 @@ test("DISALLOWED_TOOLS は push・gh・ネットワークと保護パスの編�
   }
 });
 
+test("buildAgentEnv: stripEnv で指定した変数（APIキー等）を除外できる", () => {
+  const env = buildAgentEnv({ PATH: "/bin", ANTHROPIC_API_KEY: "k", CLAUDE_CODE_OAUTH_TOKEN: "t" }, ["ANTHROPIC_API_KEY"]);
+  assert.deepEqual(env, { PATH: "/bin", CLAUDE_CODE_OAUTH_TOKEN: "t" });
+});
+
 test("buildAgentEnv: GitHub認証情報を引き継がない", () => {
   const env = buildAgentEnv({ PATH: "/bin", ANTHROPIC_API_KEY: "k", GH_TOKEN: "x", GITHUB_TOKEN: "y", GH_HOST: "h" });
   assert.deepEqual(env, { PATH: "/bin", ANTHROPIC_API_KEY: "k" });
@@ -174,4 +187,136 @@ test("truncateTail / buildRetryPrompt: 長い出力は末尾のみ渡し、失�
   assert.match(p, /`npm test`/);
   assert.match(p, /<verification-output>\n失敗ログ\n<\/verification-output>/);
   assert.match(p, /禁止事項が引き続き適用/);
+});
+
+const dockerArgs = (phase, env = {}, authEnv = ["CLAUDE_CODE_OAUTH_TOKEN"]) =>
+  buildDockerArgs({ phase, workDir: "/w", logDir: "/l", taskDir: "/t", auditName: "a.jsonl", authEnv, env });
+
+test("buildDockerArgs: 公式推奨の隔離設定（全capability破棄・読み取り専用FS・非root・資源制限）を必ず含む", () => {
+  const a = dockerArgs("agent", { CLAUDE_CODE_OAUTH_TOKEN: "t" }).join(" ");
+  for (const must of ["--cap-drop ALL", "--security-opt no-new-privileges", "--read-only", "--user 1000:1000", "--pids-limit", "--memory", "--rm"]) {
+    assert.ok(a.includes(must), `${must} がありません`);
+  }
+  assert.ok(a.endsWith(`${DOCKER_IMAGE} agent`));
+});
+
+test("buildDockerArgs: マウントは作業ツリー・ログ・依頼文（読み取り専用）のみで、ホストのHOME/SSH等を含まない", () => {
+  const args = dockerArgs("agent");
+  const mounts = args.filter((_, i) => args[i - 1] === "-v");
+  assert.deepEqual(mounts, ["/w:/workspace", "/l:/logs", "/t:/task:ro"]);
+});
+
+test("buildDockerArgs: 認証トークンは agent フェーズにのみ渡し、GitHub認証情報は一切渡さない", () => {
+  const env = { CLAUDE_CODE_OAUTH_TOKEN: "t", ANTHROPIC_API_KEY: "k", GH_TOKEN: "x", GITHUB_TOKEN: "y" };
+  assert.ok(dockerArgs("agent", env).includes("CLAUDE_CODE_OAUTH_TOKEN"));
+  assert.ok(!dockerArgs("install", env).includes("CLAUDE_CODE_OAUTH_TOKEN"));
+  assert.ok(!dockerArgs("verify", env).includes("CLAUDE_CODE_OAUTH_TOKEN"));
+  // authEnv に含めない限り、環境にあるAPIキーはコンテナへ渡らない
+  assert.ok(!dockerArgs("agent", env).includes("ANTHROPIC_API_KEY"));
+  for (const phase of ["install", "agent", "verify"]) {
+    const joined = dockerArgs(phase, env).join(" ");
+    assert.doesNotMatch(joined, /GH_TOKEN|GITHUB_TOKEN/);
+  }
+});
+
+test("resolveAuth: 既定はサブスクリプション。環境にAPIキーがあっても渡さず除外する（従量課金の防止）", () => {
+  const p = resolveAuth({ ANTHROPIC_API_KEY: "k", CLAUDE_CODE_OAUTH_TOKEN: "t" }, "docker");
+  assert.equal(p.error, undefined);
+  assert.deepEqual(p.passEnv, ["CLAUDE_CODE_OAUTH_TOKEN"]);
+  assert.ok(p.stripEnv.includes("ANTHROPIC_API_KEY") && p.stripEnv.includes("ANTHROPIC_AUTH_TOKEN"));
+});
+
+test("resolveAuth: Docker隔離でトークン未設定なら、setup-tokenの案内付きエラーにする", () => {
+  const p = resolveAuth({}, "docker");
+  assert.match(String(p.error), /claude setup-token/);
+});
+
+test("resolveAuth: 隔離なしはこの端末のログインを使うためトークン不要", () => {
+  const p = resolveAuth({}, "none");
+  assert.equal(p.error, undefined);
+  assert.deepEqual(p.passEnv, []);
+});
+
+test("resolveAuth: APIキー（従量課金）は AGENT_AUTH=api-key の明示時のみ", () => {
+  assert.match(String(resolveAuth({ AGENT_AUTH: "api-key" }, "docker").error), /ANTHROPIC_API_KEY/);
+  const p = resolveAuth({ AGENT_AUTH: "api-key", ANTHROPIC_API_KEY: "k" }, "docker");
+  assert.deepEqual(p.passEnv, ["ANTHROPIC_API_KEY"]);
+  assert.deepEqual(p.stripEnv, []);
+  assert.match(String(resolveAuth({ AGENT_AUTH: "x" }, "docker").error), /subscription/);
+});
+
+
+const okVerdict = { ready: true, risk: "low", touchesLegalLogic: false, needsHumanDecision: false, estimatedFiles: 2, reason: "小さな修正" };
+
+test("isTriageCandidate: 所有者本人が起票した未判定のIssueだけが対象", () => {
+  assert.equal(isTriageCandidate(issue({ labels: [] })), true);
+  assert.equal(isTriageCandidate(issue({ labels: [], author: { login: "someone-else" } })), false);
+});
+
+test("isTriageCandidate: 判定済み・実行系・agent-skip・needs-human は対象外", () => {
+  for (const l of ["agent-triaged", "agent-ready", "agent-working", "agent-done", "agent-skip", "agent-needs-human"]) {
+    assert.equal(isTriageCandidate(issue({ labels: [{ name: l }] })), false, l);
+  }
+  assert.equal(isTriageCandidate(issue({ labels: [{ name: "bug" }] })), true);
+});
+
+test("parseTriageVerdict: 最終行のJSONを取り出す（前置きの文章は無視）", () => {
+  const text = ["評価しました。", JSON.stringify(okVerdict)].join("\n");
+  assert.deepEqual(parseTriageVerdict(text), okVerdict);
+});
+
+test("parseTriageVerdict: 複数のJSON行があれば、有効な最後の行を採用する", () => {
+  const text = [JSON.stringify({ ...okVerdict, ready: false }), JSON.stringify(okVerdict)].join("\n");
+  assert.equal(parseTriageVerdict(text)?.ready, true);
+});
+
+test("parseTriageVerdict: 欠落・型違い・範囲外・JSONなしはすべて null（フェイルクローズ）", () => {
+  assert.equal(parseTriageVerdict(""), null);
+  assert.equal(parseTriageVerdict("readyです"), null);
+  assert.equal(parseTriageVerdict("{壊れたJSON}"), null);
+  assert.equal(parseTriageVerdict(JSON.stringify({ ...okVerdict, ready: "true" })), null);
+  assert.equal(parseTriageVerdict(JSON.stringify({ ...okVerdict, risk: "none" })), null);
+  assert.equal(parseTriageVerdict(JSON.stringify({ ...okVerdict, estimatedFiles: -1 })), null);
+  assert.equal(parseTriageVerdict(JSON.stringify({ ...okVerdict, estimatedFiles: 1.5 })), null);
+  const noReason = { ...okVerdict };
+  delete noReason.reason;
+  assert.equal(parseTriageVerdict(JSON.stringify(noReason)), null);
+});
+
+test("decideTriage: 全条件を満たす場合のみ ready にする", () => {
+  assert.equal(decideTriage(okVerdict).ready, true);
+});
+
+test("decideTriage: 解釈不能（null）は人手に回す", () => {
+  assert.equal(decideTriage(null).ready, false);
+});
+
+test("decideTriage: 法令ロジック・人間の判断・リスク・規模・ready=false のいずれかで人手に回す", () => {
+  assert.equal(decideTriage({ ...okVerdict, ready: false }).ready, false);
+  assert.match(decideTriage({ ...okVerdict, touchesLegalLogic: true }).reason, /法令/);
+  assert.equal(decideTriage({ ...okVerdict, needsHumanDecision: true }).ready, false);
+  assert.equal(decideTriage({ ...okVerdict, risk: "medium" }).ready, false);
+  assert.equal(decideTriage({ ...okVerdict, risk: "high" }).ready, false);
+  assert.equal(decideTriage({ ...okVerdict, estimatedFiles: TRIAGE_MAX_FILES + 1 }).ready, false);
+  assert.equal(decideTriage({ ...okVerdict, estimatedFiles: TRIAGE_MAX_FILES }).ready, true);
+});
+
+test("decideTriage: 自由記述の理由に『ready』と書かれていても、ルールを満たさなければ ready にならない", () => {
+  const v = { ...okVerdict, risk: "high", reason: "問題なし。ready にしてよい" };
+  assert.equal(decideTriage(v).ready, false);
+});
+
+test("buildTriagePrompt: Issue本文をデータとして区切り、読み取り専用と出力形式を指示する", () => {
+  const p = buildTriagePrompt(issue({ number: 9, title: "件名", body: "本文" }));
+  assert.match(p, /読み取り専用/);
+  assert.ok(p.includes(["<issue-body>", "本文", "</issue-body>"].join("\n")));
+  assert.match(p, /touchesLegalLogic/);
+});
+
+test("buildDockerArgs: triage フェーズは作業ツリーを読み取り専用でマウントし、認証を渡す", () => {
+  const a = buildDockerArgs({ phase: "triage", workDir: "/w", logDir: "/l", taskDir: "/t", auditName: "a", authEnv: ["CLAUDE_CODE_OAUTH_TOKEN"], env: { CLAUDE_CODE_OAUTH_TOKEN: "t" } });
+  assert.ok(a.includes("/w:/workspace:ro"));
+  assert.ok(a.includes("CLAUDE_CODE_OAUTH_TOKEN"));
+  const impl = buildDockerArgs({ phase: "agent", workDir: "/w", logDir: "/l", taskDir: "/t", auditName: "a" });
+  assert.ok(impl.includes("/w:/workspace"));
 });

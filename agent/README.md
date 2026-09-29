@@ -8,12 +8,42 @@
 
 ## 準備（初回のみ）
 
+Docker Desktop を起動しておく（既定でコンテナ隔離。ADR-0017 Amendment 2）。隔離なしで動かす場合のみ `AGENT_SANDBOX=none` を明示する。
+
 ```bash
 cd agent && npm ci
 ```
 
-環境変数 `ANTHROPIC_API_KEY` を設定する（キーはリポジトリ・チャットに書かない）。
-`gh auth status` でログイン済みであること（push・PR作成に使う）。
+**認証は既定でClaudeサブスクリプション（Pro/Max。追加課金なし）**。APIキーは不要。
+
+- Docker隔離（既定）: **`powershell -ExecutionPolicy Bypass -File agent\setup-auth.ps1`** が手順を補助する。先に別のターミナルで `claude setup-token` を実行してブラウザで承認し、表示されたトークンをコピー→スクリプトに非表示で貼り付けると、形式を検証してユーザー環境変数 `CLAUDE_CODE_OAUTH_TOKEN` に保存し、認証確認まで行う（APIキーは拒否する）。手動で行う場合は、表示されたトークンを、環境変数 `CLAUDE_CODE_OAUTH_TOKEN` に設定する（PowerShell: `[Environment]::SetEnvironmentVariable("CLAUDE_CODE_OAUTH_TOKEN", "<トークン>", "User")` のあとターミナルを再起動）。コンテナにはこのトークンだけを渡し、ホストのログイン情報は渡さない。
+- 隔離なし（`AGENT_SANDBOX=none`）: この端末のClaude Codeログインをそのまま使うためトークン不要（隔離は無くなる）。
+- 環境に `ANTHROPIC_API_KEY` があっても既定では**使わない**（従量課金の防止）。APIキーを使う場合だけ `AGENT_AUTH=api-key` を明示する。
+- サブスクリプションの利用枠は対話利用と共有される。日次上限（5件）と1件あたりの上限は、この枠を使い切らないための歯止めでもある。
+
+## 1サイクルの実行（定期実行のエントリポイント）
+
+```bash
+node cycle.mjs --dry-run   # 判定・対象の確認のみ（書き込みなし）
+node cycle.mjs             # 回復 → トリアージ → 実装/PR作成 → 要約 を1回
+```
+
+- **排他制御**: 実行が重なった場合、後発は何もせずスキップ（`agent/.state/cycle.lock`。残骸は自動で奪取）
+- **異常終了からの回復**: `agent-working` のまま90分以上放置されたIssueを `agent-needs-human` に戻し、古い一時worktreeを片付ける
+- **要約**: 結果を1行にまとめ、`agent/logs/cycle-latest.txt` に保存（1サイクルの全出力は `agent/logs/cycle-*.log`）
+
+## Issue の自動トリアージ（`agent-ready` を自動で付けるか判断する）
+
+```bash
+node triage.mjs --dry-run   # 判定結果を表示するのみ（ラベル・コメントは変更しない）
+node triage.mjs             # 判定してラベルとコメントを付ける（既定で最大5件）
+node cycle.mjs             # 判定 → 実装 → PR作成までを1回で（排他制御・回復つき）
+```
+
+- 対象: **所有者本人が起票**した未判定のIssue（第三者のIssueは一切対象にしない）
+- 判定は読み取り専用のエージェントが行い、`agent-ready`（実行してよい）か `agent-needs-human`（人手が必要）を付ける。理由はIssueのコメントに残る
+- ready にするのは「低リスク・法令判定/期限計算ロジックに触れない・人間の判断が不要・変更5ファイル以下」のみ。判定を解釈できない場合は必ず人手側に倒す
+- 上書き: `agent-skip` を付けると永久に対象外。`agent-triaged` を外すと再判定される
 
 ## 使い方
 
@@ -44,6 +74,11 @@ Issueに `agent-ready` を付けるのが「実行してよい」という人間
 
 中止時はIssueにコメントが付き、`agent-ready` に戻る。
 
+### Issueのクローズ
+
+- PRがマージされると、PR本文の `Closes #N` によりGitHubがIssueを**自動でクローズ**する。
+- PRがマージされずに閉じられた場合は、`agent-issue-sync` workflowがIssueを `agent-needs-human` に戻し、理由をコメントする（`agent-done` のまま放置しない）。
+
 ## 注意
 
 - ソースコードとIssue本文がAnthropic APIへ送信される。Issueに実データを書かない。
@@ -61,6 +96,7 @@ Issueに `agent-ready` を付けるのが「実行してよい」という人間
 | 保護パス検査 | 変更に保護対象が含まれれば中止 |
 | 検証ゲート | `npm test` / `typecheck` / `lint` / `check-secrets`。失敗時は1回だけ自己修正させ、再失敗で差し戻し |
 | 上限 | 1件あたり40ターン・$3・20分。日次で5件・$10（`agent/.state/daily.json`） |
+| コンテナ隔離 | 既定で `npm ci`・エージェント・検証をDockerコンテナ内で実行（作業ツリーのみマウント・`--cap-drop ALL`・読み取り専用FS・非root・認証情報なし）。Docker不可なら実行しない |
 | キルスイッチ | `agent/.disabled` ファイルを作る、または `AGENT_DISABLED=1` で即停止 |
 
 ### 緊急停止・確認
@@ -72,5 +108,4 @@ ls agent/logs              # 監査ログ（1行1JSON: ツール名・入力・�
 
 ### 既知の制約
 
-Windowsでは推奨のOSサンドボックスが使えないため、隔離は論理的な防御のみ。
-コンテナ隔離への移行方針は ADR-0017 の Amendment 1 を参照。
+コンテナのネットワークegressは無制限（API・npmレジストリ到達のため）。API宛のみ許可するプロキシへの移行が次の一手（ADR-0017 Amendment 2）。

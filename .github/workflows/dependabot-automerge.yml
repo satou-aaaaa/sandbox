@@ -1,0 +1,29 @@
+name: Dependabot auto-merge
+
+# Dependabotが作成したPRのうち、メジャーバージョンでない更新（patch/minor）に
+# 限って自動マージを予約する。実際のマージは、Ruleset `protect-main` の必須
+# チェック（Test・CodeQL）がすべて成功した時点でGitHubが行う（失敗すれば
+# マージされない）。メジャー更新は破壊的変更を含み得るため人手レビューに回す。
+# Dependabotは依存の更新のみを行い、法令判定ロジックを書き換えることはない。
+on: pull_request
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  automerge:
+    if: github.actor == 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - id: metadata
+        uses: dependabot/fetch-metadata@25dd0e34f4fe68f24cc83900b1fe3fe149efef98 # v3.1.0
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+      - name: patch/minor更新の自動マージを予約
+        if: steps.metadata.outputs.update-type != 'version-update:semver-major'
+        run: gh pr merge --auto --squash "$PR_URL"
+        env:
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

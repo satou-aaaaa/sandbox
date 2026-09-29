@@ -82,9 +82,81 @@ Anthropicの公式ガイド（Securely deploying AI agents／Hooks／Building ef
 
 ### 未対応（既知の残リスクと次の一手）
 
-- **OS/コンテナ隔離**: 推奨されるsandbox-runtime（bubblewrap/sandbox-exec）はWindows非対応。
-  現状のローカル実行はOSレベルのファイル/ネットワーク隔離が無く、上記の論理的防御に依存する。
-  Dockerは利用可能なため、`--cap-drop ALL --read-only --user` 等で固めたコンテナ内実行
-  ＋API宛のみ許可するプロキシ（クレデンシャルをコンテナ外で注入）への移行が次の一手。
-  実運用の実績（PRの品質・費用）が出て、実行頻度が上がった段階で着手する。
+- **OS/コンテナ隔離**: → Amendment 2 で対応。
 - **Actions上での実行**: `GITHUB_TOKEN` 起点のPRは必須CIを起動しない。GitHub App導入後に検討。
+
+## Amendment 2（2026-09-29）: Dockerコンテナ隔離の導入
+
+推奨されるsandbox-runtimeがWindows非対応のため、公式ガイドの「Containers」構成を採用した。
+
+- **ホスト（`run.mjs`）**: Issue選別・worktree作成・commit・push・PR作成。GitHub認証情報を持つのはここだけ。
+- **コンテナ（`worker.mjs`, `agent/Dockerfile`）**: `npm ci`・エージェント実行・検証（test/typecheck/lint）。
+  マウントは作業ツリー・ログ・依頼文（読み取り専用）のみ。`--cap-drop ALL` `--read-only`
+  `no-new-privileges` 非root 資源制限。GitHub認証情報・ホストのHOME/SSH鍵は渡さない。
+  APIキーは `agent` フェーズにのみ環境変数で渡す。
+- **check-secrets** はgitを使うためホスト側で実行する（フックは保護パスでエージェントは変更不可）。
+- **フェイルクローズ**: 既定は `AGENT_SANDBOX=docker`。Dockerに接続できなければ実行しない。
+  隔離なしは `AGENT_SANDBOX=none` の明示が必要。
+- `docker run` の引数は `policy.js` の `buildDockerArgs`（純粋関数）で組み立て、安全設定の欠落をテストで検出する。
+
+残リスク: コンテナはネットワークegress無制限（API・npmレジストリ到達に必要）。
+エージェントのBashはネットワーク系コマンドを拒否しているが、OSレベルでの宛先制限は無い。
+次の一手は、API宛のみ許可するプロキシ経由（`--network none`＋Unixソケット、クレデンシャルはコンテナ外で注入）。
+
+## Amendment 3（2026-09-29）: 認証は既定でClaudeサブスクリプション（APIキー不使用）
+
+発注者の方針（追加の従量課金を避ける）により、認証方式を次のとおりとした。
+
+- **既定は `AGENT_AUTH=subscription`**。Claude Code / Agent SDK は claude.ai のPro/Maxログインで認証でき、
+  無人実行向けには `claude setup-token` で発行する `CLAUDE_CODE_OAUTH_TOKEN`（1年有効・モデル呼び出し専用）を使う。
+  この端末で、APIキー無し・サブスクリプションのログインのみでSDKが動作することを実機で確認した。
+- **Docker隔離時はトークンのみをコンテナへ渡す**。ホストの `~/.claude/.credentials.json`（リフレッシュトークンを含む）は
+  マウントしない。トークンはモデル呼び出し専用で、GitHub操作やRemote Controlには使えない。
+- **APIキーは既定で除外**する。環境に `ANTHROPIC_API_KEY` があっても渡さない（認証の優先順位でAPIキーが
+  サブスクリプションより優先され、意図せず従量課金になるのを防ぐ）。使う場合は `AGENT_AUTH=api-key` を明示する。
+- 費用の上限（`maxBudgetUsd`・日次$10）はサブスクリプションでは請求額ではなく推定値として働き、
+  利用枠を使い切らないための歯止めとなる。利用枠は対話利用と共有されるため、日次件数（5件）も維持する。
+
+見直しのトリガー: 利用枠の枯渇で対話利用に支障が出る場合は、件数上限を下げる、または実行時間帯を分ける。
+
+## Amendment 4（2026-09-29）: `agent-ready` の付与判断（トリアージ）の自動化
+
+`agent-ready` は「実行してよい」という承認そのものである。この判断を機械に委ねるため、
+`agent/triage.mjs` を追加した。判定を誤っても実害が小さくなるよう、次の多重の歯止めを置く。
+
+1. **起票者の限定**: 所有者本人が起票したIssueだけを対象にする（第三者のIssue本文で判定を誘導させない）。
+2. **読み取り専用の評価**: 判定は Read/Glob/Grep のみのエージェントが行う。Docker時は作業ツリーを `:ro` でマウント。
+3. **フェイルクローズ**: 出力は厳格に検証（`parseTriageVerdict`）し、欠落・型違い・解釈不能はすべて「人手に回す」。
+4. **決定的なルールで最終決定**: ラベルは自由記述の理由ではなく `decideTriage` で決める。
+   ready にするのは「ready かつ risk=low かつ 法令ロジックに触れない かつ 人間の判断が不要 かつ 変更5ファイル以下」のみ。
+5. **多段の後段防御**: ready になっても、保護パス検査・検証ゲート・PR止まり（マージは人手）が効く。
+6. **人による上書き**: `agent-skip` で永久に対象外、`agent-triaged` を外すと再判定。判定結果は理由付きコメントで残す。
+
+法令に基づく判定・期限計算のロジックに関わるIssueは、設計上、自動では ready にならない。
+
+実機の読み取り専用ドライランで、3件のIssue（#79〜#81）がいずれも「人手が必要」と判定され、理由も妥当だった。
+
+## Amendment 5（2026-09-30）: Issue の自動クローズと状態の同期
+
+- エージェントのPR本文には `Closes #N` を入れており、**PRがマージされるとGitHubがIssueを自動でクローズ**する（squashマージでも有効）。
+- 穴になる「マージされずにPRが閉じられた」場合に備え、`.github/workflows/agent-issue-sync.yml` を追加した。
+  ブランチ名 `agent/issue-<番号>` のPRが閉じられたとき:
+  - マージ済み: Issueが開いていれば閉じ、処理中ラベル（agent-working / agent-ready / agent-needs-human）を整理する（安全網）
+  - 未マージ: `agent-done` のまま放置せず、`agent-needs-human` に戻して理由を残す
+- Issue番号はブランチ名から数字のみを正規表現で取り出す（シェルへ未検証の値を展開しない）。forkからのPRは対象外。
+
+## Amendment 6（2026-09-30）: 定期実行に向けた排他制御・異常終了からの回復・要約（cycle）
+
+定期実行（無人）にするための前提として、`agent/cycle.mjs` を追加した。1サイクルは
+「キルスイッチ確認 → 排他ロック → 回復 → トリアージ → 実装/PR作成 → 要約」。
+
+- **排他制御**: `agent/.state/cycle.lock`（`wx` で原子的に作成）。所有プロセスが死んでいる・2時間超・内容が壊れている
+  ロックは残骸として奪い取る。実行が重なった場合は、後発のサイクルは何もせずスキップする（同じIssueの二重処理を防ぐ）。
+- **異常終了からの回復**: `agent-working` のまま90分以上更新されないIssueは、`agent-needs-human` に戻して理由を残す。
+  3時間超の一時worktree・一時ディレクトリも片付ける（`git worktree prune` を含む）。
+- **要約**: トリアージ件数・PR作成・中止・回復を1行にまとめ、標準出力と `agent/logs/cycle-latest.txt` に残す。
+- 各ステップは別プロセスで実行し、片方が失敗しても後始末（ロック解放・要約）は必ず行う。マージは行わない。
+- 判定は純粋関数（`isLockStale` / `isStaleWorking` / `summarizeOutput`）に置き、単体テストで検証する。
+
+実機の `--dry-run` サイクル（サブスクリプション認証）で、ロック取得→トリアージ→要約まで通ることを確認した。
+定期実行の有効化（スケジュール登録）は、トークン設定と手動での試運転の後に行う。
