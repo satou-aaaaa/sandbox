@@ -237,6 +237,66 @@ test("clientsToCsv → clientsFromCsv の往復は、CSVを壊しうる特殊文
   );
 });
 
+test("clientsToCsv → clientsFromCsv の往復は、任意のlicenseCategory（許可種別）でもデータを保持する [property]", () => {
+  // #74: CSV取り込みで<種別>Detail等が消える問題の修正（importClients）に伴い、
+  // 基本のCSV往復テスト（上の[property]テスト）がlicenseCategoryを"construction"に
+  // 固定していたため、他の許可種別（古物商等）を含めた往復を検証できていなかった
+  // ことへの対応。grantDateIsoは"construction"のみ必須という仕様（clientsFromCsv
+  // 148行付近のコメント参照）のため、種別に応じて必須/任意を切り替える。
+  const nonEmptyStringArb = fc.string({ minLength: 1 }).filter((s) => s.length > 0);
+  const isoDateArb = fc
+    .date({ min: new Date("2000-01-01T00:00:00Z"), max: new Date("2035-12-31T00:00:00Z"), noInvalidDate: true })
+    .map((d) => d.toISOString().slice(0, 10));
+  const licenseCategoryArb = fc.constantFrom(
+    "construction",
+    "kobutsu",
+    "sanpai",
+    "minpaku",
+    "gijinkoku",
+    "inshokuten",
+    "keieiJikoShinsa",
+    "nouchiTenyo",
+    "tokuteiGinou"
+  );
+
+  fc.assert(
+    fc.property(
+      nonEmptyStringArb, // clientName
+      nonEmptyStringArb, // licenseId
+      licenseCategoryArb,
+      fc.option(isoDateArb, { nil: undefined }), // grantDateIso（construction以外は任意）
+      (clientName, licenseId, licenseCategory, grantDateIsoMaybe) => {
+        // construction は grantDateIso が無いと行ごとスキップされる仕様（clientsFromCsv）
+        // のため、その場合のみ必ず値を持たせる。
+        const grantDateIso = licenseCategory === "construction" && grantDateIsoMaybe === undefined ? "2020-04-01" : grantDateIsoMaybe;
+
+        /** @type {import('../src/core/reminders/digest.js').ClientRecord} */
+        const original = {
+          clientName,
+          licenses: [
+            {
+              licenseId,
+              licenseCategory,
+              ...(grantDateIso !== undefined ? { grantDateIso } : {}),
+            },
+          ],
+        };
+
+        const csv = clientsToCsv([original]);
+        const parsed = clientsFromCsv(csv);
+
+        assert.equal(parsed.length, 1);
+        assert.equal(parsed[0].clientName, clientName);
+        assert.equal(parsed[0].licenses.length, 1);
+        assert.equal(parsed[0].licenses[0].licenseId, licenseId);
+        assert.equal(parsed[0].licenses[0].licenseCategory, licenseCategory);
+        assert.equal(parsed[0].licenses[0].grantDateIso, grantDateIso);
+      }
+    ),
+    { numRuns: 300 }
+  );
+});
+
 test("clientsFromCsv: 同一clientNameの複数行は1つのClientRecordのlicensesへ集約する", () => {
   const csv = [
     "clientName,licenseId,licenseType,grantDateIso,fiscalYearEndIso,contactEmail",
