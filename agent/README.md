@@ -93,6 +93,20 @@ Issueに `agent-ready` を付けるのが「実行してよい」という人間
 - **承認が必要**: 法令判定・期限計算・様式生成の領域、設定・スキーマ・設計文書・ADR。理由がPRにコメントされ `agent-needs-review` が付く。`agent-approved` ラベル（所有者、またはAIレビュアー）で自動マージ。リポジトリ変数 `AGENT_AUTOMERGE_LEGAL=true` にすると法令領域も自動マージ
 - **常に人手**: 保護パス（.github・agent・hooks・data・package*.json・CLAUDE.md・.env*）
 
+### AIレビュアーによる承認（人の承認とみなす）
+
+承認が必要なPR（法令ロジック・設定・設計文書など）は、`review.mjs` の独立したレビュアーが判定する（ADR-0017 Amendment 11）。
+
+```bash
+node review.mjs --dry-run   # 判定のみ（ラベル・コメントは変更しない）
+node review.mjs             # 承認なら agent-approved を付ける（自動マージへ）、不承認なら理由をコメント
+```
+
+- 別の強いモデル・読み取り専用・観点の異なる2回。**全員一致**で承認。解釈不能・失敗は不承認
+- 承認しないもの: 保護パスの変更、必須チェック未完了・失敗、差分が大きすぎるPR
+- 承認後に問題があれば、PRに `agent-revert` ラベルを付けて取り消す（事後の取消。順次追加）
+- `cycle.mjs` が実装/PR作成の後に自動で実行する
+
 ### Issueのクローズ
 
 - PRがマージされると、PR本文の `Closes #N` によりGitHubがIssueを**自動でクローズ**する。

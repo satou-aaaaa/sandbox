@@ -164,7 +164,7 @@ export function buildImage() {
 
 /**
  * コンテナ内でフェーズを実行し、最終行の `RESULT:` JSONを返す。
- * @param {"install"|"agent"|"verify"|"triage"} phase
+ * @param {"install"|"agent"|"verify"|"triage"|"review"} phase
  * @param {string} workDir
  * @param {string} auditName
  * @param {string} [prompt] agentフェーズの依頼文

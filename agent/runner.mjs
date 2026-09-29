@@ -12,6 +12,7 @@ import {
   DISALLOWED_TOOLS,
   TRIAGE_ALLOWED_TOOLS,
   TRIAGE_DISALLOWED_TOOLS,
+  REVIEW_MODEL,
   buildAgentEnv,
   decideToolUse,
 } from "./policy.js";
@@ -31,11 +32,13 @@ export const MODEL = process.env.AGENT_MODEL || "claude-sonnet-5-5";
  * @param {string} prompt
  * @param {string} workDir
  * @param {string} auditFile
- * @param {"implement"|"triage"} [mode] triage は読み取り専用・短時間・低予算で評価だけを行う
+ * @param {"implement"|"triage"|"review"} [mode] triage は読み取り専用・短時間・低予算で評価だけを行う。review は独立したレビュアー（別の強いモデル・読み取り専用）
  * @returns {Promise<{ok: boolean, cost: number, summary: string}>}
  */
 export async function runAgent(prompt, workDir, auditFile, mode = "implement") {
-  const triage = mode === "triage";
+  const review = mode === "review";
+  // triage / review は読み取り専用（Read/Glob/Grepのみ）。implement だけが編集・テスト実行できる
+  const triage = mode === "triage" || review;
   const { query } = await import("@anthropic-ai/claude-agent-sdk");
   const abortController = new AbortController();
   const timer = setTimeout(() => abortController.abort(), AGENT_TIMEOUT_MS);
@@ -58,10 +61,11 @@ export async function runAgent(prompt, workDir, auditFile, mode = "implement") {
       prompt,
       options: {
         cwd: workDir,
-        model: MODEL,
+        // レビュアーは実装側とは別の（より強い）モデルを使い、判断の独立性を高める
+        model: review ? process.env.AGENT_REVIEW_MODEL || REVIEW_MODEL : MODEL,
         abortController,
-        maxTurns: triage ? 15 : MAX_TURNS,
-        maxBudgetUsd: triage ? 1 : MAX_BUDGET_USD,
+        maxTurns: review ? 25 : triage ? 15 : MAX_TURNS,
+        maxBudgetUsd: review ? 2 : triage ? 1 : MAX_BUDGET_USD,
         permissionMode: "dontAsk",
         allowedTools: triage ? TRIAGE_ALLOWED_TOOLS : ALLOWED_TOOLS,
         disallowedTools: triage ? TRIAGE_DISALLOWED_TOOLS : DISALLOWED_TOOLS,
