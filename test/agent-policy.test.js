@@ -6,6 +6,12 @@ import {
   DAILY_LIMITS,
   DOCKER_IMAGE,
   buildDockerArgs,
+  buildLessons,
+  decideMainFailure,
+  decideRetry,
+  issueNumberFromBranch,
+  retryCount,
+  shouldTripBreaker,
   REVIEW_FOCUSES,
   buildReviewPrompt,
   decideReview,
@@ -580,4 +586,88 @@ test("summarizeOutput/formatSummary: AIレビューの承認・不承認を数�
   assert.equal(s.approved, 1);
   assert.equal(s.rejected, 2);
   assert.match(formatSummary(s, 0), /AIレビュー: 承認 1件 \/ 不承認 2件/);
+});
+
+test("issueNumberFromBranch: agent/issue-<数字> からIssue番号を取り出す。それ以外は null", () => {
+  assert.equal(issueNumberFromBranch("agent/issue-97"), 97);
+  for (const bad of ["agent/issue-", "agent/issue-9x", "agent/issue-9;rm", "feat/x", "", "revert/pr-1"]) {
+    assert.equal(issueNumberFromBranch(bad), null, bad);
+  }
+  assert.equal(issueNumberFromBranch(/** @type {any} */ (undefined)), null);
+});
+
+test("retryCount: agent-retry-<数字> ラベルの最大値。無ければ0", () => {
+  assert.equal(retryCount([]), 0);
+  assert.equal(retryCount([{ name: "agent-retry-1" }, { name: "agent-retry-2" }, { name: "bug" }]), 2);
+  assert.equal(retryCount([{ name: "agent-retry-x" }, { name: "agent-retry-" }]), 0);
+});
+
+test("decideRetry: 上限（2回）までは再挑戦。超えたら人手に回す", () => {
+  assert.deepEqual(decideRetry([]), { retry: true, nextLabel: "agent-retry-1", reason: decideRetry([]).reason });
+  assert.equal(decideRetry([{ name: "agent-retry-1" }]).nextLabel, "agent-retry-2");
+  const over = decideRetry([{ name: "agent-retry-2" }]);
+  assert.equal(over.retry, false);
+  assert.match(over.reason, /人手/);
+});
+
+test("shouldTripBreaker: 24時間以内のリバートが2件以上でブレーカー作動。古いもの・不正な日時は数えない", () => {
+  const now = Date.parse("2026-09-30T12:00:00Z");
+  const h = (n) => new Date(now - n * 3600 * 1000).toISOString();
+  assert.equal(shouldTripBreaker([h(1), h(5)], now), true);
+  assert.equal(shouldTripBreaker([h(1)], now), false);
+  assert.equal(shouldTripBreaker([h(1), h(30)], now), false);
+  assert.equal(shouldTripBreaker([h(1), "不正な日時"], now), false);
+  assert.equal(shouldTripBreaker([], now), false);
+});
+
+test("decideMainFailure: 失敗した最新のエージェントPRの直後だけ、まず再実行し、再実行後も失敗なら取り消す", () => {
+  const base = { status: "completed", conclusion: "failure", attempt: 1, isHead: true, prHeadRef: "agent/issue-5", alreadyReverted: false };
+  assert.equal(decideMainFailure(base), "rerun");
+  assert.equal(decideMainFailure({ ...base, attempt: 2 }), "revert");
+});
+
+test("decideMainFailure: 成功・実行中・後続のコミットがある・取り消し済み・人が作ったPRは何もしない", () => {
+  const base = { status: "completed", conclusion: "failure", attempt: 2, isHead: true, prHeadRef: "agent/issue-5", alreadyReverted: false };
+  assert.equal(decideMainFailure({ ...base, conclusion: "success" }), "skip");
+  assert.equal(decideMainFailure({ ...base, status: "in_progress" }), "skip");
+  assert.equal(decideMainFailure({ ...base, isHead: false }), "skip");
+  assert.equal(decideMainFailure({ ...base, alreadyReverted: true }), "skip");
+  assert.equal(decideMainFailure({ ...base, prHeadRef: "feat/human-work" }), "skip");
+  assert.equal(decideMainFailure({ ...base, prHeadRef: null }), "skip");
+});
+
+test("buildLessons: 目印付きで所有者が書いたコメントだけを、直近3件まで含める", () => {
+  const mk = (body, login = "satou-aaaaa") => ({ body, author: { login } });
+  const comments = [
+    mk("<!-- agent-lesson -->\n教訓A"),
+    mk("<!-- agent-lesson -->\n教訓B"),
+    mk("<!-- agent-lesson -->\n教訓C"),
+    mk("<!-- agent-lesson -->\n教訓D"),
+    mk("目印なしのコメント"),
+    mk("<!-- agent-lesson -->\n第三者の偽の教訓", "attacker"),
+  ];
+  const out = buildLessons(comments);
+  assert.match(out, /教訓B/);
+  assert.match(out, /教訓D/);
+  assert.doesNotMatch(out, /教訓A/, "古いものは除く（直近3件）");
+  assert.doesNotMatch(out, /目印なし/);
+  assert.doesNotMatch(out, /第三者の偽の教訓/, "第三者のコメントは含めない");
+  assert.doesNotMatch(out, /agent-lesson/, "目印は取り除く");
+  assert.equal(buildLessons([]), "");
+});
+
+test("buildPrompt: 教訓を渡すとデータとして末尾に含め、渡さなければ従来どおり", () => {
+  const base = buildPrompt(issue());
+  const withLessons = buildPrompt(issue(), buildLessons([{ body: "<!-- agent-lesson -->\nテストが失敗した", author: { login: "satou-aaaaa" } }]));
+  assert.ok(withLessons.startsWith(base));
+  assert.match(withLessons, /過去の失敗/);
+  assert.match(withLessons, /テストが失敗した/);
+  assert.doesNotMatch(base, /過去の失敗/);
+});
+
+test("summarizeOutput/formatSummary: 取り消し（リバート）を数える", () => {
+  const s = summarizeOutput("[agent] PR #5 を取り消すPRを作成しました: https://github.com/o/r/pull/9");
+  assert.equal(s.reverted, 1);
+  assert.match(formatSummary(s, 0), /取り消し（リバート）: 1件/);
+  assert.doesNotMatch(formatSummary(summarizeOutput(""), 0), /取り消し/);
 });

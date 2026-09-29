@@ -44,6 +44,7 @@ import {
   branchNameForIssue,
   buildDockerArgs,
   resolveAuth,
+  buildLessons,
   buildPrompt,
   buildRetryPrompt,
   checkDailyBudget,
@@ -51,6 +52,7 @@ import {
   isEligibleIssue,
   normalizeState,
   recordRun,
+  retryCount,
 } from "./policy.js";
 import { AGENT_TIMEOUT_MS, MAX_BUDGET_USD, MAX_TURNS, MODEL, installDeps, runAgent, verifyAll } from "./runner.mjs";
 
@@ -239,7 +241,9 @@ async function processIssue(issue) {
     const auditFile = join(LOG_DIR, `${new Date().toISOString().replace(/[:.]/g, "-")}-issue-${issue.number}.jsonl`);
     log(`監査ログ: ${auditFile}`);
 
-    const first = await be.agent(buildPrompt(issue), workDir, auditFile);
+    // 取り消し後の再挑戦では、過去の失敗の記録（教訓）をプロンプトに含める
+    const lessons = retryCount(issue.labels) > 0 ? buildLessons(JSON.parse(gh("issue", "view", String(issue.number), "--repo", REPO, "--json", "comments")).comments) : "";
+    const first = await be.agent(buildPrompt(issue, lessons), workDir, auditFile);
     let cost = first.cost;
     let summary = first.summary;
     saveState(recordRun(loadState(), first.cost));
