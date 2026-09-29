@@ -107,8 +107,8 @@ export async function saveClients(clients, filePath = DEFAULT_CLIENTS_PATH) {
 /**
  * クライアントを1件、丸ごと追加・上書きする（同名クライアントが既にあれば
  * `record` の内容で完全に置き換える。既存の `licenses` を部分的に保持したい
- * 場合は `upsertClientLicense` を使うこと）。CSVの一括取込
- * （`scripts/import-clients-csv.js`）等、レコード全体が確定している場合に使う。
+ * 場合は `upsertClientLicense`、CSV等の一括取込は既存データを保持する `importClients`
+ * を使うこと）。レコード全体が確定している場合に使う。
  *
  * @param {import('./digest.js').ClientRecord} record
  * @param {string} [filePath]
@@ -125,6 +125,76 @@ export async function upsertClient(record, filePath = DEFAULT_CLIENTS_PATH) {
     }
     await saveClients(clients, filePath);
     return clients;
+  });
+}
+
+/**
+ * 既存の許可1件に、取り込む許可の内容を上書きマージする。取り込み側に無い
+ * プロパティ（許可種別ごとの `<種別>Detail` 等。CSVは持たない）は既存の値を保持する。
+ * 許可種別（`licenseCategory`）が異なる場合は、別物とみなして取り込み側で置き換える
+ * （古い種別の Detail を新しい種別に引き継がないため）。
+ *
+ * @param {import('./digest.js').LicenseEntry} existing
+ * @param {import('./digest.js').LicenseEntry} incoming
+ * @returns {import('./digest.js').LicenseEntry}
+ */
+function mergeLicense(existing, incoming) {
+  const existingCategory = existing.licenseCategory ?? "construction";
+  const incomingCategory = incoming.licenseCategory ?? "construction";
+  if (existingCategory !== incomingCategory) return incoming;
+  return { ...existing, ...incoming };
+}
+
+/**
+ * CSV等の一括取込で得たクライアント一覧を、既存のクライアント一覧へマージして保存する。
+ *
+ * `upsertClient` が同名クライアントを丸ごと置き換えるのに対し、本関数は
+ * 既存のデータを失わないよう次のようにマージする（#74。CSVは許可種別ごとの
+ * `<種別>Detail` を持たないため、丸ごと置換すると Detail が黙って消え、
+ * 変更届・更新期限などのリマインドが出なくなる問題があった）。
+ * - 同名クライアント: 取り込み側に値があるクライアント単位の項目
+ *   （`fiscalYearEndIso`・`contactEmail`）のみ上書きし、それ以外は既存を保持する。
+ * - 同じ `licenseId` の許可: 取り込み側の項目で上書きし、取り込み側に無い項目
+ *   （`<種別>Detail` 等）は既存を保持する。ただし `licenseCategory` が異なる場合は
+ *   取り込み側で置き換える。
+ * - 取り込み側に無い既存の許可: 削除せず保持する。
+ * - 取り込み側の空欄は「値なし」であり、既存の値を空にする用途には使えない。
+ * 一括取込全体を1回のファイルロックで囲み、read-modify-write の競合を防ぐ。
+ *
+ * @param {import('./digest.js').ClientRecord[]} records
+ * @param {string} [filePath]
+ * @returns {Promise<{ added: number, updated: number }>} 新規追加・既存更新の件数
+ */
+export async function importClients(records, filePath = DEFAULT_CLIENTS_PATH) {
+  return withFileLock(filePath, async () => {
+    const clients = await loadClients(filePath);
+    let added = 0;
+    let updated = 0;
+
+    for (const incoming of records) {
+      const index = clients.findIndex((c) => c.clientName === incoming.clientName);
+      if (index < 0) {
+        clients.push(incoming);
+        added++;
+        continue;
+      }
+
+      const existing = clients[index];
+      const licenses = [...existing.licenses];
+      for (const license of incoming.licenses) {
+        const licenseIndex = licenses.findIndex((l) => l.licenseId === license.licenseId);
+        if (licenseIndex >= 0) {
+          licenses[licenseIndex] = mergeLicense(licenses[licenseIndex], license);
+        } else {
+          licenses.push(license);
+        }
+      }
+      clients[index] = { ...existing, ...incoming, licenses };
+      updated++;
+    }
+
+    await saveClients(clients, filePath);
+    return { added, updated };
   });
 }
 
