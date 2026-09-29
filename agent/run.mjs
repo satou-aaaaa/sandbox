@@ -32,7 +32,7 @@ import { execFileSync } from "node:child_process";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve, dirname } from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import {
   ALLOWED_TOOLS,
   DISALLOWED_TOOLS,
@@ -54,21 +54,21 @@ import {
 } from "./policy.js";
 import { AGENT_TIMEOUT_MS, MAX_BUDGET_USD, MAX_TURNS, MODEL, installDeps, runAgent, verifyAll } from "./runner.mjs";
 
-const REPO = "satou-aaaaa/sandbox";
-const BASE = "main";
+export const REPO = "satou-aaaaa/sandbox";
+export const BASE = "main";
 const AGENT_DIR = resolve(dirname(fileURLToPath(import.meta.url)));
-const REPO_ROOT = resolve(AGENT_DIR, "..");
+export const REPO_ROOT = resolve(AGENT_DIR, "..");
 /** 状態・監査ログの置き場（.gitignore済み。実データは含まない） */
 const STATE_FILE = join(AGENT_DIR, ".state", "daily.json");
-const LOG_DIR = join(AGENT_DIR, "logs");
+export const LOG_DIR = join(AGENT_DIR, "logs");
 /** このファイルが存在する間はループを実行しない（キルスイッチ）。 */
 const KILL_SWITCH_FILE = join(AGENT_DIR, ".disabled");
 const COMMIT_TRAILER = "Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>";
 const PR_TRAILER = "🤖 Generated with [Claude Code](https://claude.com/claude-code)";
 /** 隔離モード。docker（既定）または none（隔離なし。明示指定が必要）。 */
-const SANDBOX = process.env.AGENT_SANDBOX || "docker";
+export const SANDBOX = process.env.AGENT_SANDBOX || "docker";
 /** 認証方式の決定結果（subscription既定）。 */
-const AUTH = resolveAuth(process.env, /** @type {"docker"|"none"} */ (SANDBOX === "none" ? "none" : "docker"));
+export const AUTH = resolveAuth(process.env, /** @type {"docker"|"none"} */ (SANDBOX === "none" ? "none" : "docker"));
 
 const args = process.argv.slice(2);
 const DRY_RUN = args.includes("--dry-run");
@@ -76,7 +76,7 @@ const ONLY_ISSUE = args.includes("--issue") ? Number(args[args.indexOf("--issue"
 const MAX_ISSUES = args.includes("--max") ? Number(args[args.indexOf("--max") + 1]) : 1;
 
 /** コマンドを実行して標準出力を返す（引数は配列で渡し、シェル展開を避ける）。 */
-function run(cmd, cmdArgs, cwd = REPO_ROOT) {
+export function run(cmd, cmdArgs, cwd = REPO_ROOT) {
   return execFileSync(cmd, cmdArgs, {
     cwd,
     encoding: "utf8",
@@ -87,11 +87,11 @@ function run(cmd, cmdArgs, cwd = REPO_ROOT) {
   }).trim();
 }
 
-function gh(...ghArgs) {
+export function gh(...ghArgs) {
   return run("gh", ghArgs);
 }
 
-function log(msg) {
+export function log(msg) {
   console.log(`[agent] ${msg}`);
 }
 
@@ -100,7 +100,7 @@ function today() {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
-function loadState() {
+export function loadState() {
   try {
     return normalizeState(JSON.parse(readFileSync(STATE_FILE, "utf8")), today());
   } catch {
@@ -108,7 +108,7 @@ function loadState() {
   }
 }
 
-function saveState(state) {
+export function saveState(state) {
   mkdirSync(dirname(STATE_FILE), { recursive: true });
   writeFileSync(STATE_FILE, JSON.stringify(state));
 }
@@ -145,7 +145,7 @@ function fetchCandidates() {
 // ---------------------------------------------------------------------------
 
 /** Dockerが使えるか（daemonに接続できるか）。 */
-function dockerAvailable() {
+export function dockerAvailable() {
   try {
     run("docker", ["info", "--format", "{{.ServerVersion}}"]);
     return true;
@@ -155,19 +155,19 @@ function dockerAvailable() {
 }
 
 /** 隔離イメージをビルドする（キャッシュが効くため毎回呼んでよい）。 */
-function buildImage() {
+export function buildImage() {
   run("docker", ["build", "-q", "-t", DOCKER_IMAGE, AGENT_DIR]);
 }
 
 /**
  * コンテナ内でフェーズを実行し、最終行の `RESULT:` JSONを返す。
- * @param {"install"|"agent"|"verify"} phase
+ * @param {"install"|"agent"|"verify"|"triage"} phase
  * @param {string} workDir
  * @param {string} auditName
  * @param {string} [prompt] agentフェーズの依頼文
  * @returns {any}
  */
-function dockerPhase(phase, workDir, auditName, prompt) {
+export function dockerPhase(phase, workDir, auditName, prompt) {
   const taskDir = mkdtempSync(join(tmpdir(), "kkt-task-"));
   try {
     if (prompt !== undefined) writeFileSync(join(taskDir, "prompt.txt"), prompt);
@@ -346,4 +346,5 @@ async function main() {
   }
 }
 
-await main();
+// 他のスクリプト（triage.mjs）から共通処理をimportできるよう、直接実行時のみmainを走らせる
+if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) await main();

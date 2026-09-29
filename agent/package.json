@@ -4,10 +4,15 @@
   "private": true,
   "type": "module",
   "description": "GitHub Issue を自律的に処理する開発運用用エージェントループ（本体アプリとは依存関係を分離）",
-  "engines": { "node": ">=20" },
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "start": "node run.mjs",
-    "dry-run": "node run.mjs --dry-run"
+    "dry-run": "node run.mjs --dry-run",
+    "triage": "node triage.mjs",
+    "triage:dry-run": "node triage.mjs --dry-run",
+    "cycle": "node triage.mjs && node run.mjs"
   },
   "dependencies": {
     "@anthropic-ai/claude-agent-sdk": "0.3.284"
