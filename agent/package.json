@@ -1,0 +1,15 @@
+{
+  "name": "kensetsu-kyoka-toolkit-agent",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "GitHub Issue を自律的に処理する開発運用用エージェントループ（本体アプリとは依存関係を分離）",
+  "engines": { "node": ">=20" },
+  "scripts": {
+    "start": "node run.mjs",
+    "dry-run": "node run.mjs --dry-run"
+  },
+  "dependencies": {
+    "@anthropic-ai/claude-agent-sdk": "0.3.284"
+  }
+}
