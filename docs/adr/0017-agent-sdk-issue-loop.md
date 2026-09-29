@@ -144,3 +144,19 @@ Anthropicの公式ガイド（Securely deploying AI agents／Hooks／Building ef
   - マージ済み: Issueが開いていれば閉じ、処理中ラベル（agent-working / agent-ready / agent-needs-human）を整理する（安全網）
   - 未マージ: `agent-done` のまま放置せず、`agent-needs-human` に戻して理由を残す
 - Issue番号はブランチ名から数字のみを正規表現で取り出す（シェルへ未検証の値を展開しない）。forkからのPRは対象外。
+
+## Amendment 6（2026-09-30）: 定期実行に向けた排他制御・異常終了からの回復・要約（cycle）
+
+定期実行（無人）にするための前提として、`agent/cycle.mjs` を追加した。1サイクルは
+「キルスイッチ確認 → 排他ロック → 回復 → トリアージ → 実装/PR作成 → 要約」。
+
+- **排他制御**: `agent/.state/cycle.lock`（`wx` で原子的に作成）。所有プロセスが死んでいる・2時間超・内容が壊れている
+  ロックは残骸として奪い取る。実行が重なった場合は、後発のサイクルは何もせずスキップする（同じIssueの二重処理を防ぐ）。
+- **異常終了からの回復**: `agent-working` のまま90分以上更新されないIssueは、`agent-needs-human` に戻して理由を残す。
+  3時間超の一時worktree・一時ディレクトリも片付ける（`git worktree prune` を含む）。
+- **要約**: トリアージ件数・PR作成・中止・回復を1行にまとめ、標準出力と `agent/logs/cycle-latest.txt` に残す。
+- 各ステップは別プロセスで実行し、片方が失敗しても後始末（ロック解放・要約）は必ず行う。マージは行わない。
+- 判定は純粋関数（`isLockStale` / `isStaleWorking` / `summarizeOutput`）に置き、単体テストで検証する。
+
+実機の `--dry-run` サイクル（サブスクリプション認証）で、ロック取得→トリアージ→要約まで通ることを確認した。
+定期実行の有効化（スケジュール登録）は、トークン設定と手動での試運転の後に行う。
