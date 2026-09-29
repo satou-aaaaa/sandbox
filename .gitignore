@@ -46,3 +46,8 @@ venv/
 
 # Logs
 *.log
+
+# エージェントループ（agent/）の監査ログ・日次状態・キルスイッチ
+agent/logs/
+agent/.state/
+agent/.disabled

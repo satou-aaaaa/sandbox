@@ -63,3 +63,28 @@ SDKを持ち込まない。
   トークンが別途必要。
 - 見直しのトリガー: PRの品質が安定しない／費用が想定を超える場合は、
   `claude-code-action`（選択肢A）への移行を検討する。
+
+## Amendment 1（2026-09-29）: ベストプラクティスに基づく多層防御の追加
+
+Anthropicの公式ガイド（Securely deploying AI agents／Hooks／Building effective agents）を
+調査し、次を追加した。いずれも「PR作成まで・マージは人手」の前提は変えない。
+
+| 原則（出典） | 実装 |
+|---|---|
+| 多層防御：許可リストとは独立した最終判定（Hooks） | `PreToolUse` フックで全ツール呼び出しを `decideToolUse` で判定。フックのdenyはbypassモードでも効く。作業ディレクトリ外・保護パス・`.env`/鍵・ネットワーク/push/依存追加/コマンド置換を拒否 |
+| 監査可能性（Hooks: log and audit） | 全ツール呼び出しと結果を `agent/logs/*.jsonl` に記録（`.gitignore`済み） |
+| 停止条件・暴走防止（Building effective agents） | 1件あたりターン/費用に加え、壁時計20分、日次上限（5件・$10。`agent/.state/`）を追加 |
+| 人手のチェックポイント | 常時PR止まり。加えてキルスイッチ（`agent/.disabled` または `AGENT_DISABLED=1`） |
+| 評価→最適化（Building effective agents） | 検証失敗時は失敗出力を渡して**1回だけ**修正を依頼。再失敗ならIssueへ差し戻し |
+| シークレット混入対策 | 検証ゲートに `npm run check-secrets` を追加 |
+| 最小権限・クレデンシャル分離（Secure deployment） | GitHub認証情報の環境変数をエージェントに渡さない（既存）。push/PRは決定的コードのみ |
+| モデル固定 | `claude-sonnet-5-5` を明示（`AGENT_MODEL` で上書き可） |
+
+### 未対応（既知の残リスクと次の一手）
+
+- **OS/コンテナ隔離**: 推奨されるsandbox-runtime（bubblewrap/sandbox-exec）はWindows非対応。
+  現状のローカル実行はOSレベルのファイル/ネットワーク隔離が無く、上記の論理的防御に依存する。
+  Dockerは利用可能なため、`--cap-drop ALL --read-only --user` 等で固めたコンテナ内実行
+  ＋API宛のみ許可するプロキシ（クレデンシャルをコンテナ外で注入）への移行が次の一手。
+  実運用の実績（PRの品質・費用）が出て、実行頻度が上がった段階で着手する。
+- **Actions上での実行**: `GITHUB_TOKEN` 起点のPRは必須CIを起動しない。GitHub App導入後に検討。
