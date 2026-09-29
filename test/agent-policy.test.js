@@ -6,6 +6,14 @@ import {
   DAILY_LIMITS,
   DOCKER_IMAGE,
   buildDockerArgs,
+  SCOUT_MAX_OPEN,
+  SCOUT_MAX_PER_RUN,
+  buildScoutPrompt,
+  formatSummary,
+  normalizeTitle,
+  parseScoutIssues,
+  selectScoutIssues,
+  summarizeOutput,
   AUTOMERGE_MAX_FILES,
   classifyPrRisk,
   TRIAGE_MAX_FILES,
@@ -371,4 +379,69 @@ test("classifyPrRisk: 削除行が数値でない（不正値）は high 側に�
 test("classifyPrRisk: Windows区切りでも同様に判定する", () => {
   assert.equal(classifyPrRisk([f("test\\a.test.js", 1, 0)]).level, "low");
   assert.equal(classifyPrRisk([f("src\\a.js")]).level, "high");
+});
+
+const goodBody = "## 背景\nfoo モジュールのエラー系にテストが無い（src/core/foo.js の分岐がテストされていない）。\n\n## やること\ntest/foo.test.js にエラー系のテストを追加する。実装は変更しない。\n\n## 受け入れ条件\n- 追加したテストが通る\n- 既存テストは変更しない";
+const goodIssue = { title: "test: foo のエラー系のテストを追加する", body: goodBody };
+
+test("normalizeTitle: 大文字小文字・空白・記号を無視して同一視する", () => {
+  assert.equal(normalizeTitle("Test: Foo の  テスト"), normalizeTitle("test：foo のテスト"));
+  assert.notEqual(normalizeTitle("test: foo"), normalizeTitle("test: bar"));
+});
+
+test("parseScoutIssues: 形式を満たす提案だけを取り出す（前置きの文章は無視）", () => {
+  const text = ["調べました。", JSON.stringify(goodIssue)].join("\n");
+  assert.deepEqual(parseScoutIssues(text), [goodIssue]);
+});
+
+test("parseScoutIssues: 受け入れ条件なし・短すぎる・長すぎる・型違い・不正JSONは捨てる（フェイルクローズ）", () => {
+  const bad = [
+    { title: goodIssue.title, body: goodBody.replace("## 受け入れ条件", "## 完了の目安") },
+    { title: "短い", body: goodBody },
+    { title: goodIssue.title, body: "## 受け入れ条件\n短い" },
+    { title: "t".repeat(101), body: goodBody },
+    { title: goodIssue.title, body: goodBody + "x".repeat(4000) },
+    { title: 123, body: goodBody },
+  ];
+  const text = [...bad.map((b) => JSON.stringify(b)), "{壊れたJSON}", "無関係な行"].join("\n");
+  assert.deepEqual(parseScoutIssues(text), []);
+});
+
+test("parseScoutIssues: 保護パスの変更を要求する提案は捨てる", () => {
+  for (const p of ["agent/policy.js", ".github/workflows/test.yml", "package.json", "CLAUDE.md", "hooks/check-secrets.mjs"]) {
+    const body = goodBody.replace("test/foo.test.js", p);
+    assert.deepEqual(parseScoutIssues(JSON.stringify({ title: goodIssue.title, body })), [], p);
+  }
+});
+
+test("selectScoutIssues: 既存タイトルと重複するものは除き、1回あたりの上限を守る", () => {
+  const c = (n) => ({ title: `test: モジュール${n}のテストを追加する`, body: goodBody });
+  const picked = selectScoutIssues([c(1), c(2), c(3), c(4)], ["Test: モジュール1のテストを追加する"], 0);
+  assert.equal(picked.length, SCOUT_MAX_PER_RUN);
+  assert.deepEqual(picked.map((p) => p.title), [c(2).title, c(3).title]);
+});
+
+test("selectScoutIssues: 提案同士の重複も除く", () => {
+  const picked = selectScoutIssues([goodIssue, { ...goodIssue }], [], 0);
+  assert.equal(picked.length, 1);
+});
+
+test("selectScoutIssues: 未完了のスカウトIssueが上限に達していれば何も起票しない。残り枠が1なら1件だけ", () => {
+  assert.deepEqual(selectScoutIssues([goodIssue], [], SCOUT_MAX_OPEN), []);
+  const many = [1, 2, 3].map((n) => ({ title: `test: モジュール${n}のテストを追加する`, body: goodBody }));
+  assert.equal(selectScoutIssues(many, [], SCOUT_MAX_OPEN - 1).length, 1);
+});
+
+test("buildScoutPrompt: 提案してよい範囲と禁止事項、出力形式、既存Issueを含む", () => {
+  const p = buildScoutPrompt(["既存のIssueA", "既存のIssueB"]);
+  assert.match(p, /読み取り専用/);
+  assert.match(p, /法令に基づく判定・期限計算/);
+  assert.match(p, /## 受け入れ条件/);
+  assert.match(p, /- 既存のIssueA/);
+});
+
+test("summarizeOutput/formatSummary: スカウト起票を数える", () => {
+  const s = summarizeOutput("[agent] スカウト: 起票しました: https://github.com/o/r/issues/5\n[agent] スカウト: 起票しました: https://github.com/o/r/issues/6");
+  assert.equal(s.scouted, 2);
+  assert.match(formatSummary(s, 0), /スカウト起票: 2件/);
 });

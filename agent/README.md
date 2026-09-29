@@ -25,12 +25,23 @@ cd agent && npm ci
 
 ```bash
 node cycle.mjs --dry-run   # 判定・対象の確認のみ（書き込みなし）
-node cycle.mjs             # 回復 → トリアージ → 実装/PR作成 → 要約 を1回
+node cycle.mjs             # 回復 → スカウト → トリアージ → 実装/PR作成 → 要約 を1回
 ```
 
 - **排他制御**: 実行が重なった場合、後発は何もせずスキップ（`agent/.state/cycle.lock`。残骸は自動で奪取）
 - **異常終了からの回復**: `agent-working` のまま90分以上放置されたIssueを `agent-needs-human` に戻し、古い一時worktreeを片付ける
 - **要約**: 結果を1行にまとめ、`agent/logs/cycle-latest.txt` に保存（1サイクルの全出力は `agent/logs/cycle-*.log`）
+
+## 作業の自動起票（スカウト）
+
+```bash
+node scout.mjs --dry-run   # 提案を表示するのみ（起票しない）
+node scout.mjs             # 起票する（1回最大2件。未完了のスカウトIssueが5件以上なら起票しない）
+```
+
+読み取り専用のエージェントが、テストの追加やREADME/CHANGELOGの食い違い修正といった**自動マージできる低リスクな作業**だけを、
+`agent-scouted` ラベル付きで起票する。起票されたIssueはトリアージ→実装→PR→自動マージへ進む（`cycle.mjs` が順に実行する）。
+法令判定・期限計算・src/の実装変更・保護パスに関わる提案は対象外。
 
 ## Issue の自動トリアージ（`agent-ready` を自動で付けるか判断する）
 
