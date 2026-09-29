@@ -53,11 +53,11 @@ test("summarizeOutput: トリアージ結果・PR作成・中止を数える", (
     "[agent] #83 中止: 検証に失敗しました",
     "無関係な行",
   ].join("\n");
-  assert.deepEqual(summarizeOutput(out), { ready: 1, needsHuman: 1, prs: ["https://github.com/o/r/pull/90"], aborted: 1, scouted: 0 });
+  assert.deepEqual(summarizeOutput(out), { ready: 1, needsHuman: 1, prs: ["https://github.com/o/r/pull/90"], aborted: 1, scouted: 0, approved: 0, rejected: 0 });
 });
 
 test("summarizeOutput: 何も無ければすべて0", () => {
-  assert.deepEqual(summarizeOutput(""), { ready: 0, needsHuman: 0, prs: [], aborted: 0, scouted: 0 });
+  assert.deepEqual(summarizeOutput(""), { ready: 0, needsHuman: 0, prs: [], aborted: 0, scouted: 0, approved: 0, rejected: 0 });
 });
 
 test("formatSummary: 回復があれば表示に含める", () => {
