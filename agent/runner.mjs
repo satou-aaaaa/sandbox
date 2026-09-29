@@ -10,6 +10,8 @@ import { appendFileSync } from "node:fs";
 import {
   ALLOWED_TOOLS,
   DISALLOWED_TOOLS,
+  TRIAGE_ALLOWED_TOOLS,
+  TRIAGE_DISALLOWED_TOOLS,
   buildAgentEnv,
   decideToolUse,
 } from "./policy.js";
@@ -29,9 +31,11 @@ export const MODEL = process.env.AGENT_MODEL || "claude-sonnet-5-5";
  * @param {string} prompt
  * @param {string} workDir
  * @param {string} auditFile
+ * @param {"implement"|"triage"} [mode] triage は読み取り専用・短時間・低予算で評価だけを行う
  * @returns {Promise<{ok: boolean, cost: number, summary: string}>}
  */
-export async function runAgent(prompt, workDir, auditFile) {
+export async function runAgent(prompt, workDir, auditFile, mode = "implement") {
+  const triage = mode === "triage";
   const { query } = await import("@anthropic-ai/claude-agent-sdk");
   const abortController = new AbortController();
   const timer = setTimeout(() => abortController.abort(), AGENT_TIMEOUT_MS);
@@ -56,11 +60,11 @@ export async function runAgent(prompt, workDir, auditFile) {
         cwd: workDir,
         model: MODEL,
         abortController,
-        maxTurns: MAX_TURNS,
-        maxBudgetUsd: MAX_BUDGET_USD,
+        maxTurns: triage ? 15 : MAX_TURNS,
+        maxBudgetUsd: triage ? 1 : MAX_BUDGET_USD,
         permissionMode: "dontAsk",
-        allowedTools: ALLOWED_TOOLS,
-        disallowedTools: DISALLOWED_TOOLS,
+        allowedTools: triage ? TRIAGE_ALLOWED_TOOLS : ALLOWED_TOOLS,
+        disallowedTools: triage ? TRIAGE_DISALLOWED_TOOLS : DISALLOWED_TOOLS,
         hooks: { PreToolUse: [{ hooks: [preToolUse] }] },
         settingSources: ["project"],
         systemPrompt: { type: "preset", preset: "claude_code" },
