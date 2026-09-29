@@ -1,0 +1,65 @@
+name: Agent PR auto-merge
+
+# エージェントが作ったPR（ブランチ名 agent/issue-<番号>）のマージ判断を、リスクに応じて自動化する。
+#  - 低リスク（README.md/CHANGELOG.md、削除行0のテスト追加のみ・8ファイル以下）: 必須チェック成功後に自動マージ
+#  - それ以外: 理由をコメントして人手に回す。所有者が `agent-approved` ラベルを付けると、
+#    必須チェック成功後に自動マージ（人手の判断はラベル1つ。スマホからでも可能）
+# 実際のマージは Ruleset `protect-main` の必須チェック（Test・CodeQL）が全て成功した時点でGitHubが行う。
+#
+# 安全策:
+#  - リスク分類は「PRのコード」ではなく「baseのコード」をチェックアウトして実行する
+#    （PR自身が分類ロジックを書き換えて自己承認できないように）
+#  - 対象は同一リポジトリのブランチのみ。承認ラベルは所有者が付けた場合のみ有効
+#  - 権限は最小（contents: write と pull-requests: write）
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, labeled]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  decide:
+    if: github.event.pull_request.head.repo.full_name == github.repository && startsWith(github.event.pull_request.head.ref, 'agent/issue-')
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: baseのコードをチェックアウト（分類ロジックをPRから隔離）
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          persist-credentials: false
+      - name: リスクを分類して、マージまたは人手に回す
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          EVENT_ACTION: ${{ github.event.action }}
+          LABEL_NAME: ${{ github.event.label.name }}
+          SENDER: ${{ github.event.sender.login }}
+          OWNER: ${{ github.repository_owner }}
+        run: |
+          set -euo pipefail
+          RISK="$(node agent/pr-risk.mjs "$PR_NUMBER")"
+          LEVEL="$(printf '%s' "$RISK" | node -e 'process.stdout.write(JSON.parse(require("fs").readFileSync(0,"utf8")).level)')"
+          REASONS="$(printf '%s' "$RISK" | node -e 'process.stdout.write(JSON.parse(require("fs").readFileSync(0,"utf8")).reasons.map((r) => "- " + r).join("\n"))')"
+          echo "リスク: $LEVEL"
+          APPROVED=false
+          if [ "$EVENT_ACTION" = "labeled" ] && [ "$LABEL_NAME" = "agent-approved" ] && [ "$SENDER" = "$OWNER" ]; then
+            APPROVED=true
+          fi
+          if [ "$LEVEL" = "low" ] || [ "$APPROVED" = "true" ]; then
+            gh pr merge "$PR_NUMBER" --auto --squash
+            echo "自動マージを予約しました（必須チェック成功後にマージされます）"
+          else
+            # 同じ説明を何度も投稿しない（synchronize のたびに重複させない）
+            if ! gh pr view "$PR_NUMBER" --json comments --jq '.comments[].body' | grep -q "agent-pr-automerge:needs-review"; then
+              MARKER='<!-- agent-pr-automerge:needs-review -->'
+              HEAD_MSG='このPRは自動マージの対象外（人手のレビューが必要）です。理由:'
+              TAIL_MSG='内容を確認して問題なければ「agent-approved」ラベルを付けてください。必須チェック成功後に自動でマージされます。'
+              BODY="$(printf '%s\n\n%s\n%s\n\n%s' "$MARKER" "$HEAD_MSG" "$REASONS" "$TAIL_MSG")"
+              gh pr comment "$PR_NUMBER" --body "$BODY"
+            fi
+            gh pr edit "$PR_NUMBER" --add-label agent-needs-review || true
+          fi
