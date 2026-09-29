@@ -599,20 +599,43 @@ export function formatSummary(s, recovered) {
 // ---------------------------------------------------------------------------
 
 /** 自動マージの対象にしてよい変更ファイル数の上限。 */
-export const AUTOMERGE_MAX_FILES = 8;
-/** 低リスクとみなす文書（完全一致）。 */
-const LOW_RISK_DOCS = ["README.md", "CHANGELOG.md"];
+export const AUTOMERGE_MAX_FILES = 12;
+/**
+ * 法令に基づく判定・期限計算・様式生成に関わる領域。CIでは検出できない「静かな誤り」
+ * （法令解釈の誤りで判定が黙って変わる）が起こり得るため、既定では自動マージしない
+ * （承認ラベルを要する）。リポジトリ変数 AGENT_AUTOMERGE_LEGAL=true で自動マージに切り替えられる。
+ */
+export const LEGAL_LOGIC_PREFIXES = [
+  "src/licenses/",
+  "src/core/eligibility/",
+  "src/core/reminders/",
+  "src/succession/",
+  "src/incorporation/",
+  "src/documents/",
+  "features/",
+];
+/** 自動マージしてよい文書（完全一致）。 */
+const AUTO_DOCS = ["README.md", "CHANGELOG.md"];
+/** docs/ 配下のうち、設計上の前提・決定を書く文書は自動マージしない。 */
+const DOCS_HUMAN = [/^docs\/adr\//, /^docs\/DESIGN/, /^docs\/REQUIREMENTS/, /^docs\/PROPOSAL/];
+/** 自動マージしてよいコード領域（法令ロジックを含まない）。 */
+const AUTO_CODE_PREFIXES = ["src/web/", "src/core/documents/", "src/portal/", "scripts/", "e2e/", "load/"];
 
 /**
  * @typedef {{path: string, additions: number, deletions: number}} PrFile
  */
 
 /**
- * PRの変更ファイルからリスクを分類する。
+ * PRの変更ファイルからリスクを分類する。方針: 原則は自動マージ（人手を介さない）とし、
+ * 問題があれば事後にリバートする。人手（承認ラベル）に回すのは、事後の検知が難しい領域だけ。
+ *   - 保護パス（CI・セキュリティ・エージェント自身・依存・実データ）
+ *   - 法令判定・期限計算・様式生成（既定。allowLegal で自動マージ可）
+ *   - 設定・スキーマ・設計文書・ADR など、上記の範囲外
  * @param {PrFile[]} files
+ * @param {{allowLegal?: boolean}} [opts]
  * @returns {{level: "low"|"high", reasons: string[]}} high の場合は理由（人手に回す根拠）
  */
-export function classifyPrRisk(files) {
+export function classifyPrRisk(files, { allowLegal = false } = {}) {
   /** @type {string[]} */
   const reasons = [];
   if (files.length === 0) return { level: "high", reasons: ["変更ファイルを取得できませんでした"] };
@@ -622,12 +645,21 @@ export function classifyPrRisk(files) {
   for (const f of files) {
     const p = f.path.replaceAll("\\", "/");
     if (protectedHits.includes(p)) continue;
-    if (LOW_RISK_DOCS.includes(p)) continue;
-    if (p.startsWith("test/")) {
-      if (!Number.isInteger(f.deletions) || f.deletions !== 0) reasons.push(`テストの削除・書き換えを含む: ${p}（削除行 ${f.deletions}）`);
+    if (LEGAL_LOGIC_PREFIXES.some((pre) => p.startsWith(pre)) && !p.startsWith("test/")) {
+      if (!allowLegal) reasons.push(`法令判定・期限計算・様式生成の領域: ${p}`);
       continue;
     }
-    reasons.push(`低リスクの範囲外: ${p}`);
+    if (AUTO_DOCS.includes(p)) continue;
+    if (/^docs\/[^/]+\.md$/.test(p) && !DOCS_HUMAN.some((re) => re.test(p))) continue;
+    if (p.startsWith("test/")) {
+      // テストを弱める変更（追加より削除が多い）は自動マージしない
+      if (!Number.isInteger(f.deletions) || !Number.isInteger(f.additions) || f.deletions > f.additions) {
+        reasons.push(`テストが縮小する変更: ${p}（追加 ${f.additions} / 削除 ${f.deletions}）`);
+      }
+      continue;
+    }
+    if (AUTO_CODE_PREFIXES.some((pre) => p.startsWith(pre))) continue;
+    reasons.push(`自動マージの範囲外: ${p}`);
   }
   return reasons.length === 0 ? { level: "low", reasons } : { level: "high", reasons };
 }

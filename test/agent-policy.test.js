@@ -333,52 +333,63 @@ test("buildDockerArgs: triage フェーズは作業ツリーを読み取り専�
 
 const f = (path, additions = 1, deletions = 0) => ({ path, additions, deletions });
 
-test("classifyPrRisk: README.md と CHANGELOG.md のみなら low", () => {
-  assert.equal(classifyPrRisk([f("README.md"), f("CHANGELOG.md", 20, 2)]).level, "low");
+test("classifyPrRisk: README/CHANGELOG・docs直下の文書・非法令のsrc・scriptsは low（原則は自動マージ）", () => {
+  for (const p of ["README.md", "CHANGELOG.md", "docs/DEVELOPMENT_GUIDE.md", "src/web/server.js", "src/core/documents/x.js", "src/portal/x.js", "scripts/x.js", "e2e/x.spec.js"]) {
+    assert.equal(classifyPrRisk([f(p)]).level, "low", p);
+  }
 });
 
-test("classifyPrRisk: 削除行0のテスト追加だけなら low", () => {
-  assert.equal(classifyPrRisk([f("test/a.test.js", 30, 0), f("test/b.test.js", 5, 0)]).level, "low");
-});
-
-test("classifyPrRisk: テストの削除・書き換え（削除行あり）は high（テストを弱められない）", () => {
-  const r = classifyPrRisk([f("test/a.test.js", 3, 1)]);
+test("classifyPrRisk: テストは追加が削除以上なら low、縮小（削除が多い）は high", () => {
+  assert.equal(classifyPrRisk([f("test/a.test.js", 30, 0), f("test/b.test.js", 5, 5)]).level, "low");
+  const r = classifyPrRisk([f("test/a.test.js", 3, 4)]);
   assert.equal(r.level, "high");
-  assert.match(r.reasons.join(" "), /テストの削除・書き換え/);
+  assert.match(r.reasons.join(" "), /テストが縮小/);
 });
 
-test("classifyPrRisk: src/・設計文書・ADR・設定・依存は high", () => {
-  for (const p of ["src/core/x.js", "docs/DESIGN.md", "docs/adr/0018-x.md", "package.json", "eslint.config.js", "scripts/x.js"]) {
+test("classifyPrRisk: 法令判定・期限計算・様式生成の領域は既定で high。allowLegal で low", () => {
+  for (const p of ["src/licenses/construction/eligibility/engine.js", "src/core/eligibility/aggregate.js", "src/core/reminders/deadline.js", "src/succession/x.js", "src/incorporation/x.js", "src/documents/youshiki1.js", "features/x.feature"]) {
+    const r = classifyPrRisk([f(p)]);
+    assert.equal(r.level, "high", p);
+    assert.match(r.reasons.join(" "), /法令判定/, p);
+    assert.equal(classifyPrRisk([f(p)], { allowLegal: true }).level, "low", `${p}（allowLegal）`);
+  }
+});
+
+test("classifyPrRisk: 設計文書・ADR・設定・スキーマ・範囲外は high", () => {
+  for (const p of ["docs/DESIGN.md", "docs/REQUIREMENTS_x.md", "docs/adr/0018-x.md", "docs/sub/x.md", "eslint.config.js", "tsconfig.json", "schemas/client-record.schema.json", "src/other/x.js"]) {
     assert.equal(classifyPrRisk([f(p)]).level, "high", p);
   }
 });
 
-test("classifyPrRisk: 保護パス（.github/ agent/ hooks/ CLAUDE.md 等）は high で、理由に保護パスと出る", () => {
-  for (const p of [".github/workflows/test.yml", "agent/policy.js", "hooks/check-secrets.mjs", "CLAUDE.md", "package-lock.json", "data/clients.json"]) {
-    const r = classifyPrRisk([f(p)]);
+test("classifyPrRisk: 保護パスは allowLegal でも high で、理由に保護パスと出る", () => {
+  for (const p of [".github/workflows/test.yml", "agent/policy.js", "hooks/check-secrets.mjs", "CLAUDE.md", "package-lock.json", "package.json", "data/clients.json", ".env"]) {
+    const r = classifyPrRisk([f(p)], { allowLegal: true });
     assert.equal(r.level, "high", p);
     assert.match(r.reasons.join(" "), /保護対象パス/, p);
   }
 });
 
 test("classifyPrRisk: 低リスクのファイルに高リスクが1つでも混ざれば high", () => {
-  assert.equal(classifyPrRisk([f("README.md"), f("src/a.js")]).level, "high");
+  assert.equal(classifyPrRisk([f("README.md"), f("src/licenses/x.js")]).level, "high");
+  assert.equal(classifyPrRisk([f("README.md"), f("agent/x.js")], { allowLegal: true }).level, "high");
 });
 
 test("classifyPrRisk: ファイル数が上限を超えたら high、変更なし（取得失敗）も high", () => {
-  const many = Array.from({ length: AUTOMERGE_MAX_FILES + 1 }, (_, i) => f(`test/t${i}.test.js`));
-  assert.equal(classifyPrRisk(many).level, "high");
-  assert.equal(classifyPrRisk(Array.from({ length: AUTOMERGE_MAX_FILES }, (_, i) => f(`test/t${i}.test.js`))).level, "low");
+  const files = (n) => Array.from({ length: n }, (_, i) => f(`test/t${i}.test.js`));
+  assert.equal(classifyPrRisk(files(AUTOMERGE_MAX_FILES + 1)).level, "high");
+  assert.equal(classifyPrRisk(files(AUTOMERGE_MAX_FILES)).level, "low");
   assert.equal(classifyPrRisk([]).level, "high");
 });
 
-test("classifyPrRisk: 削除行が数値でない（不正値）は high 側に倒す", () => {
+test("classifyPrRisk: 追加・削除行が数値でない（不正値）は high 側に倒す", () => {
   assert.equal(classifyPrRisk([{ path: "test/a.test.js", additions: 1, deletions: /** @type {any} */ (undefined) }]).level, "high");
+  assert.equal(classifyPrRisk([{ path: "test/a.test.js", additions: /** @type {any} */ ("x"), deletions: 0 }]).level, "high");
 });
 
 test("classifyPrRisk: Windows区切りでも同様に判定する", () => {
   assert.equal(classifyPrRisk([f("test\\a.test.js", 1, 0)]).level, "low");
-  assert.equal(classifyPrRisk([f("src\\a.js")]).level, "high");
+  assert.equal(classifyPrRisk([f("src\\licenses\\x.js")]).level, "high");
+  assert.equal(classifyPrRisk([f("src\\web\\x.js")]).level, "low");
 });
 
 const goodBody = "## 背景\nfoo モジュールのエラー系にテストが無い（src/core/foo.js の分岐がテストされていない）。\n\n## やること\ntest/foo.test.js にエラー系のテストを追加する。実装は変更しない。\n\n## 受け入れ条件\n- 追加したテストが通る\n- 既存テストは変更しない";

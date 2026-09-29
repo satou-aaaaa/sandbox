@@ -85,12 +85,13 @@ Issueに `agent-ready` を付けるのが「実行してよい」という人間
 
 中止時はIssueにコメントが付き、`agent-ready` に戻る。
 
-### PRの自動マージ（人手の接点を減らす）
+### PRの自動マージ（原則は人が介入しない）
 
-`agent-pr-automerge` workflowが、エージェントのPRをリスクで振り分ける（ADR-0017 Amendment 7）。
+`agent-pr-automerge` workflowが、エージェントのPRをリスクで振り分ける（ADR-0017 Amendment 10）。
 
-- **低リスク**（`README.md` / `CHANGELOG.md`、削除行0のテスト追加のみ、8ファイル以下）: 必須チェック成功後に**自動マージ**
-- **それ以外**: 理由がPRにコメントされ、`agent-needs-review` が付く。内容を確認して問題なければ **`agent-approved` ラベルを付ける**（所有者のみ有効）と、必須チェック成功後に自動マージされる（スマホからでも可）
+- **自動マージ（既定）**: README/CHANGELOG、docs直下の文書（設計文書・ADRを除く）、テスト（追加≧削除）、法令ロジックを含まないコード（src/web・src/core/documents・src/portal・scripts・e2e・load）。12ファイル以下。必須チェック成功後にマージされる
+- **承認が必要**: 法令判定・期限計算・様式生成の領域、設定・スキーマ・設計文書・ADR。理由がPRにコメントされ `agent-needs-review` が付く。`agent-approved` ラベル（所有者、またはAIレビュアー）で自動マージ。リポジトリ変数 `AGENT_AUTOMERGE_LEGAL=true` にすると法令領域も自動マージ
+- **常に人手**: 保護パス（.github・agent・hooks・data・package*.json・CLAUDE.md・.env*）
 
 ### Issueのクローズ
 

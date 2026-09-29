@@ -1,9 +1,10 @@
 name: Agent PR auto-merge
 
 # エージェントが作ったPR（ブランチ名 agent/issue-<番号>）のマージ判断を、リスクに応じて自動化する。
-#  - 低リスク（README.md/CHANGELOG.md、削除行0のテスト追加のみ・8ファイル以下）: 必須チェック成功後に自動マージ
-#  - それ以外: 理由をコメントして人手に回す。所有者が `agent-approved` ラベルを付けると、
-#    必須チェック成功後に自動マージ（人手の判断はラベル1つ。スマホからでも可能）
+#  - 原則は自動マージ（人手を介さない）: 文書・テスト・法令ロジックを含まないコード（12ファイル以下）は、
+#    必須チェック成功後に自動マージする。問題があれば事後にリバートする（ADR-0017 Amendment 10）
+#  - 人手（または承認）に回す領域: 保護パス、法令判定・期限計算・様式生成（既定。変数 AGENT_AUTOMERGE_LEGAL=true で自動マージ可）、設定・設計文書など。
+#    理由をコメントし、`agent-approved` ラベル（所有者、またはAIレビュアーが所有者の権限で付与）で必須チェック成功後に自動マージ
 # 実際のマージは Ruleset `protect-main` の必須チェック（Test・CodeQL）が全て成功した時点でGitHubが行う。
 #
 # 安全策:
@@ -39,6 +40,8 @@ jobs:
           LABEL_NAME: ${{ github.event.label.name }}
           SENDER: ${{ github.event.sender.login }}
           OWNER: ${{ github.repository_owner }}
+          # 法令判定・期限計算の領域を自動マージ対象にするか（既定は false＝承認ラベルを要する）
+          AGENT_AUTOMERGE_LEGAL: ${{ vars.AGENT_AUTOMERGE_LEGAL }}
         run: |
           set -euo pipefail
           RISK="$(node agent/pr-risk.mjs "$PR_NUMBER")"

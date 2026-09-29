@@ -18,4 +18,5 @@ if (!/^\d+$/.test(pr ?? "")) {
 }
 const json = execFileSync("gh", ["pr", "view", pr, "--json", "files"], { encoding: "utf8" });
 const files = JSON.parse(json).files.map((/** @type {any} */ f) => ({ path: f.path, additions: f.additions, deletions: f.deletions }));
-console.log(JSON.stringify(classifyPrRisk(files)));
+// 法令ロジックの自動マージは、リポジトリ変数 AGENT_AUTOMERGE_LEGAL=true のときだけ許可する（既定は承認ラベルを要する）
+console.log(JSON.stringify(classifyPrRisk(files, { allowLegal: process.env.AGENT_AUTOMERGE_LEGAL === "true" })));
