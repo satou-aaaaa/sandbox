@@ -1183,3 +1183,70 @@ export function shouldCloseAsCompleted(issue, prs) {
   if (!issue.labels.some((l) => l.name === LABEL_DONE)) return false;
   return prs.some((p) => typeof p.mergedAt === "string" && p.mergedAt !== "" && !p.labels.some((l) => l.name === LABEL_REVERTED));
 }
+
+// ---------------------------------------------------------------------------
+// 自動の点検（セルフテスト）
+//
+// 実機のドリルで、単体テストでは見つからなかった不具合が続けて見つかった（ラベルの作成順、古い追跡情報、
+// 自動マージ後のIssueクローズ）。パイプラインの回帰を、人が気づく前に検知するため、週1回、ダミーのIssueで
+// 「実装→自動マージ→完了同期→取消→再挑戦」を通す。触るのは専用ファイル（docs/SELFTEST.md）だけ。
+// トリアージのLLM判定は非決定的で誤検知になるため、事前にトリアージ済みにして点検の対象外とする。
+// ---------------------------------------------------------------------------
+
+/** 点検用のダミーIssueに付くラベル。 */
+export const LABEL_SELFTEST = "agent-selftest";
+/** 点検の実施間隔（日）。 */
+export const SELFTEST_INTERVAL_DAYS = 7;
+/** 点検が触る専用ファイル（docs/直下の文書のため、自動マージの対象）。 */
+export const SELFTEST_FILE = "docs/SELFTEST.md";
+
+/**
+ * 点検を実施する時期か。前回から間隔を超えた（または記録なし・不正）なら実施する。
+ * @param {string | null | undefined} lastRunIso 前回の実施日時（ISO）
+ * @param {number} now
+ * @param {number} [intervalDays]
+ * @returns {boolean}
+ */
+export function isSelftestDue(lastRunIso, now, intervalDays = SELFTEST_INTERVAL_DAYS) {
+  const last = Date.parse(String(lastRunIso ?? ""));
+  if (!Number.isFinite(last)) return true;
+  if (last > now) return false; // 未来の日時（時計のずれ）は実施しない
+  return now - last >= intervalDays * 24 * 60 * 60 * 1000;
+}
+
+/**
+ * 点検用のダミーIssueの題名・本文。目印（marker）を1行追記させ、後で機械的に検証する。
+ * @param {string} marker 一意な目印（例: 実施日時のISO文字列）
+ * @returns {{title: string, body: string, line: string}}
+ */
+export function buildSelftestIssue(marker) {
+  const line = `- 点検: ${marker}`;
+  return {
+    title: `selftest: ${SELFTEST_FILE} に点検の記録を追記する（${marker}）`,
+    line,
+    body: [
+      "## 背景",
+      "エージェント運用の自動の点検（セルフテスト）用のダミーIssueです。人手の対応は不要です。",
+      "",
+      "## やること",
+      `\`${SELFTEST_FILE}\` の**末尾**に、次の1行をそのまま追記する。他の内容は一切変更しない。`,
+      "",
+      line,
+      "",
+      "## 受け入れ条件",
+      `- 変更ファイルは \`${SELFTEST_FILE}\` のみ`,
+      "- 上の1行が、ファイルの末尾に、そのままの形で追記されている",
+      "- 既存の行は変更・削除されていない",
+    ].join("\n"),
+  };
+}
+
+/**
+ * 点検用ファイルの内容に、目印の行が含まれているか。
+ * @param {string} content
+ * @param {string} marker
+ * @returns {boolean}
+ */
+export function hasSelftestLine(content, marker) {
+  return String(content).split("\n").some((l) => l.trim() === `- 点検: ${marker}`);
+}

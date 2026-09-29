@@ -6,6 +6,9 @@ import {
   DAILY_LIMITS,
   DOCKER_IMAGE,
   buildDockerArgs,
+  buildSelftestIssue,
+  hasSelftestLine,
+  isSelftestDue,
   shouldCloseAsCompleted,
   buildFixPrompt,
   decideFix,
@@ -761,4 +764,38 @@ test("shouldCloseAsCompleted: 取り消されたPRと、その後の再挑戦の
     { mergedAt: "2026-09-30T01:00:00Z", labels: [] },
   ];
   assert.equal(shouldCloseAsCompleted(done, prs), true);
+});
+
+test("isSelftestDue: 記録なし・不正な日時・間隔（7日）超えなら実施する。間隔内・未来の日時は実施しない", () => {
+  const now = Date.parse("2026-09-30T12:00:00Z");
+  const days = (n) => new Date(now - n * 24 * 3600 * 1000).toISOString();
+  assert.equal(isSelftestDue(undefined, now), true);
+  assert.equal(isSelftestDue(null, now), true);
+  assert.equal(isSelftestDue("不正な日時", now), true);
+  assert.equal(isSelftestDue(days(7), now), true);
+  assert.equal(isSelftestDue(days(8), now), true);
+  assert.equal(isSelftestDue(days(6), now), false);
+  assert.equal(isSelftestDue(new Date(now + 3600 * 1000).toISOString(), now), false, "未来（時計のずれ）は実施しない");
+});
+
+test("buildSelftestIssue: 目印の行・専用ファイルのみの変更・受け入れ条件を含む", () => {
+  const { title, body, line } = buildSelftestIssue("2026-09-30T00:00:00.000Z");
+  assert.equal(line, "- 点検: 2026-09-30T00:00:00.000Z");
+  assert.ok(title.includes("docs/SELFTEST.md") && title.includes("2026-09-30T00:00:00.000Z"));
+  assert.ok(body.includes(line));
+  assert.match(body, /## 受け入れ条件/);
+  assert.match(body, /変更ファイルは `docs\/SELFTEST.md` のみ/);
+});
+
+test("hasSelftestLine: 目印の行がそのままの形で含まれる場合だけ true（部分一致・別の目印は false）", () => {
+  const m = "2026-09-30T00:00:00.000Z";
+  assert.equal(hasSelftestLine(`# 記録\n\n- 点検: ${m}\n`, m), true);
+  assert.equal(hasSelftestLine(`- 点検: ${m}x\n`, m), false);
+  assert.equal(hasSelftestLine(`- 点検: 2026-09-29T00:00:00.000Z\n`, m), false);
+  assert.equal(hasSelftestLine("", m), false);
+});
+
+test("点検が触る専用ファイル（docs/SELFTEST.md）は、自動マージの対象（低リスク）で、保護パスではない", () => {
+  assert.equal(classifyPrRisk([{ path: "docs/SELFTEST.md", additions: 1, deletions: 0 }]).level, "low");
+  assert.equal(findProtectedPaths(["docs/SELFTEST.md"]).length, 0);
 });

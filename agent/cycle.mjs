@@ -150,7 +150,11 @@ async function main() {
     let out = runStep("sync.mjs", flag);
     out += runStep("revert.mjs", ["--sweep", ...flag]);
     // 2. ブレーカーが作動していなければ、通常の流れ（スカウト→トリアージ→実装→レビュー）を実行する
-    if (!breakerTripped()) out += runStep("scout.mjs", flag) + runStep("triage.mjs", flag) + runStep("run.mjs", flag) + runStep("fix.mjs", flag) + runStep("review.mjs", flag);
+    if (!breakerTripped()) {
+      out += runStep("scout.mjs", flag) + runStep("triage.mjs", flag) + runStep("run.mjs", flag) + runStep("fix.mjs", flag) + runStep("review.mjs", flag);
+      // 3. 週1回、パイプライン全体を通す自動の点検（回帰の検知。--if-due で、間隔が空いた場合だけ実施）
+      if (!DRY_RUN) out += runStep("selftest.mjs", ["--if-due"]);
+    }
     const summary = formatSummary(summarizeOutput(out), recovered);
     log(`サマリー: ${summary}`);
     mkdirSync(LOG_DIR, { recursive: true });

@@ -28,6 +28,7 @@ import {
   LABEL_REVERT,
   LABEL_REVERTED,
   LABEL_REVERT_PR,
+  LABEL_SELFTEST,
   LESSON_MARKER,
   decideMainFailure,
   decideRetry,
@@ -41,6 +42,8 @@ const args = process.argv.slice(2);
 const DRY_RUN = args.includes("--dry-run");
 const SWEEP = args.includes("--sweep");
 const PR_ARG = args.includes("--pr") ? args[args.indexOf("--pr") + 1] : null;
+/** 自動点検（selftest.mjs）からの取消。リバートPRを、サーキットブレーカーの集計（agent-revert-pr）ではなく点検用ラベルで区別する。 */
+const SELFTEST = args.includes("--selftest");
 const REASON_ARG = args.includes("--reason") ? args[args.indexOf("--reason") + 1] : null;
 const COMMIT_TRAILER = "Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>";
 const PR_TRAILER = "🤖 Generated with [Claude Code](https://claude.com/claude-code)";
@@ -107,7 +110,7 @@ function revertPr(prNumber, reason, logExcerpt = "") {
     run("git", ["commit", "--amend", "-m", message], workDir);
     run("git", ["push", "-u", "origin", branch], workDir);
     const body = [`PR #${prNumber} を取り消します（自動リバート）。`, "", `理由: ${reason}`, "", "必須チェック成功後に自動でマージされます。", "", PR_TRAILER].join("\n");
-    const revertUrl = gh("pr", "create", "--repo", REPO, "--base", BASE, "--head", branch, "--title", title, "--body", body, "--label", LABEL_REVERT_PR);
+    const revertUrl = gh("pr", "create", "--repo", REPO, "--base", BASE, "--head", branch, "--title", title, "--body", body, "--label", SELFTEST ? LABEL_SELFTEST : LABEL_REVERT_PR);
     gh("pr", "merge", revertUrl, "--repo", REPO, "--auto", "--squash");
     gh("pr", "edit", String(prNumber), "--repo", REPO, "--add-label", LABEL_REVERTED);
     gh("pr", "comment", String(prNumber), "--repo", REPO, "--body", `取り消しました（リバートPR: ${revertUrl}）。\n\n理由: ${reason}`);
