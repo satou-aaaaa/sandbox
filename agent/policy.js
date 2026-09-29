@@ -1163,3 +1163,23 @@ export function buildFixPrompt(issue, feedback) {
     "</feedback>",
   ].join("\n");
 }
+
+// ---------------------------------------------------------------------------
+// Issueの完了同期（イベントに依存しないクローズ）
+//
+// 自動マージ（GITHUB_TOKEN）でマージされたPRは、PR本文の `Closes #N` によるIssueの自動クローズも、
+// `pull_request: closed` を契機とするworkflowも、GitHubの仕様（GITHUB_TOKENの操作は他のworkflowを起動しない）で
+// 働かないことが、実機のドリルで判明した。イベントに頼らず、状態から判断して同期する。
+// ---------------------------------------------------------------------------
+
+/**
+ * 処理済み（agent-done）のIssueを、完了としてクローズしてよいか。
+ * エージェントのPRがマージ済みで、かつ取り消されていない場合だけ。
+ * @param {{labels: {name: string}[]}} issue
+ * @param {{mergedAt: string | null, labels: {name: string}[]}[]} prs そのIssueのブランチ（agent/issue-<番号>）のPR
+ * @returns {boolean}
+ */
+export function shouldCloseAsCompleted(issue, prs) {
+  if (!issue.labels.some((l) => l.name === LABEL_DONE)) return false;
+  return prs.some((p) => typeof p.mergedAt === "string" && p.mergedAt !== "" && !p.labels.some((l) => l.name === LABEL_REVERTED));
+}

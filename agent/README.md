@@ -136,6 +136,7 @@ node fix.mjs             # 修正する（既定で1件）
 ### Issueのクローズ
 
 - PRがマージされると、PR本文の `Closes #N` によりGitHubがIssueを**自動でクローズ**する。
+- ただし、**自動マージ（GITHUB_TOKEN）でマージされたPRでは、この自動クローズもclosedイベントのworkflowも働かない**（実機のドリルで判明）。`sync.mjs` が状態から判断してクローズする（`cycle.mjs` の先頭で実行。ADR-0017 Amendment 14）
 - PRがマージされずに閉じられた場合は、`agent-issue-sync` workflowがIssueを `agent-needs-human` に戻し、理由をコメントする（`agent-done` のまま放置しない）。
 
 ## 注意
