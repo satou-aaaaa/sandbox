@@ -16,7 +16,7 @@ cd agent && npm ci
 
 **認証は既定でClaudeサブスクリプション（Pro/Max。追加課金なし）**。APIキーは不要。
 
-- Docker隔離（既定）: `claude setup-token` を実行して表示されるトークンを、環境変数 `CLAUDE_CODE_OAUTH_TOKEN` に設定する（PowerShell: `[Environment]::SetEnvironmentVariable("CLAUDE_CODE_OAUTH_TOKEN", "<トークン>", "User")` のあとターミナルを再起動）。コンテナにはこのトークンだけを渡し、ホストのログイン情報は渡さない。
+- Docker隔離（既定）: **`powershell -ExecutionPolicy Bypass -File agent\setup-auth.ps1`** が手順を補助する。先に別のターミナルで `claude setup-token` を実行してブラウザで承認し、表示されたトークンをコピー→スクリプトに非表示で貼り付けると、形式を検証してユーザー環境変数 `CLAUDE_CODE_OAUTH_TOKEN` に保存し、認証確認まで行う（APIキーは拒否する）。手動で行う場合は、表示されたトークンを、環境変数 `CLAUDE_CODE_OAUTH_TOKEN` に設定する（PowerShell: `[Environment]::SetEnvironmentVariable("CLAUDE_CODE_OAUTH_TOKEN", "<トークン>", "User")` のあとターミナルを再起動）。コンテナにはこのトークンだけを渡し、ホストのログイン情報は渡さない。
 - 隔離なし（`AGENT_SANDBOX=none`）: この端末のClaude Codeログインをそのまま使うためトークン不要（隔離は無くなる）。
 - 環境に `ANTHROPIC_API_KEY` があっても既定では**使わない**（従量課金の防止）。APIキーを使う場合だけ `AGENT_AUTH=api-key` を明示する。
 - サブスクリプションの利用枠は対話利用と共有される。日次上限（5件）と1件あたりの上限は、この枠を使い切らないための歯止めでもある。
