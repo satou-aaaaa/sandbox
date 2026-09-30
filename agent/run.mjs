@@ -85,8 +85,12 @@ const DRY_RUN = args.includes("--dry-run");
 const ONLY_ISSUE = args.includes("--issue") ? Number(args[args.indexOf("--issue") + 1]) : null;
 const MAX_ISSUES = args.includes("--max") ? Number(args[args.indexOf("--max") + 1]) : 1;
 
-/** コマンドを実行して標準出力を返す（引数は配列で渡し、シェル展開を避ける）。 */
+/** run() で実行してよいコマンド。これ以外（環境変数由来の値など）は実行しない（CodeQL js/shell-command-injection-from-environment 対策。#180）。 */
+const ALLOWED_COMMANDS = new Set(["git", "gh", "docker", "npm", "node"]);
+
+/** コマンドを実行して標準出力を返す（引数は配列で渡し、シェル展開を避ける。実行対象は許可リストに限る）。 */
 export function run(cmd, cmdArgs, cwd = REPO_ROOT) {
+  if (!ALLOWED_COMMANDS.has(cmd)) throw new Error(`許可されていないコマンドです: ${cmd}`);
   const [bin, binArgs] = cmd === "npm" ? npmCommand(cmdArgs) : [cmd, cmdArgs];
   return execFileSync(bin, binArgs, {
     cwd,
