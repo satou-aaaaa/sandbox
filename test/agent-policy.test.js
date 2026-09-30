@@ -45,6 +45,9 @@ import {
   parseReviewVerdict,
   SCOUT_MAX_OPEN,
   SCOUT_MAX_PER_RUN,
+  QUALITY_SAMPLE_MIN,
+  buildQualityMarkdown,
+  computeQuality,
   AUDIT_ISSUE_LABELS,
   AUDIT_MAX_OPEN,
   AUDIT_MAX_PER_RUN,
@@ -1077,6 +1080,32 @@ test("formatSummary: 利用枠の逼迫で見送った場合は、その事実�
   const s = summarizeOutput("");
   assert.doesNotMatch(formatSummary(s, 0), /利用枠/);
   assert.match(formatSummary(s, 0, true), /利用枠の逼迫/);
+});
+
+const mergedPr = (number, ...labels) => ({ number, labels: labels.map((name) => ({ name })) });
+
+test("computeQuality: AI承認PRの取り消し率と、AI承認以外の取り消しを分けて集計する", () => {
+  const q = computeQuality([
+    mergedPr(1, "agent-authored", "agent-ai-reviewed", "agent-approved"),
+    mergedPr(2, "agent-authored", "agent-ai-reviewed", "agent-approved", "agent-reverted"),
+    mergedPr(3, "agent-authored", "agent-approved"), // 人の承認
+    mergedPr(4, "agent-authored", "agent-reverted"), // 人の承認以外で取り消し
+    mergedPr(5, "agent-authored"),
+  ]);
+  assert.deepEqual({ ...q }, { merged: 5, aiApproved: 2, aiApprovedReverted: 1, otherReverted: 1, revertRate: 0.5, reliable: false });
+});
+
+test("computeQuality: AI承認が0件なら率は null、件数が下限以上なら reliable", () => {
+  assert.equal(computeQuality([]).revertRate, null);
+  const many = Array.from({ length: QUALITY_SAMPLE_MIN }, (_, i) => mergedPr(i, "agent-ai-reviewed", "agent-approved"));
+  assert.equal(computeQuality(many).reliable, true);
+  assert.equal(computeQuality(many.slice(1)).reliable, false);
+});
+
+test("buildQualityMarkdown: 件数が少ないときは参考値と明記し、率が算出できないときはその旨を出す", () => {
+  const md = buildQualityMarkdown(computeQuality([mergedPr(1, "agent-ai-reviewed", "agent-approved", "agent-reverted")]));
+  assert.ok(md.includes("100.0%（1/1）") && md.includes("参考値"));
+  assert.ok(buildQualityMarkdown(computeQuality([])).includes("算出できません"));
 });
 
 const auditBody = "## 概要\n深刻度: 中（入力の検証漏れ）\n\n## 根拠\nsrc/web/x.js:10 でクエリ値を検証せずにHTMLへ出力している（該当行を読んで確認済み。エスケープ関数を経由していない）。\n\n## 推奨対応\n出力前にエスケープする。";

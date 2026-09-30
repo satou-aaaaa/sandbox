@@ -1660,6 +1660,73 @@ export function buildReport(d) {
 }
 
 // ---------------------------------------------------------------------------
+// 品質指標（AIレビュアーの精度の見える化。ADR-0017 Amendment 31）
+//
+// 「AIレビュアーが承認して自動マージしたPRが、後で取り消されたか」を、GitHubのラベルから決定論的に集計する（LLM不使用）。
+// 取り消し率が高ければ、レビュアーの見逃しが多い（＝自動マージ範囲を狭めるべき）という判断材料になる。
+// 件数が少ない間は率を判断に使わない（SAMPLE_MIN 未満は参考値と明記する）。
+// ---------------------------------------------------------------------------
+
+/** 率を判断材料にしてよい最小件数（評価用の正解セットは30件程度から、という一般的な目安）。 */
+export const QUALITY_SAMPLE_MIN = 30;
+
+/**
+ * @typedef {{number: number, labels: {name: string}[]}} MergedAgentPr マージ済みのエージェントPR
+ */
+
+/**
+ * マージ済みのエージェントPRから、レビュー承認後の取り消し率などを集計する。
+ * @param {MergedAgentPr[]} prs
+ * @returns {{merged: number, aiApproved: number, aiApprovedReverted: number, otherReverted: number, revertRate: number | null, reliable: boolean}}
+ *   revertRate は AI承認PRのうち取り消された割合（AI承認が0件なら null）。reliable は件数が QUALITY_SAMPLE_MIN 以上か
+ */
+export function computeQuality(prs) {
+  let aiApproved = 0;
+  let aiApprovedReverted = 0;
+  let otherReverted = 0;
+  for (const pr of prs) {
+    const names = pr.labels.map((l) => l.name);
+    const reverted = names.includes(LABEL_REVERTED);
+    if (names.includes(LABEL_AI_REVIEWED) && names.includes(LABEL_APPROVED)) {
+      aiApproved += 1;
+      if (reverted) aiApprovedReverted += 1;
+    } else if (reverted) {
+      otherReverted += 1;
+    }
+  }
+  return {
+    merged: prs.length,
+    aiApproved,
+    aiApprovedReverted,
+    otherReverted,
+    revertRate: aiApproved === 0 ? null : aiApprovedReverted / aiApproved,
+    reliable: aiApproved >= QUALITY_SAMPLE_MIN,
+  };
+}
+
+/**
+ * @param {ReturnType<typeof computeQuality>} q
+ * @returns {string} Markdown
+ */
+export function buildQualityMarkdown(q) {
+  const rate = q.revertRate === null ? "算出できません（AI承認のPRが無い）" : `${(q.revertRate * 100).toFixed(1)}%（${q.aiApprovedReverted}/${q.aiApproved}）`;
+  return [
+    "## エージェントの品質指標（累計）",
+    "",
+    "| 項目 | 値 |",
+    "|---|---|",
+    `| マージ済みのエージェントPR | ${q.merged} |`,
+    `| うちAIレビューが承認したもの | ${q.aiApproved} |`,
+    `| AI承認後に取り消された率 | ${rate} |`,
+    `| AI承認以外で取り消されたもの | ${q.otherReverted} |`,
+    "",
+    q.reliable ? "件数は十分です。取り消し率が高い場合は、自動マージの範囲を狭めることを検討してください。" : `⚠ AI承認が ${QUALITY_SAMPLE_MIN} 件未満のため、率は参考値です（判断材料にしない）。`,
+    "",
+    "_GitHubのラベルから決定的に集計（LLM不使用）_",
+  ].join("\n");
+}
+
+// ---------------------------------------------------------------------------
 // ミューテーション検査ゲート（#116。ADR-0017 Amendment 21）
 //
 // AIレビュアーの承認は、実装側と盲点が近い。テストの強度を客観的な証拠で補うため、法令ロジックを
