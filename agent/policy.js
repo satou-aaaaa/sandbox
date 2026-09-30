@@ -146,7 +146,7 @@ export function buildAgentEnv(env, stripEnv = []) {
 }
 
 /**
- * @typedef {{method: "subscription"|"api-key", passEnv: string[], stripEnv: string[], error?: undefined}
+ * @typedef {{method: "subscription"|"api-key", passEnv: string[], stripEnv: string[], inherit?: boolean, error?: undefined}
  *   | {error: string}} AuthPlan
  */
 
@@ -164,6 +164,8 @@ export function buildAgentEnv(env, stripEnv = []) {
  */
 export function resolveAuth(env, sandbox) {
   const method = env.AGENT_AUTH || "subscription";
+  // inherit: 実行環境（Claude Codeのクラウドセッション）が持つ認証を、そのまま引き継ぐ。トークンを別途用意しない
+  if (method === "inherit") return { method: "subscription", passEnv: [], stripEnv: [], inherit: true };
   if (method === "api-key") {
     return env.ANTHROPIC_API_KEY
       ? { method: "api-key", passEnv: ["ANTHROPIC_API_KEY"], stripEnv: [] }

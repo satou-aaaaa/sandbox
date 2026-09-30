@@ -73,7 +73,7 @@ export async function runAgent(prompt, workDir, auditFile, mode = "implement") {
         settingSources: ["project"],
         systemPrompt: { type: "preset", preset: "claude_code" },
         // サブスクリプション認証（既定）では、環境にあってもAPIキー系は渡さない（従量課金の防止）
-        env: buildAgentEnv(process.env, process.env.AGENT_AUTH === "api-key" ? [] : ["ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN"]),
+        env: buildAgentEnv(process.env, process.env.AGENT_AUTH === "api-key" || process.env.AGENT_AUTH === "inherit" ? [] : ["ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN"]),
         persistSession: false,
       },
     })) {

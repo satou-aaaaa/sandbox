@@ -131,9 +131,22 @@ function runStep(script, args) {
   return out;
 }
 
+/** リモートの一時停止: 開いているIssueに agent-pause ラベルが付いていれば、自動運用を止める（スマホから停止・再開できる）。 */
+function remotePaused() {
+  try {
+    return JSON.parse(gh("issue", "list", "--repo", REPO, "--state", "open", "--label", "agent-pause", "--json", "number", "--limit", "1")).length > 0;
+  } catch {
+    return false; // 確認できなくても、運用は止めない（停止は明示の操作で行う）
+  }
+}
+
 async function main() {
   if (existsSync(KILL_SWITCH_FILE) || process.env.AGENT_DISABLED === "1") {
     log("キルスイッチが有効です。何もせず終了します");
+    return;
+  }
+  if (remotePaused()) {
+    log("リモートの一時停止が有効です（agent-pause ラベルの付いた開いているIssueがあります）。何もせず終了します");
     return;
   }
   if (!acquireLock(LOCK_FILE)) {
