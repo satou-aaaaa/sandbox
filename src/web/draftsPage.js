@@ -3,7 +3,7 @@
  * 「続きから入力」でフォームへ戻る、「削除」で不要な下書きを消す、の2操作のみ。
  */
 import { escapeHtml } from "./htmlUtils.js";
-import { getDraftLicenseCategory } from "./draftStore.js";
+import { getDraftLicenseCategory, isDraftStale, DRAFT_STALE_THRESHOLD_DAYS } from "./draftStore.js";
 
 /** @type {Record<import('./draftStore.js').DraftLicenseCategory, string>} */
 const LICENSE_CATEGORY_LABELS = {
@@ -24,19 +24,23 @@ export function renderDraftsPage({ drafts }) {
     <thead><tr><th>許可種別</th><th>申請者名</th><th>保存日時</th><th>入力再開</th><th>削除</th></tr></thead>
     <tbody>
     ${drafts
-      .map(
-        (d) => `<tr>
+      .map((d) => {
+        const stale = isDraftStale(d);
+        return `<tr>
         <td>${escapeHtml(LICENSE_CATEGORY_LABELS[getDraftLicenseCategory(d)])}</td>
         <td>${escapeHtml(d.profile?.applicantName || "（名称未設定）")}</td>
-        <td>${escapeHtml(new Date(d.savedAt).toLocaleString("ja-JP"))}</td>
+        <td>
+          ${escapeHtml(new Date(d.savedAt).toLocaleString("ja-JP"))}
+          ${stale ? `<br><span class="stale-warning">⚠ 作成から${DRAFT_STALE_THRESHOLD_DAYS}日以上経過（内容が古い可能性があります）</span>` : ""}
+        </td>
         <td><a href="/drafts/${encodeURIComponent(d.id)}">続きから入力</a></td>
         <td>
           <form method="POST" action="/drafts/${encodeURIComponent(d.id)}/delete" onsubmit="return confirm('この下書きを削除しますか？');">
             <button type="submit" class="danger">削除</button>
           </form>
         </td>
-      </tr>`
-      )
+      </tr>`;
+      })
       .join("\n")}
     </tbody>
   </table>`;
@@ -64,4 +68,5 @@ const STYLE = `
   th, td { border-bottom: 1px solid #ddd; padding: 8px; text-align: left; }
   form { display: inline; margin: 0; }
   button.danger { color: #a33; background: none; border: 1px solid #a33; border-radius: 4px; padding: 2px 8px; cursor: pointer; }
+  .stale-warning { color: #a33; font-size: 0.85em; }
 `;
