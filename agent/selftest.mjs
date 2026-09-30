@@ -23,17 +23,19 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
+  DAILY_LIMITS,
   LABEL_INCIDENT,
   LABEL_NEEDS_HUMAN,
   LABEL_READY,
   LABEL_SELFTEST,
   LABEL_TRIAGED,
   SELFTEST_FILE,
+  SELFTEST_INTERVAL_DAYS,
   buildSelftestIssue,
   hasSelftestLine,
   isSelftestDue,
 } from "./policy.js";
-import { BASE, REPO, gh, log, run } from "./run.mjs";
+import { BASE, REPO, gh, loadState, log, run } from "./run.mjs";
 
 const AGENT_DIR = resolve(dirname(fileURLToPath(import.meta.url)));
 const STATE_FILE = join(AGENT_DIR, ".state", "selftest.json");
@@ -44,6 +46,14 @@ const IF_DUE = args.includes("--if-due");
 /** PRのマージ（CI＋自動マージ）を待つ上限。 */
 const MERGE_TIMEOUT_MS = 30 * 60 * 1000;
 const POLL_MS = 30 * 1000;
+
+/** 点検には実装が2回（初回と再挑戦）必要。日次の上限の残りがこれ未満なら、開始しない。 */
+const RUNS_NEEDED = 2;
+/** 失敗した場合は、翌日に再点検する（次回までの間隔を1日にする）。 */
+const RETRY_AFTER_FAILURE_DAYS = 1;
+
+/** 日次の上限などで、点検を「見送る」べき状況（失敗ではない）。 */
+class Deferred extends Error {}
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -74,6 +84,8 @@ async function waitFor(description, check, timeoutMs, intervalMs = POLL_MS) {
 function runChild(script, childArgs) {
   const r = spawnSync(process.execPath, [join(AGENT_DIR, script), ...childArgs], { cwd: AGENT_DIR, encoding: "utf8", env: process.env, maxBuffer: 64 * 1024 * 1024 });
   const out = `${r.stdout ?? ""}${r.stderr ?? ""}`;
+  // 日次の上限による中断は、点検の失敗ではなく「見送り」（パイプラインの不具合ではない）
+  if (out.includes("本日の実行回数上限") || out.includes("本日の費用上限")) throw new Deferred("日次の上限に達したため、点検を見送ります");
   if (r.status !== 0) throw new Error(`${script} が終了コード ${r.status} で終了しました: ${out.split("\n").filter(Boolean).slice(-3).join(" / ")}`);
   return out;
 }
@@ -105,6 +117,16 @@ function mainHasLine(marker) {
   return hasSelftestLine(run("git", ["show", `origin/${BASE}:${SELFTEST_FILE}`]), marker);
 }
 
+/** 点検用のIssueを片付ける（閉じて、実行対象から外す）。 */
+function cleanupIssue(issueNumber, comment) {
+  try {
+    gh("issue", "close", String(issueNumber), "--repo", REPO, "--reason", "not planned", "--comment", comment);
+    gh("issue", "edit", String(issueNumber), "--repo", REPO, "--remove-label", LABEL_READY, "--add-label", "agent-skip");
+  } catch (e) {
+    log(`点検: Issueの片付けに失敗しました: ${e instanceof Error ? e.message.split(String.fromCharCode(10))[0] : String(e)}`);
+  }
+}
+
 /** 失敗を障害Issueとして記録する（重複しない）。点検用のIssueは片付ける。 */
 function reportFailure(stage, err, issueNumber) {
   const message = err instanceof Error ? err.message : String(err);
@@ -131,6 +153,11 @@ async function main() {
   }
   if (IF_DUE && !isSelftestDue(readState().lastRun, Date.now())) {
     log("点検: 前回から間隔が空いていないため、今回は実施しません");
+    return;
+  }
+  const remaining = DAILY_LIMITS.maxRuns - loadState().runs;
+  if (remaining < RUNS_NEEDED && !DRY_RUN) {
+    log(`点検: 日次の実装回数の残りが ${remaining} 回（必要 ${RUNS_NEEDED} 回）のため、今回は見送ります（次のサイクルで再度判定します）`);
     return;
   }
   const marker = new Date().toISOString();
@@ -184,7 +211,15 @@ async function main() {
     writeState({ lastRun: marker, ok: true });
     log("点検: 成功（起票・実装・自動マージ・完了同期・取消・再挑戦のすべてを確認）");
   } catch (err) {
-    writeState({ lastRun: marker, ok: false, stage });
+    if (err instanceof Deferred) {
+      // 失敗ではなく見送り: 記録は更新せず（次のサイクルで再度点検する）、点検用のIssueだけ片付ける。障害Issueは立てない
+      log(`点検: 見送り（${stage}）: ${err.message}`);
+      if (issueNumber) cleanupIssue(issueNumber, "日次の上限のため、この点検用Issueを閉じます（次回に再度点検します）。");
+      return;
+    }
+    // 失敗は、翌日に再点検する（lastRun を「間隔の手前」にずらす）
+    const retryAt = new Date(Date.now() - (SELFTEST_INTERVAL_DAYS - RETRY_AFTER_FAILURE_DAYS) * 24 * 60 * 60 * 1000).toISOString();
+    writeState({ lastRun: retryAt, ok: false, stage, failedAt: marker });
     reportFailure(stage, err, issueNumber);
     process.exitCode = 0; // 点検の失敗はcycle全体の失敗にしない（障害Issueで知らせる）
   }
