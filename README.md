@@ -416,7 +416,7 @@ load/            autocannonで実行する負荷テスト
 schemas/         契約テスト用のJSON Schema定義
 scripts/         動作確認用サンプルスクリプト
 agent/           Issue自律処理ループ（Agent SDK）。開発運用ツールでアプリ本体ではない。
-                 依存は agent/package.json に分離。PR作成まで・マージは人手（ADR-0017）
+                 依存は agent/package.json に分離。PR作成・リスクに応じた自動マージ・事後リバート。押印/提出は人手（ADR-0017）
 docs/            設計方針・アーキテクチャドキュメント
 ```
 

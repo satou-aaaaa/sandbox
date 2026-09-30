@@ -81,7 +81,7 @@ src/
                                   農地転用許可対応。古物商許可は個人申請のみ・
                                   ローカルホスト限定）
 agent/         Issue自律処理ループ（Agent SDK。開発運用ツールでアプリ本体ではない。
-               依存は`agent/package.json`に分離。PR作成まで・マージは人手。ADR-0017）
+               依存は`agent/package.json`に分離。PR作成・リスクに応じた自動マージ・事後リバート。押印/提出は人手。ADR-0017）
 test/          node --test のユニットテスト（1ファイル1モジュール対応が基本）
 features/      Cucumber.js（BDD/Gherkin）の受け入れ基準（`.feature`・
                `step_definitions/`。2026年9月・ADR-0016で例外的に導入。

@@ -195,3 +195,11 @@ ls agent/logs              # 監査ログ（1行1JSON: ツール名・入力・�
 ### 既知の制約
 
 コンテナのネットワークegressは無制限（API・npmレジストリ到達のため）。API宛のみ許可するプロキシへの移行が次の一手（ADR-0017 Amendment 2）。
+
+## クラウドルーティンでの実行（PC非依存）
+
+Claudeのクラウドルーティンで1サイクルを実行できる（プロンプトは [`cloud-routine.md`](cloud-routine.md)）。
+`AGENT_GH_MODE=rest AGENT_STATE=github AGENT_SANDBOX=none AGENT_AUTH=inherit` で動かす。
+ghはREST（`gh-rest.mjs`）経由のみ（GraphQLは不可）、実行回数などの状態はGitHubから導出する。
+自動マージの予約はGraphQL専用のため、`agent-pr-automerge` workflowが代行する。
+一時停止は、`agent-pause` ラベルを付けたIssueを開いておく。ローカルのスケジュールタスクとの併用（二重実行）は避ける。
