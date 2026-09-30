@@ -23,7 +23,9 @@ import {
   LABEL_NEEDS_HUMAN,
   LABEL_REPORT,
   LABEL_REVERT_PR,
+  LABEL_PR,
   buildReport,
+  computeQuality,
   pickMajorUpdates,
   pickStalePrs,
   isSelftestDue,
@@ -120,6 +122,8 @@ function collect() {
     breaker: shouldTripBreaker(revertPrs.map((p) => p.createdAt), Date.now()),
     stalePrs: pickStalePrs(openPrs, Date.now()),
     majorUpdates: pickMajorUpdates(openPrs),
+    // 累計の品質指標は週次だけに載せる（日次は動きの報告に絞る）
+    quality: PERIOD === "weekly" ? computeQuality(JSON.parse(gh("pr", "list", "--repo", REPO, "--state", "merged", "--label", LABEL_PR, "--json", "number,title,labels", "--limit", "500"))) : undefined,
     // 発行日は setup-auth.ps1 が AGENT_TOKEN_ISSUED_AT（YYYY-MM-DD）に記録する。未設定なら警告しない
     tokenDaysLeft: tokenDaysLeft(process.env.AGENT_TOKEN_ISSUED_AT, Date.now()),
   };

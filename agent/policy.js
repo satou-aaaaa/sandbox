@@ -1680,6 +1680,7 @@ export const LABEL_REPORT = "agent-report";
  *   breaker: boolean,
  *   stalePrs?: StalePr[],
  *   majorUpdates?: MajorUpdate[],
+ *   quality?: ReturnType<typeof computeQuality>,
  *   tokenDaysLeft?: number | null,
  * }} ReportData
  */
@@ -1840,6 +1841,11 @@ export function buildReport(d) {
   lines.push(`| Dependabotのマージ | ${d.dependabotMerged} |`);
   lines.push(`| 推定費用（サブスクリプション。請求額ではない） | ${d.costUsd === null ? "記録なし" : `$${d.costUsd.toFixed(2)}`} |`);
   lines.push(`| 自動点検 | ${d.selftest?.lastRun ? `${d.selftest.ok ? "成功" : "失敗"}（${d.selftest.lastRun.slice(0, 10)}）` : "未実施"} |`);
+  if (d.quality) {
+    // 累計の品質指標（週次のみ）。見出しの階層をレポートに合わせ、二重の注記は落とす
+    const body = buildQualityMarkdown(d.quality).replace("## エージェントの品質指標（累計）", "### エージェントの品質指標（累計）");
+    lines.push("", body.slice(0, body.lastIndexOf("\n\n_GitHub")));
+  }
   lines.push("", "_自動集計（GitHubの状態から決定的に作成。LLM不使用）_");
   return lines.join("\n");
 }
@@ -1856,7 +1862,7 @@ export function buildReport(d) {
 export const QUALITY_SAMPLE_MIN = 30;
 
 /**
- * @typedef {{number: number, labels: {name: string}[]}} MergedAgentPr マージ済みのエージェントPR
+ * @typedef {{number: number, title?: string, labels: {name: string}[]}} MergedAgentPr マージ済みのエージェントPR
  */
 
 /**
@@ -1866,11 +1872,14 @@ export const QUALITY_SAMPLE_MIN = 30;
  *   revertRate は AI承認PRのうち取り消された割合（AI承認が0件なら null）。reliable は件数が QUALITY_SAMPLE_MIN 以上か
  */
 export function computeQuality(prs) {
+  // 自動点検用のPR（ラベル、または運用レポートと同じくタイトルで判定）は実運用の成績に含めない
+  const isSelftest = (/** @type {MergedAgentPr} */ pr) => pr.labels.some((l) => l.name === LABEL_SELFTEST) || (pr.title ?? "").includes("selftest:");
   let aiApproved = 0;
   let aiApprovedReverted = 0;
   let otherReverted = 0;
   for (const pr of prs) {
     const names = pr.labels.map((l) => l.name);
+    if (isSelftest(pr)) continue;
     const reverted = names.includes(LABEL_REVERTED);
     if (names.includes(LABEL_AI_REVIEWED) && names.includes(LABEL_APPROVED)) {
       aiApproved += 1;
@@ -1880,7 +1889,7 @@ export function computeQuality(prs) {
     }
   }
   return {
-    merged: prs.length,
+    merged: prs.filter((pr) => !isSelftest(pr)).length,
     aiApproved,
     aiApprovedReverted,
     otherReverted,
