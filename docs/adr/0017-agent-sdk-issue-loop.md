@@ -84,6 +84,15 @@ Anthropicの公式ガイド（Securely deploying AI agents／Hooks／Building ef
 
 - **OS/コンテナ隔離**: → Amendment 2 で対応。
 - **Actions上での実行**: `GITHUB_TOKEN` 起点のPRは必須CIを起動しない。GitHub App導入後に検討。
+- **gVisor（runsc）等によるカーネル分離（検討して見送り。2026-09-30）**: Dockerの標準ランタイムはホストのカーネルを共有するため、
+  コンテナエスケープの脆弱性があればホストに影響し得る。gVisor はこれを緩和できるが、(1) 主な実行環境である Docker Desktop for Windows（WSL2）
+  へ導入しにくいと考えられる（導入可否は未検証）、(2) 現行の多層防御（非root・全capability破棄・no-new-privileges・読み取り専用FS・pids/資源制限・
+  通信の許可リスト・トークンのみ受け渡し）で脅威の大半を既に抑えている、(3) 実行対象が自分のリポジトリで、外部由来の文字列は形式検証を通す、
+  ことから見送る。**再検討の条件**: 実行環境を Linux（GitHub Actions のランナー等）へ移す、または第三者のコードを実行する運用に広げるとき。
+  なお gVisor を入れても脆弱性がゼロになるわけではなく、分離を強める位置づけである。
+- **AGENTS.md（見送り。2026-09-30）**: 他のツールが共通で読む指示ファイル名だが、Claude Code は `CLAUDE.md` を読み、`CLAUDE.md` が同じ役割
+  （構成・規約・変更してはならない前提の索引）を果たしている。二重管理を避けるため作らない。他のエージェント製品を併用する場合に、
+  `CLAUDE.md` を指す薄いポインタとして追加する。
 
 ## Amendment 2（2026-09-29）: Dockerコンテナ隔離の導入
 
