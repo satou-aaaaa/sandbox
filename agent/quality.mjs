@@ -11,5 +11,5 @@
 import { LABEL_PR, buildQualityMarkdown, computeQuality } from "./policy.js";
 import { REPO, gh } from "./run.mjs";
 
-const prs = JSON.parse(gh("pr", "list", "--repo", REPO, "--state", "merged", "--label", LABEL_PR, "--json", "number,labels", "--limit", "500"));
+const prs = JSON.parse(gh("pr", "list", "--repo", REPO, "--state", "merged", "--label", LABEL_PR, "--json", "number,title,labels", "--limit", "500"));
 console.log(buildQualityMarkdown(computeQuality(prs)));

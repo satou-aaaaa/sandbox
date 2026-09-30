@@ -1148,3 +1148,21 @@ test("AUDIT_ISSUE_LABELS: 点検Issueは自動実装の対象外（agent-skip・
   assert.ok(AUDIT_ISSUE_LABELS.includes("agent-skip") && AUDIT_ISSUE_LABELS.includes("agent-needs-human"));
   assert.ok(!AUDIT_ISSUE_LABELS.includes("agent-ready"));
 });
+
+test("buildReport: 品質指標は渡されたときだけ節として出す（既定では出さない）", () => {
+  const q = computeQuality([mergedPr(1, "agent-ai-reviewed", "agent-approved")]);
+  const withQ = buildReport({ ...baseReport(), quality: q });
+  assert.ok(withQ.includes("### エージェントの品質指標（累計）") && withQ.includes("参考値"));
+  assert.ok(withQ.trimEnd().endsWith("_自動集計（GitHubの状態から決定的に作成。LLM不使用）_"));
+  assert.ok(!buildReport(baseReport()).includes("品質指標"));
+});
+
+test("computeQuality: 自動点検（selftest）のPRは成績に含めない", () => {
+  const q = computeQuality([mergedPr(1, "agent-selftest", "agent-reverted"), mergedPr(2, "agent-ai-reviewed", "agent-approved")]);
+  assert.deepEqual({ merged: q.merged, aiApproved: q.aiApproved, otherReverted: q.otherReverted }, { merged: 1, aiApproved: 1, otherReverted: 0 });
+});
+
+test("computeQuality: ラベルが無くてもタイトルが selftest: なら成績に含めない", () => {
+  const q = computeQuality([{ number: 1, title: "agent: selftest: 点検の記録", labels: [{ name: "agent-reverted" }] }]);
+  assert.deepEqual({ merged: q.merged, otherReverted: q.otherReverted }, { merged: 0, otherReverted: 0 });
+});
