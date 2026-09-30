@@ -837,22 +837,75 @@ export function normalizeTitle(title) {
 }
 
 /**
+ * スカウトの観点。日替わりで巡回し、分野ごとに提案の形式・対象外を絞る（#123）。
+ * 対象は自動マージの範囲（AUTO_DOCS / AUTO_CODE_PREFIXES）に収まるものに限る。
+ * @typedef {{key: string, label: string, allowed: string[], forbidden: string[]}} ScoutFocus
+ */
+/** @type {ScoutFocus[]} */
+export const SCOUT_FOCUSES = [
+  {
+    key: "tests",
+    label: "テストの追加",
+    allowed: [
+      "**テストの追加**: 既存の挙動を固定するテストを追加する。実装（src/）は変更しない。既存テストを削除・書き換えない。対象の例: テストが無い・薄いモジュール（src/web・src/portal・scripts等）、境界値、エラー系。",
+    ],
+    forbidden: [],
+  },
+  {
+    key: "docs",
+    label: "ドキュメントの食い違い修正",
+    allowed: ["**README.md / CHANGELOG.md の修正**: 実装・他ドキュメントとの食い違いや記載漏れの修正。変更対象はこの2ファイルのみ。"],
+    forbidden: [],
+  },
+  {
+    key: "refactor",
+    label: "小さなリファクタリング",
+    allowed: [
+      "**挙動を変えない小さなリファクタリング**: 重複の排除、長い関数の分割、命名の改善。対象は src/web/・src/core/documents/・src/portal/・scripts/ のみで、対象箇所に既存テストがあり、テストを変更せずに通ることが条件。",
+    ],
+    forbidden: ["公開関数のシグネチャ・出力の変更、テストの書き換え"],
+  },
+  {
+    key: "perf",
+    label: "性能の改善",
+    allowed: [
+      "**根拠のある小さな性能改善**: 同じ結果を返したまま、不要な繰り返し・同期I/O・重複計算を減らす。対象は src/web/・src/portal/・scripts/・load/ のみ。改善の根拠（該当行と理由）を書く。",
+    ],
+    forbidden: ["計測できない推測だけの最適化、挙動・出力の変更"],
+  },
+];
+
+/**
+ * 日付から今日のスカウトの観点を決める（UTC日で巡回。同日は同じ観点）。
+ * @param {Date} [now]
+ * @returns {ScoutFocus}
+ */
+export function pickScoutFocus(now = new Date()) {
+  const day = Math.floor(now.getTime() / 86400000);
+  return SCOUT_FOCUSES[day % SCOUT_FOCUSES.length];
+}
+
+/**
  * @param {string[]} existingTitles 既存Issue（open/closed）のタイトル
+ * @param {ScoutFocus} [focus] 今回の観点。省略時は全観点から提案してよい
  * @returns {string}
  */
-export function buildScoutPrompt(existingTitles) {
+export function buildScoutPrompt(existingTitles, focus) {
+  const focuses = focus ? [focus] : SCOUT_FOCUSES;
+  const allowed = focuses.flatMap((f) => f.allowed).map((a, i) => `${i + 1}. ${a}`);
+  const extraForbidden = focuses.flatMap((f) => f.forbidden).map((f) => `- ${f}`);
   return [
-    "このリポジトリを読み取り専用で調べ、エージェントが安全に実装できる「小さく具体的な作業」を最大3件、提案してください。コードは変更しないでください。",
+    `このリポジトリを読み取り専用で調べ、エージェントが安全に実装できる「小さく具体的な作業」を最大3件、提案してください。コードは変更しないでください。${focus ? `今回の観点は「${focus.label}」です。` : ""}`,
     "",
     "## 提案してよい作業の種類（これ以外は提案しない）",
-    "1. **テストの追加**: 既存の挙動を固定するテストを追加する。実装（src/）は変更しない。既存テストを削除・書き換えない。対象の例: テストが無い・薄いモジュール、境界値、エラー系。",
-    "2. **README.md / CHANGELOG.md の修正**: 実装・他ドキュメントとの食い違いや記載漏れの修正。",
+    ...allowed,
     "",
     "## 提案してはならないもの",
     "- 法令に基づく判定・期限計算のロジック（src/licenses/**/eligibility, src/core/reminders 等）に関するテスト・変更（法令解釈を含むため）",
-    "- src/ の実装変更、新機能、依存追加、設定・CI・.github/・agent/・hooks/・data/・package.json・CLAUDE.md の変更",
+    "- src/ の実装変更（上記で明示的に許した観点の範囲を除く）、新機能、依存追加、設定・CI・.github/・agent/・hooks/・data/・package.json・CLAUDE.md の変更",
     "- 方針決定・調査・ヒアリングが必要なもの、変更が5ファイルを超えるもの",
     "- 下記の既存Issueと重複するもの",
+    ...extraForbidden,
     "",
     "## 各提案の必須要件",
     "- 変更するファイルを具体的に指定する（1〜3ファイル）",
