@@ -4,6 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import fs from "node:fs/promises";
 import { spawn } from "node:child_process";
+import http from "node:http";
 
 import { createServer, startServer } from "../src/web/server.js";
 import { buildSampleApplicantProfile } from "../scripts/sampleProfile.js";
@@ -715,6 +716,53 @@ test("POST /drafts/<id>/delete: 指定した下書きのみ削除する", async 
     const drafts = await loadDrafts(ctx.draftsPath);
     assert.equal(drafts.length, 1);
     assert.equal(drafts[0].profile.applicantName, "B社");
+  } finally {
+    await ctx.close();
+  }
+});
+
+test("不正なHostヘッダーのリクエストは403で拒否する（DNS rebinding対策）", async () => {
+  const ctx = await startTestServer();
+  try {
+    const { port } = new URL(ctx.baseUrl);
+    const status = await new Promise((resolve, reject) => {
+      const req = http.request(
+        { host: "127.0.0.1", port, path: "/", headers: { Host: "evil.example" } },
+        (res) => { res.resume(); resolve(res.statusCode); }
+      );
+      req.on("error", reject);
+      req.end();
+    });
+    assert.equal(status, 403);
+    const ok = await fetch(`http://localhost:${port}/`);
+    assert.equal(ok.status, 200);
+  } finally {
+    await ctx.close();
+  }
+});
+
+test("他サイトのOriginからのPOSTは403で拒否し、同一OriginのPOSTは受理する", async () => {
+  const ctx = await startTestServer();
+  try {
+    const body = new URLSearchParams({ companyName: "x" });
+    const evil = await fetch(`${ctx.baseUrl}/drafts`, { method: "POST", body, headers: { Origin: "http://evil.example" } });
+    assert.equal(evil.status, 403);
+    const crossSite = await fetch(`${ctx.baseUrl}/drafts`, { method: "POST", body, headers: { "Sec-Fetch-Site": "cross-site" } });
+    assert.equal(crossSite.status, 403);
+    const same = await fetch(`${ctx.baseUrl}/drafts`, { method: "POST", body, headers: { Origin: ctx.baseUrl } });
+    assert.notEqual(same.status, 403);
+  } finally {
+    await ctx.close();
+  }
+});
+
+test("全レスポンスにセキュリティヘッダーを付与する", async () => {
+  const ctx = await startTestServer();
+  try {
+    const res = await fetch(`${ctx.baseUrl}/`);
+    assert.match(res.headers.get("content-security-policy"), /frame-ancestors 'none'/);
+    assert.equal(res.headers.get("x-content-type-options"), "nosniff");
+    assert.equal(res.headers.get("x-frame-options"), "DENY");
   } finally {
     await ctx.close();
   }

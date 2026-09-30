@@ -162,6 +162,55 @@ function readRequestBody(req) {
 }
 
 /**
+ * ブラウザ経由の攻撃（DNS rebinding・CSRF・クリックジャッキング）への防御。
+ * 127.0.0.1 待受でも、悪意あるサイトがブラウザを踏み台にしてローカルサーバーへ
+ * 到達し得るため、Host と Origin を自ホストに限定する（Issue #179）。
+ * 参考: https://developer.mozilla.org/ja/docs/Web/Security/Attacks/DNS_rebinding
+ */
+const SECURITY_HEADERS = {
+  // インライン script/style は既存ページが使用しているため許可。外部への通信・埋め込みは禁止する。
+  "Content-Security-Policy":
+    "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src 'self' data:; " +
+    "connect-src 'self'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'",
+  "X-Content-Type-Options": "nosniff",
+  "X-Frame-Options": "DENY",
+  // no-referrer だと Chrome が同一オリジンのフォームPOSTでも Origin: null を送るため same-origin にする。
+  "Referrer-Policy": "same-origin",
+};
+
+/**
+ * 許可する Host/Origin の authority（ホスト:ポート）かを判定する。
+ * @param {string | undefined} authority
+ * @param {number | undefined} port 実際の待受ポート
+ * @returns {boolean}
+ */
+function isLocalAuthority(authority, port) {
+  if (!authority) return false;
+  return ["127.0.0.1", "localhost", "[::1]"].some((h) => authority === `${h}:${port}`);
+}
+
+/**
+ * リクエストを拒否すべき理由を返す（問題なければ null）。
+ * @param {import('node:http').IncomingMessage} req
+ * @returns {string | null}
+ */
+function rejectReason(req) {
+  const port = req.socket.localPort;
+  if (!isLocalAuthority(req.headers.host, port)) return "不正なHostヘッダー";
+  if (req.method !== "GET" && req.method !== "HEAD") {
+    const origin = req.headers.origin;
+    if (origin !== undefined) {
+      if (!origin.startsWith("http://") || !isLocalAuthority(origin.slice("http://".length), port)) {
+        return "不正なOrigin";
+      }
+    } else if (req.headers["sec-fetch-site"] === "cross-site") {
+      return "クロスサイトからの送信";
+    }
+  }
+  return null;
+}
+
+/**
  * @param {import('node:http').ServerResponse} res
  * @param {number} statusCode
  * @param {string} html
@@ -225,6 +274,13 @@ export function createServer({
     });
 
     const url = req.url ?? "/";
+
+    for (const [name, value] of Object.entries(SECURITY_HEADERS)) res.setHeader(name, value);
+    const reason = rejectReason(req);
+    if (reason) {
+      respondHtml(res, 403, `<h1>Forbidden</h1><p>${reason}</p>`);
+      return;
+    }
 
     try {
       if (req.method === "GET" && (url === "/" || url === "/index.html")) {
