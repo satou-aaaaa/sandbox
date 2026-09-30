@@ -996,10 +996,10 @@ test("evaluateMutation: 変更行にミュータントが無ければ通す。�
   assert.equal(evaluateMutation({}, {}).ok, false);
 });
 
-test("buildDockerArgs: 通信が不要なフェーズ（verify・mutation）はネットワークを遮断し、API・npmが要るフェーズは遮断しない（#115）", () => {
+test("buildDockerArgs: 通信が不要なフェーズ（verify・mutation）はネットワークを遮断し、通信が要るフェーズは遮断せずプロキシ経由（#115）", () => {
   for (const phase of ["verify", "mutation"]) assert.ok(dockerArgs(phase).join(" ").includes("--network none"), phase);
+  for (const phase of ["install", "agent", "triage", "review"]) assert.ok(!dockerArgs(phase).join(" ").includes("--network none"), phase);
 });
-  for (const phase of ["install", "agent", "triage", "review"]) assert.ok(!dockerArgs(phase).includes("--network"), phase);
 
 // ---- 運用レポートの拡張（滞留PR・メジャー更新。ADR-0018）----
 

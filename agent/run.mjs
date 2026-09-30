@@ -43,6 +43,9 @@ import {
   LABEL_WORKING,
   branchNameForIssue,
   USAGE_LIMIT_MARKER,
+  EGRESS_NETWORK,
+  EGRESS_PROXY_NAME,
+  PROXIED_PHASES,
   buildDockerArgs,
   resolveAuth,
   buildLessons,
@@ -188,6 +191,36 @@ export function buildImage() {
   run("docker", ["build", "-q", "-t", DOCKER_IMAGE, AGENT_DIR]);
 }
 
+/** 外向き通信を許可リストのプロキシに限る（AGENT_EGRESS=open で従来の無制限に戻せる）。 */
+const EGRESS_PROXY = process.env.AGENT_EGRESS !== "open";
+let egressReady = false;
+
+/**
+ * 内部ネットワークと、許可リストのプロキシのコンテナを用意する（プロセスごとに1回。イメージの更新に追従するため作り直す）。
+ * 内部ネットワークは外への直接の経路を持たず、プロキシだけが外（既定のbridge）にも接続する。
+ */
+export function ensureEgressProxy() {
+  if (!EGRESS_PROXY || egressReady) return;
+  try {
+    run("docker", ["network", "inspect", EGRESS_NETWORK]);
+  } catch {
+    run("docker", ["network", "create", "--internal", EGRESS_NETWORK]);
+  }
+  try {
+    run("docker", ["rm", "-f", EGRESS_PROXY_NAME]);
+  } catch {
+    /* 無ければよい */
+  }
+  run("docker", [
+    "run", "-d", "--name", EGRESS_PROXY_NAME, "--network", "bridge",
+    "--read-only", "--cap-drop", "ALL", "--security-opt", "no-new-privileges", "--memory", "256m", "--pids-limit", "128",
+    "--user", "1000:1000", "--restart", "unless-stopped",
+    "--entrypoint", "node", DOCKER_IMAGE, "/agent/egress-proxy.mjs",
+  ]);
+  run("docker", ["network", "connect", EGRESS_NETWORK, EGRESS_PROXY_NAME]);
+  egressReady = true;
+}
+
 /**
  * コンテナ内でフェーズを実行し、最終行の `RESULT:` JSONを返す。
  * @param {"install"|"agent"|"verify"|"triage"|"review"|"mutation"} phase
@@ -197,11 +230,12 @@ export function buildImage() {
  * @returns {any}
  */
 export function dockerPhase(phase, workDir, auditName, prompt) {
+  if (PROXIED_PHASES.includes(phase)) ensureEgressProxy();
   const taskDir = mkdtempSync(join(tmpdir(), "kkt-task-"));
   try {
     if (prompt !== undefined) writeFileSync(join(taskDir, "prompt.txt"), prompt);
     mkdirSync(LOG_DIR, { recursive: true });
-    const out = run("docker", buildDockerArgs({ phase, workDir, logDir: LOG_DIR, taskDir, auditName, authEnv: AUTH.error ? [] : AUTH.passEnv, uid: HOST_UID, gid: HOST_GID, env: process.env }));
+    const out = run("docker", buildDockerArgs({ phase, workDir, logDir: LOG_DIR, taskDir, auditName, authEnv: AUTH.error ? [] : AUTH.passEnv, uid: HOST_UID, gid: HOST_GID, env: process.env, egressProxy: EGRESS_PROXY }));
     const line = out.split("\n").reverse().find((l) => l.startsWith("RESULT:"));
     if (!line) throw new Error(`コンテナからRESULTが返りませんでした（phase=${phase}）`);
     const res = JSON.parse(line.slice("RESULT:".length));
