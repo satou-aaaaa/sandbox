@@ -681,7 +681,7 @@ export function formatSummary(s, recovered, throttled = false, authFailed = fals
   if (s.reverted > 0) parts.push(`取り消し（リバート）: ${s.reverted}件`);
   if (recovered > 0) parts.push(`異常終了から回復: ${recovered}件`);
   if (throttled) parts.push("利用枠の逼迫のため、重い処理を見送り（次回以降に自動で再開）");
-  if (authFailed) parts.push("⚠ 認証エラー（トークンの期限切れの可能性）: 「claude setup-token」で再発行し、「agent\setup-auth.ps1」で保存してください");
+  if (authFailed) parts.push("⚠ 認証エラー（トークンの期限切れの可能性）: 「claude setup-token」で再発行し、「agent\\setup-auth.ps1」で保存してください");
   return parts.join(" / ");
 }
 
