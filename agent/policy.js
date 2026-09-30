@@ -667,9 +667,10 @@ export function summarizeOutput(text) {
  * @param {ReturnType<typeof summarizeOutput>} s
  * @param {number} recovered 異常終了から回復したIssue数
  * @param {boolean} [throttled] 利用枠の逼迫で、重い処理を見送ったか
+ * @param {boolean} [authFailed] 認証エラーが検出されたか
  * @returns {string}
  */
-export function formatSummary(s, recovered, throttled = false) {
+export function formatSummary(s, recovered, throttled = false, authFailed = false) {
   const parts = [
     `スカウト起票: ${s.scouted}件`,
     `トリアージ: 実行可 ${s.ready}件 / 人手 ${s.needsHuman}件`,
@@ -681,6 +682,7 @@ export function formatSummary(s, recovered, throttled = false) {
   if (s.reverted > 0) parts.push(`取り消し（リバート）: ${s.reverted}件`);
   if (recovered > 0) parts.push(`異常終了から回復: ${recovered}件`);
   if (throttled) parts.push("利用枠の逼迫のため、重い処理を見送り（次回以降に自動で再開）");
+  if (authFailed) parts.push("⚠ 認証エラー（トークンの期限切れの可能性）: 「claude setup-token」で再発行し、「agent\\setup-auth.ps1」で保存してください");
   return parts.join(" / ");
 }
 
@@ -837,22 +839,75 @@ export function normalizeTitle(title) {
 }
 
 /**
+ * スカウトの観点。日替わりで巡回し、分野ごとに提案の形式・対象外を絞る（#123）。
+ * 対象は自動マージの範囲（AUTO_DOCS / AUTO_CODE_PREFIXES）に収まるものに限る。
+ * @typedef {{key: string, label: string, allowed: string[], forbidden: string[]}} ScoutFocus
+ */
+/** @type {ScoutFocus[]} */
+export const SCOUT_FOCUSES = [
+  {
+    key: "tests",
+    label: "テストの追加",
+    allowed: [
+      "**テストの追加**: 既存の挙動を固定するテストを追加する。実装（src/）は変更しない。既存テストを削除・書き換えない。対象の例: テストが無い・薄いモジュール（src/web・src/portal・scripts等）、境界値、エラー系。",
+    ],
+    forbidden: [],
+  },
+  {
+    key: "docs",
+    label: "ドキュメントの食い違い修正",
+    allowed: ["**README.md / CHANGELOG.md の修正**: 実装・他ドキュメントとの食い違いや記載漏れの修正。変更対象はこの2ファイルのみ。"],
+    forbidden: [],
+  },
+  {
+    key: "refactor",
+    label: "小さなリファクタリング",
+    allowed: [
+      "**挙動を変えない小さなリファクタリング**: 重複の排除、長い関数の分割、命名の改善。対象は src/web/・src/core/documents/・src/portal/・scripts/ のみで、対象箇所に既存テストがあり、テストを変更せずに通ることが条件。",
+    ],
+    forbidden: ["公開関数のシグネチャ・出力の変更、テストの書き換え"],
+  },
+  {
+    key: "perf",
+    label: "性能の改善",
+    allowed: [
+      "**根拠のある小さな性能改善**: 同じ結果を返したまま、不要な繰り返し・同期I/O・重複計算を減らす。対象は src/web/・src/portal/・scripts/・load/ のみ。改善の根拠（該当行と理由）を書く。",
+    ],
+    forbidden: ["計測できない推測だけの最適化、挙動・出力の変更"],
+  },
+];
+
+/**
+ * 日付から今日のスカウトの観点を決める（UTC日で巡回。同日は同じ観点）。
+ * @param {Date} [now]
+ * @returns {ScoutFocus}
+ */
+export function pickScoutFocus(now = new Date()) {
+  const day = Math.floor(now.getTime() / 86400000);
+  return SCOUT_FOCUSES[day % SCOUT_FOCUSES.length];
+}
+
+/**
  * @param {string[]} existingTitles 既存Issue（open/closed）のタイトル
+ * @param {ScoutFocus} [focus] 今回の観点。省略時は全観点から提案してよい
  * @returns {string}
  */
-export function buildScoutPrompt(existingTitles) {
+export function buildScoutPrompt(existingTitles, focus) {
+  const focuses = focus ? [focus] : SCOUT_FOCUSES;
+  const allowed = focuses.flatMap((f) => f.allowed).map((a, i) => `${i + 1}. ${a}`);
+  const extraForbidden = focuses.flatMap((f) => f.forbidden).map((f) => `- ${f}`);
   return [
-    "このリポジトリを読み取り専用で調べ、エージェントが安全に実装できる「小さく具体的な作業」を最大3件、提案してください。コードは変更しないでください。",
+    `このリポジトリを読み取り専用で調べ、エージェントが安全に実装できる「小さく具体的な作業」を最大3件、提案してください。コードは変更しないでください。${focus ? `今回の観点は「${focus.label}」です。` : ""}`,
     "",
     "## 提案してよい作業の種類（これ以外は提案しない）",
-    "1. **テストの追加**: 既存の挙動を固定するテストを追加する。実装（src/）は変更しない。既存テストを削除・書き換えない。対象の例: テストが無い・薄いモジュール、境界値、エラー系。",
-    "2. **README.md / CHANGELOG.md の修正**: 実装・他ドキュメントとの食い違いや記載漏れの修正。",
+    ...allowed,
     "",
     "## 提案してはならないもの",
     "- 法令に基づく判定・期限計算のロジック（src/licenses/**/eligibility, src/core/reminders 等）に関するテスト・変更（法令解釈を含むため）",
-    "- src/ の実装変更、新機能、依存追加、設定・CI・.github/・agent/・hooks/・data/・package.json・CLAUDE.md の変更",
+    "- src/ の実装変更（上記で明示的に許した観点の範囲を除く）、新機能、依存追加、設定・CI・.github/・agent/・hooks/・data/・package.json・CLAUDE.md の変更",
     "- 方針決定・調査・ヒアリングが必要なもの、変更が5ファイルを超えるもの",
     "- 下記の既存Issueと重複するもの",
+    ...extraForbidden,
     "",
     "## 各提案の必須要件",
     "- 変更するファイルを具体的に指定する（1〜3ファイル）",
@@ -1626,8 +1681,47 @@ export const LABEL_REPORT = "agent-report";
  *   stalePrs?: StalePr[],
  *   majorUpdates?: MajorUpdate[],
  *   quality?: ReturnType<typeof computeQuality>,
+ *   tokenDaysLeft?: number | null,
  * }} ReportData
  */
+
+/** 認証トークン（claude setup-token）の有効日数。1年。 */
+export const TOKEN_VALID_DAYS = 365;
+/** 期限のこの日数前から警告する。 */
+export const TOKEN_WARN_DAYS = 30;
+
+/**
+ * 発行日（YYYY-MM-DD）から、トークンの残り日数を求める。発行日が不明・不正なら null（警告しない）。
+ * @param {string | undefined} issuedAt
+ * @param {number} nowMs
+ * @returns {number | null} 負の値は期限切れ
+ */
+export function tokenDaysLeft(issuedAt, nowMs) {
+  if (!issuedAt || !/^\d{4}-\d{2}-\d{2}$/.test(issuedAt)) return null;
+  const t = Date.parse(`${issuedAt}T00:00:00Z`);
+  if (!Number.isFinite(t)) return null;
+  return Math.floor((t + TOKEN_VALID_DAYS * 86400000 - nowMs) / 86400000);
+}
+
+/** @param {number | null | undefined} daysLeft */
+export function tokenNeedsAction(daysLeft) {
+  return typeof daysLeft === "number" && daysLeft <= TOKEN_WARN_DAYS;
+}
+
+/** @param {number} daysLeft */
+export function tokenWarning(daysLeft) {
+  const state = daysLeft < 0 ? `認証トークンは ${-daysLeft} 日前に期限切れです` : `認証トークンの期限まであと ${daysLeft} 日です`;
+  return `${state}。「claude setup-token」で再発行し、「agent\\setup-auth.ps1」で保存してください（Actionsを使う場合はシークレット CLAUDE_CODE_OAUTH_TOKEN も更新）`;
+}
+
+/**
+ * 出力に、認証エラー（トークンの期限切れ・無効）の兆候があるか。
+ * @param {string} text
+ * @returns {boolean}
+ */
+export function detectAuthFailure(text) {
+  return /authentication_error|invalid bearer token|oauth token has (expired|been revoked)|invalid api key|401 unauthorized|please run \/login/i.test(String(text));
+}
 
 /**
  * レポートの深刻度。incident=障害あり、attention=人手の確認が必要、ok=問題なし。
@@ -1636,7 +1730,7 @@ export const LABEL_REPORT = "agent-report";
  */
 export function reportSeverity(d) {
   if (d.incidents.length > 0 || d.breaker || d.selftest?.ok === false) return "incident";
-  if (d.needsHuman.length > 0 || d.needsReview.length > 0 || d.failing.length > 0 || d.reverted > 0 || (d.stalePrs?.length ?? 0) > 0) return "attention";
+  if (d.needsHuman.length > 0 || d.needsReview.length > 0 || d.failing.length > 0 || d.reverted > 0 || (d.stalePrs?.length ?? 0) > 0 || tokenNeedsAction(d.tokenDaysLeft)) return "attention";
   return "ok";
 }
 
@@ -1732,6 +1826,7 @@ export function buildReport(d) {
     if (d.failing.length) lines.push(`- CIが失敗しているエージェントのPR ${d.failing.length}件（自己修復の対象）:`, itemList(d.failing));
     if (d.reverted > 0) lines.push(`- 期間内に ${d.reverted} 件が取り消されました（理由は各リバートPRを参照）`);
     if (d.stalePrs?.length) lines.push(`- ${STALE_PR_DAYS}日以上たっても承認・マージされていないPR ${d.stalePrs.length}件:`, stalePrList(d.stalePrs));
+    if (tokenNeedsAction(d.tokenDaysLeft)) lines.push(`- ${tokenWarning(/** @type {number} */ (d.tokenDaysLeft))}`);
     lines.push("");
   }
   if (d.majorUpdates?.length) {

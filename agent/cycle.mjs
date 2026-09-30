@@ -35,6 +35,7 @@ import {
   LABEL_WORKING,
   TMP_STALE_MS,
   WORKING_STALE_MS,
+  detectAuthFailure,
   formatSummary,
   isStaleWorking,
   shouldTripBreaker,
@@ -230,7 +231,7 @@ async function main() {
     }
     // 4. 運用レポート（GitHubの状態から決定的に集計。日次は動き・問題がある日だけ投稿、週次は7日ごと）
     if (!DRY_RUN) out += runStep("report.mjs", ["--post"]) + runStep("report.mjs", ["--if-weekly-due", "--post"]);
-    const summary = formatSummary(summarizeOutput(out), recovered, throttled);
+    const summary = formatSummary(summarizeOutput(out), recovered, throttled, detectAuthFailure(out));
     log(`サマリー: ${summary}`);
     mkdirSync(LOG_DIR, { recursive: true });
     const stamp = started.toISOString().replace(/[:.]/g, "-");

@@ -32,6 +32,11 @@ node cycle.mjs             # 回復 → スカウト → トリアージ → 実
 - **異常終了からの回復**: `agent-working` のまま90分以上放置されたIssueを `agent-needs-human` に戻し、古い一時worktreeを片付ける
 - **要約**: 結果を1行にまとめ、`agent/logs/cycle-latest.txt` に保存（1サイクルの全出力は `agent/logs/cycle-*.log`）
 
+## 認証トークンの期限管理
+
+`claude setup-token` のトークンは1年有効。`setup-auth.ps1` が発行日をユーザー環境変数 `AGENT_TOKEN_ISSUED_AT` に記録し、運用レポートが期限の30日前から「要確認」で警告する（未設定なら警告しない）。
+認証エラー（期限切れ・無効）を検出したサイクルは、要約に原因と再発行手順を出す。Actionsで動かす場合は、シークレット `CLAUDE_CODE_OAUTH_TOKEN` も更新する。
+
 ## 作業の自動起票（スカウト）
 
 ```bash
@@ -41,7 +46,8 @@ node scout.mjs             # 起票する（1回最大2件。未完了のスカ�
 
 読み取り専用のエージェントが、テストの追加やREADME/CHANGELOGの食い違い修正といった**自動マージできる低リスクな作業**だけを、
 `agent-scouted` ラベル付きで起票する。起票されたIssueはトリアージ→実装→PR→自動マージへ進む（`cycle.mjs` が順に実行する）。
-法令判定・期限計算・src/の実装変更・保護パスに関わる提案は対象外。
+スカウトは日替わりで観点（テスト追加／ドキュメント修正／小さなリファクタ／性能改善。`policy.js` の `SCOUT_FOCUSES`）を巡回する。リファクタ・性能は自動マージ範囲（src/web・src/portal・scripts等）に限る。
+法令判定・期限計算・保護パスに関わる提案は対象外。
 
 ## Issue の自動トリアージ（`agent-ready` を自動で付けるか判断する）
 

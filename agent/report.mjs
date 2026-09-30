@@ -32,6 +32,7 @@ import {
   shouldPostReport,
   shouldTripBreaker,
   summarizeChecks,
+  tokenDaysLeft,
 } from "./policy.js";
 import { LOG_DIR, REPO, gh, log } from "./run.mjs";
 
@@ -123,6 +124,8 @@ function collect() {
     majorUpdates: pickMajorUpdates(openPrs),
     // 累計の品質指標は週次だけに載せる（日次は動きの報告に絞る）
     quality: PERIOD === "weekly" ? computeQuality(JSON.parse(gh("pr", "list", "--repo", REPO, "--state", "merged", "--label", LABEL_PR, "--json", "number,title,labels", "--limit", "500"))) : undefined,
+    // 発行日は setup-auth.ps1 が AGENT_TOKEN_ISSUED_AT（YYYY-MM-DD）に記録する。未設定なら警告しない
+    tokenDaysLeft: tokenDaysLeft(process.env.AGENT_TOKEN_ISSUED_AT, Date.now()),
   };
 }
 
