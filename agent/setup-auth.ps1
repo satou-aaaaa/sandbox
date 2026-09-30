@@ -43,6 +43,7 @@ if ($token -notmatch '^sk-ant-[A-Za-z0-9_\-]{20,}$') {
 }
 
 [Environment]::SetEnvironmentVariable("CLAUDE_CODE_OAUTH_TOKEN", $token, "User")
+[Environment]::SetEnvironmentVariable("AGENT_TOKEN_ISSUED_AT", (Get-Date -Format "yyyy-MM-dd"), "User")  # 期限（1年）の警告用。運用レポートが参照する
 Write-Host "保存しました（ユーザー環境変数 CLAUDE_CODE_OAUTH_TOKEN。長さ $($token.Length) 文字）。" -ForegroundColor Green
 Write-Host "ターミナルとClaudeアプリを再起動すると、新しいプロセスに反映されます。"
 

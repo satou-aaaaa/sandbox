@@ -2,6 +2,10 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import path from "node:path";
 import {
+  detectAuthFailure,
+  tokenDaysLeft,
+  tokenNeedsAction,
+  tokenWarning,
   ALLOWED_TOOLS,
   DAILY_LIMITS,
   DOCKER_IMAGE,
@@ -1071,4 +1075,41 @@ test("formatSummary: 利用枠の逼迫で見送った場合は、その事実�
   const s = summarizeOutput("");
   assert.doesNotMatch(formatSummary(s, 0), /利用枠/);
   assert.match(formatSummary(s, 0, true), /利用枠の逼迫/);
+});
+
+test("tokenDaysLeft: 発行日の1年後までの残り日数。不明・不正な発行日は null（警告しない）", () => {
+  const now = Date.parse("2027-01-01T00:00:00Z");
+  assert.equal(tokenDaysLeft("2026-01-01", now), 0);
+  assert.equal(tokenDaysLeft("2026-06-01", now), 151);
+  assert.equal(tokenDaysLeft("2025-01-01", now), -365);
+  for (const bad of [undefined, "", "2026/01/01", "2026-13-40", "abc"]) assert.equal(tokenDaysLeft(bad, now), null);
+});
+
+test("tokenNeedsAction/tokenWarning: 30日前から警告し、期限切れは経過日数と再発行手順を示す", () => {
+  assert.equal(tokenNeedsAction(31), false);
+  assert.equal(tokenNeedsAction(30), true);
+  assert.equal(tokenNeedsAction(-3), true);
+  assert.equal(tokenNeedsAction(null), false);
+  assert.equal(tokenNeedsAction(undefined), false);
+  assert.match(tokenWarning(7), /あと 7 日/);
+  assert.match(tokenWarning(-3), /3 日前に期限切れ/);
+  assert.match(tokenWarning(7), /claude setup-token/);
+});
+
+test("buildReport: トークン期限が近いと、要確認として要対応に載る", () => {
+  const base = { periodLabel: "x", agentMerged: 0, autoMerged: 0, reverted: 0, humanMerged: 0, dependabotMerged: 0, aiApproved: 0, aiRejected: 0, needsHuman: [], incidents: [], needsReview: [], failing: [], costUsd: null, selftest: null, breaker: false };
+  assert.equal(reportSeverity(base), "ok");
+  assert.equal(reportSeverity({ ...base, tokenDaysLeft: 200 }), "ok");
+  const warn = { ...base, tokenDaysLeft: 10 };
+  assert.equal(reportSeverity(warn), "attention");
+  assert.match(buildReport(warn), /認証トークンの期限まであと 10 日/);
+});
+
+test("detectAuthFailure/formatSummary: 認証エラーの兆候を検出し、要約に原因と再発行手順を出す", () => {
+  assert.equal(detectAuthFailure("API Error: 401 {\"type\":\"authentication_error\"}"), true);
+  assert.equal(detectAuthFailure("OAuth token has expired. Please run /login"), true);
+  assert.equal(detectAuthFailure("[agent] PRを作成しました"), false);
+  const s = summarizeOutput("");
+  assert.doesNotMatch(formatSummary(s, 0), /認証エラー/);
+  assert.match(formatSummary(s, 0, false, true), /認証エラー.*setup-token/);
 });

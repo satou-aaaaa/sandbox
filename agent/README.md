@@ -32,6 +32,11 @@ node cycle.mjs             # 回復 → スカウト → トリアージ → 実
 - **異常終了からの回復**: `agent-working` のまま90分以上放置されたIssueを `agent-needs-human` に戻し、古い一時worktreeを片付ける
 - **要約**: 結果を1行にまとめ、`agent/logs/cycle-latest.txt` に保存（1サイクルの全出力は `agent/logs/cycle-*.log`）
 
+## 認証トークンの期限管理
+
+`claude setup-token` のトークンは1年有効。`setup-auth.ps1` が発行日をユーザー環境変数 `AGENT_TOKEN_ISSUED_AT` に記録し、運用レポートが期限の30日前から「要確認」で警告する（未設定なら警告しない）。
+認証エラー（期限切れ・無効）を検出したサイクルは、要約に原因と再発行手順を出す。Actionsで動かす場合は、シークレット `CLAUDE_CODE_OAUTH_TOKEN` も更新する。
+
 ## 作業の自動起票（スカウト）
 
 ```bash
