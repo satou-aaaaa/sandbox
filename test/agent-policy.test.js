@@ -29,6 +29,9 @@ import {
   buildReviewPrompt,
   decideReview,
   decideReviewVerdict,
+  evaluateMutation,
+  parseChangedLines,
+  selectMutationTargets,
   isReviewCandidate,
   parseReviewVerdict,
   SCOUT_MAX_OPEN,
@@ -924,4 +927,62 @@ test("buildReport: 一覧は10件までに切り詰め、残りは件数で示�
   assert.doesNotMatch(r, /- #11 課題11/);
   assert.match(r, /ほか3件/);
   assert.match(r, /推定費用[^\n]*記録なし/);
+});
+
+test("selectMutationTargets: 法令ロジックのsrc実装（.js）だけを対象にし、様式・テスト・web・docsは除く", () => {
+  assert.deepEqual(
+    selectMutationTargets([
+      "src/core/eligibility/x.js",
+      "src\\licenses\\kobutsu\\reminders\\y.js",
+      "src/licenses/kobutsu/documents/z.js",
+      "src/documents/youshiki.js",
+      "src/web/page.js",
+      "test/x.test.js",
+      "docs/a.md",
+      "features/a.feature",
+    ]),
+    ["src/core/eligibility/x.js", "src/licenses/kobutsu/reminders/y.js"],
+  );
+});
+
+test("parseChangedLines: 追加行の変更後の行番号を、ファイルごとに取り出す（削除行は数えない）", () => {
+  const diff = [
+    "diff --git a/src/a.js b/src/a.js",
+    "--- a/src/a.js",
+    "+++ b/src/a.js",
+    "@@ -1,3 +1,4 @@",
+    " ctx",
+    "-old",
+    "+new1",
+    "+new2",
+    " ctx2",
+    "@@ -20 +21,2 @@",
+    "+x",
+    " y",
+    "diff --git a/src/b.js b/src/b.js",
+    "--- /dev/null",
+    "+++ b/src/b.js",
+    "@@ -0,0 +1,2 @@",
+    "+l1",
+    "+l2",
+  ].join("\n");
+  assert.deepEqual(parseChangedLines(diff), { "src/a.js": [2, 3, 21], "src/b.js": [1, 2] });
+});
+
+test("evaluateMutation: 変更行のミュータントだけで採点し、基準未満は不合格（生存例を理由に出す）", () => {
+  const m = (status, line) => ({ status, mutatorName: "ConditionalExpression", location: { start: { line } } });
+  const report = { files: { "src/a.js": { mutants: [m("Killed", 2), m("Survived", 3), m("Survived", 99), m("Timeout", 3), m("CompileError", 2)] } } };
+  const r = evaluateMutation(report, { "src/a.js": [2, 3] });
+  assert.equal(r.total, 3);
+  assert.equal(r.killed, 2);
+  assert.equal(r.score, 66.7);
+  assert.equal(r.ok, false);
+  assert.match(r.reasons[0], /66\.7% < 70%.*src\/a\.js:3/);
+  assert.equal(evaluateMutation(report, { "src/a.js": [2, 3] }, { minScore: 60 }).ok, true);
+});
+
+test("evaluateMutation: 変更行にミュータントが無ければ通す。レポートが不正なら不合格（フェイルクローズ）", () => {
+  assert.equal(evaluateMutation({ files: { "src/a.js": { mutants: [] } } }, { "src/a.js": [1] }).ok, true);
+  assert.equal(evaluateMutation(null, {}).ok, false);
+  assert.equal(evaluateMutation({}, {}).ok, false);
 });

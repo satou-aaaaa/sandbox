@@ -1392,3 +1392,103 @@ export function buildReport(d) {
   lines.push("", "_自動集計（GitHubの状態から決定的に作成。LLM不使用）_");
   return lines.join("\n");
 }
+
+// ---------------------------------------------------------------------------
+// ミューテーション検査ゲート（#116。ADR-0017 Amendment 21）
+//
+// AIレビュアーの承認は、実装側と盲点が近い。テストの強度を客観的な証拠で補うため、法令ロジックを
+// 変更するPRでは、変更したファイルの「変更した行」だけを対象にミューテーションテスト（Stryker）を実行し、
+// スコアが基準に満たなければAIレビューに進めない（不承認）。実行できない・時間切れ・解釈不能も不承認（フェイルクローズ）。
+// ---------------------------------------------------------------------------
+
+/** 変更行のミューテーションスコア（殺せた割合）の下限（%）。stryker.config.mjs の thresholds.low と同じ値。 */
+export const MUTATION_MIN_SCORE = 70;
+/** 検査する変更ファイル数の上限。超えるPRは、実行時間が非現実的になるため人手（または分割）に回す。 */
+export const MUTATION_MAX_FILES = 5;
+/** 検査全体の時間制限（ミリ秒）。 */
+export const MUTATION_TIMEOUT_MS = 20 * 60 * 1000;
+
+/**
+ * ミューテーション検査の対象にするファイル。法令ロジックの領域の実装（.js）のうち、
+ * 様式生成（documents）はstryker.config.mjsと同じ理由（等価ミュータントが多い）で除く。
+ * @param {string[]} files
+ * @returns {string[]}
+ */
+export function selectMutationTargets(files) {
+  return files
+    .map((f) => f.replaceAll("\\", "/"))
+    .filter((p) => p.startsWith("src/") && p.endsWith(".js") && !p.includes("/documents/") && LEGAL_LOGIC_PREFIXES.some((pre) => p.startsWith(pre)) && !p.startsWith("src/documents/"));
+}
+
+/**
+ * unified diff から、ファイルごとの「変更後の行番号」を取り出す。
+ * @param {string} diff `gh pr diff` の出力
+ * @returns {Record<string, number[]>}
+ */
+export function parseChangedLines(diff) {
+  /** @type {Record<string, number[]>} */
+  const out = {};
+  /** @type {string | null} */
+  let file = null;
+  let line = 0;
+  for (const l of diff.split("\n")) {
+    if (l.startsWith("+++ ")) {
+      const m = /^\+\+\+ b\/(.+)$/.exec(l);
+      file = m ? m[1] : null;
+      continue;
+    }
+    const h = /^@@ -\d+(?:,\d+)? \+(\d+)(?:,\d+)? @@/.exec(l);
+    if (h) {
+      line = Number(h[1]);
+      continue;
+    }
+    if (file === null) continue;
+    if (l.startsWith("+")) {
+      (out[file] ??= []).push(line);
+      line++;
+    } else if (l.startsWith(" ")) {
+      line++;
+    }
+  }
+  return out;
+}
+
+/**
+ * Stryker のJSONレポートから、変更した行のミュータントだけを集計して合否を決める。
+ * 変更行にミュータントが1つも無い（コメント・空行のみの変更など）場合は、検査対象なしとして通す。
+ * @param {unknown} report mutation-testing-elements 形式（`files[path].mutants[]`）
+ * @param {Record<string, number[]>} changedLines
+ * @param {{minScore?: number}} [opts]
+ * @returns {{ok: boolean, score: number | null, total: number, killed: number, survivors: {file: string, line: number, mutator: string}[], reasons: string[]}}
+ */
+export function evaluateMutation(report, changedLines, { minScore = MUTATION_MIN_SCORE } = {}) {
+  const files = report && typeof report === "object" ? /** @type {any} */ (report).files : null;
+  if (!files || typeof files !== "object") {
+    return { ok: false, score: null, total: 0, killed: 0, survivors: [], reasons: ["ミューテーションのレポートを解釈できませんでした（不承認）"] };
+  }
+  let total = 0;
+  let killed = 0;
+  /** @type {{file: string, line: number, mutator: string}[]} */
+  const survivors = [];
+  for (const [file, data] of Object.entries(files)) {
+    const lines = new Set(changedLines[file.replaceAll("\\", "/")] ?? []);
+    for (const m of /** @type {any} */ (data)?.mutants ?? []) {
+      const line = m?.location?.start?.line;
+      if (!lines.has(line)) continue;
+      if (m.status === "Killed" || m.status === "Timeout") {
+        total++;
+        killed++;
+      } else if (m.status === "Survived" || m.status === "NoCoverage") {
+        total++;
+        survivors.push({ file, line, mutator: String(m.mutatorName ?? "") });
+      }
+    }
+  }
+  if (total === 0) return { ok: true, score: null, total, killed, survivors, reasons: ["変更行にミュータントがありません（検査対象なし）"] };
+  const score = Math.round((killed / total) * 1000) / 10;
+  if (score < minScore) {
+    const list = survivors.slice(0, 10).map((s) => `${s.file}:${s.line}（${s.mutator}）`).join(", ");
+    return { ok: false, score, total, killed, survivors, reasons: [`変更行のミューテーションスコアが基準未満: ${score}% < ${minScore}%（${killed}/${total}）。生き残ったミュータントの例: ${list}`] };
+  }
+  return { ok: true, score, total, killed, survivors, reasons: [`変更行のミューテーションスコア: ${score}%（${killed}/${total}。基準 ${minScore}%）`] };
+}
