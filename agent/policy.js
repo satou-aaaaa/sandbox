@@ -1032,15 +1032,34 @@ export function shouldTripBreaker(revertCreatedAts, now) {
 }
 
 /**
- * mainのCIが失敗したとき、どう対応するか（一時的な失敗の誤検知で取り消さないため、まず1回再実行する）。
- * @param {{status: string, conclusion: string, attempt: number, isHead: boolean, prHeadRef: string | null, alreadyReverted: boolean}} p
- * @returns {"skip"|"rerun"|"revert"}
+ * 外部要因（コードの変更と無関係）で失敗するCIのステップ名。新規公開の脆弱性勧告・レジストリの応答不良など。
+ * 失敗したステップがこれだけなら、直前のPRを取り消しても直らないため、取り消さない。
  */
-export function decideMainFailure({ status, conclusion, attempt, isHead, prHeadRef, alreadyReverted }) {
+export const EXTERNAL_FAILURE_STEP_PATTERNS = [/npm audit/i, /パッケージ署名/];
+
+/**
+ * 失敗したステップ名が、すべて外部要因のものか。ステップ名を取得できなかった（空）場合は、
+ * 外部要因と決めつけず false とする（従来どおりの扱い）。
+ * @param {string[]} failedSteps
+ * @returns {boolean}
+ */
+export function isExternalFailure(failedSteps) {
+  if (failedSteps.length === 0) return false;
+  return failedSteps.every((name) => EXTERNAL_FAILURE_STEP_PATTERNS.some((re) => re.test(name)));
+}
+
+/**
+ * mainのCIが失敗したとき、どう対応するか（一時的な失敗の誤検知で取り消さないため、まず1回再実行する）。
+ * 失敗が外部要因のみ（isExternal）なら、再実行も取り消しもせず "external"（障害の記録に回す）とする。
+ * @param {{status: string, conclusion: string, attempt: number, isHead: boolean, prHeadRef: string | null, alreadyReverted: boolean, isExternal?: boolean}} p
+ * @returns {"skip"|"rerun"|"revert"|"external"}
+ */
+export function decideMainFailure({ status, conclusion, attempt, isHead, prHeadRef, alreadyReverted, isExternal = false }) {
   if (status !== "completed" || conclusion !== "failure") return "skip";
   if (!isHead) return "skip"; // 既に後続のコミットで状況が変わっている
   if (alreadyReverted) return "skip";
   if (issueNumberFromBranch(prHeadRef ?? "") === null) return "skip"; // 人が作ったPRは自動で取り消さない
+  if (isExternal) return "external";
   return attempt <= 1 ? "rerun" : "revert";
 }
 

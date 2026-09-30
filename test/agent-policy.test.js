@@ -20,6 +20,7 @@ import {
   summarizeChecks,
   buildLessons,
   decideMainFailure,
+  isExternalFailure,
   decideRetry,
   issueNumberFromBranch,
   retryCount,
@@ -646,6 +647,22 @@ test("decideMainFailure: 成功・実行中・後続のコミットがある・�
   assert.equal(decideMainFailure({ ...base, alreadyReverted: true }), "skip");
   assert.equal(decideMainFailure({ ...base, prHeadRef: "feat/human-work" }), "skip");
   assert.equal(decideMainFailure({ ...base, prHeadRef: null }), "skip");
+});
+
+test("isExternalFailure: npm audit・署名検証だけの失敗は外部要因。テスト等が混ざる・不明は外部要因としない", () => {
+  assert.equal(isExternalFailure(["npm audit（高深刻度以上）"]), true);
+  assert.equal(isExternalFailure(["npm audit（高深刻度以上）", "npmパッケージ署名の検証"]), true);
+  assert.equal(isExternalFailure(["npm audit（高深刻度以上）", "npm test"]), false);
+  assert.equal(isExternalFailure(["E2Eテスト"]), false);
+  assert.equal(isExternalFailure([]), false);
+});
+
+test("decideMainFailure: 外部要因のみの失敗は、再実行も取り消しもせず external。人のPRは skip", () => {
+  const base = { status: "completed", conclusion: "failure", attempt: 2, isHead: true, prHeadRef: "agent/issue-5", alreadyReverted: false };
+  assert.equal(decideMainFailure({ ...base, isExternal: true }), "external");
+  assert.equal(decideMainFailure({ ...base, attempt: 1, isExternal: true }), "external");
+  assert.equal(decideMainFailure({ ...base, isExternal: false }), "revert");
+  assert.equal(decideMainFailure({ ...base, isExternal: true, prHeadRef: "feat/human-work" }), "skip");
 });
 
 test("buildLessons: 目印付きで所有者が書いたコメントだけを、直近3件まで含める", () => {
