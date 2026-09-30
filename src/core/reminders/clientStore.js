@@ -13,10 +13,17 @@
  * を参照）。旧形式（1クライアント＝1許可。トップレベルに `grantDateIso` を持つ）
  * の `data/clients.json` は `loadClients()` が読み込み時にその場で新形式へ
  * 変換する（lazy migration。専用の移行スクリプトは用意しない）。
+ *
+ * 【世代バックアップ（Issue #183・ADR-0020）】`withFileLock` で保護された
+ * 書き込み系関数（`upsertClient`・`upsertClientLicense`・`importClients`・
+ * `removeClient`）は、実際に書き戻す直前に `./backup.js` の
+ * `backupBeforeWrite` を呼び、書き換え前の内容を `data/backup/` 配下へ
+ * 世代バックアップする。
  */
 import fs from "node:fs/promises";
 import path from "node:path";
 import { withFileLock } from "./fileLock.js";
+import { backupBeforeWrite } from "./backup.js";
 
 export const DEFAULT_CLIENTS_PATH = "data/clients.json";
 
@@ -123,6 +130,7 @@ export async function upsertClient(record, filePath = DEFAULT_CLIENTS_PATH) {
     } else {
       clients.push(record);
     }
+    await backupBeforeWrite(filePath);
     await saveClients(clients, filePath);
     return clients;
   });
@@ -193,6 +201,7 @@ export async function importClients(records, filePath = DEFAULT_CLIENTS_PATH) {
       updated++;
     }
 
+    await backupBeforeWrite(filePath);
     await saveClients(clients, filePath);
     return { added, updated };
   });
@@ -242,6 +251,7 @@ export async function upsertClientLicense(clientName, license, companyInfo = {},
       clients.push(newClient);
     }
 
+    await backupBeforeWrite(filePath);
     await saveClients(clients, filePath);
     return clients;
   });
@@ -258,6 +268,7 @@ export async function removeClient(clientName, filePath = DEFAULT_CLIENTS_PATH) 
   return withFileLock(filePath, async () => {
     const clients = await loadClients(filePath);
     const filtered = clients.filter((c) => c.clientName !== clientName);
+    await backupBeforeWrite(filePath);
     await saveClients(filtered, filePath);
     return filtered;
   });

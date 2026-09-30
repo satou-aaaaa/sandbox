@@ -91,7 +91,9 @@
     "reminders:daily": "node scripts/reminders-daily.js",
     "gen:review-pack": "node scripts/generate-review-pack-sample.js",
     "law-watch": "node scripts/law-watch.mjs",
-    "mutation:summary": "node scripts/mutation-summary.mjs"
+    "mutation:summary": "node scripts/mutation-summary.mjs",
+    "data:backup": "node scripts/data-backup.js",
+    "data:restore": "node scripts/data-restore.js"
   },
   "dependencies": {
     "docx": "^9.7.2"

@@ -4,7 +4,17 @@ import os from "node:os";
 import path from "node:path";
 import fs from "node:fs/promises";
 
-import { loadDrafts, saveDrafts, upsertDraft, getDraft, removeDraft, getDraftLicenseCategory } from "../src/web/draftStore.js";
+import {
+  loadDrafts,
+  saveDrafts,
+  upsertDraft,
+  getDraft,
+  removeDraft,
+  getDraftLicenseCategory,
+  isDraftStale,
+  DRAFT_STALE_THRESHOLD_DAYS,
+} from "../src/web/draftStore.js";
+import { listBackups } from "../src/core/reminders/backup.js";
 
 /** テスト用に一時ファイルパスを発行する。 */
 async function tempDraftsPath() {
@@ -118,4 +128,47 @@ test("removeDraft: 指定idの下書きのみ削除する", async () => {
   } finally {
     await fs.rm(dir, { recursive: true, force: true });
   }
+});
+
+test("upsertDraft: 2回目以降の保存で、書き換え前の状態がbackup/配下へ世代バックアップされる（Issue #183）", async () => {
+  const { filePath, dir } = await tempDraftsPath();
+  try {
+    const first = await upsertDraft({ applicantName: "テスト建設" }, undefined, undefined, filePath);
+    assert.deepEqual(await listBackups(filePath), [], "1回目は元ファイルが無いためバックアップ無し");
+
+    await upsertDraft({ applicantName: "更新後" }, undefined, first.id, filePath);
+    const backups = await listBackups(filePath);
+    assert.equal(backups.length, 1);
+    const backedUp = JSON.parse(await fs.readFile(backups[0].path, "utf8"));
+    assert.equal(backedUp[0].profile.applicantName, "テスト建設", "更新前の内容が退避されているはず");
+  } finally {
+    await fs.rm(dir, { recursive: true, force: true });
+  }
+});
+
+test("DRAFT_STALE_THRESHOLD_DAYS: 既定は30日", () => {
+  assert.equal(DRAFT_STALE_THRESHOLD_DAYS, 30);
+});
+
+test("isDraftStale: 閾値以内の下書きは古いと判定しない", () => {
+  const now = new Date("2026-09-30T00:00:00.000Z");
+  const draft = { id: "a", savedAt: "2026-09-05T00:00:00.000Z", profile: {} }; // 25日前
+  assert.equal(isDraftStale(draft, 30, now), false);
+});
+
+test("isDraftStale: 閾値を超えた下書きは古いと判定する", () => {
+  const now = new Date("2026-09-30T00:00:00.000Z");
+  const draft = { id: "a", savedAt: "2026-08-01T00:00:00.000Z", profile: {} }; // 60日前
+  assert.equal(isDraftStale(draft, 30, now), true);
+});
+
+test("isDraftStale: ちょうど閾値日数の場合は古いと判定しない（超えた場合のみ警告）", () => {
+  const now = new Date("2026-09-30T00:00:00.000Z");
+  const draft = { id: "a", savedAt: "2026-08-31T00:00:00.000Z", profile: {} }; // ちょうど30日前
+  assert.equal(isDraftStale(draft, 30, now), false);
+});
+
+test("isDraftStale: savedAtが不正な値の場合は古いと判定しない（表示エラーにしない）", () => {
+  const draft = { id: "a", savedAt: "不正な日付", profile: {} };
+  assert.equal(isDraftStale(draft), false);
 });

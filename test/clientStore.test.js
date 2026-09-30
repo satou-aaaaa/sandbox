@@ -12,6 +12,7 @@ import {
   importClients,
   removeClient,
 } from "../src/core/reminders/clientStore.js";
+import { listBackups, defaultBackupDir } from "../src/core/reminders/backup.js";
 
 /** テスト用に一時ファイルパスを発行する。 */
 async function tempClientsPath() {
@@ -457,6 +458,51 @@ test("importClients: 同時に複数回呼んでも更新が失われない（wi
     );
     const clients = await loadClients(filePath);
     assert.equal(clients.length, 8);
+  } finally {
+    await fs.rm(dir, { recursive: true, force: true });
+  }
+});
+
+test("upsertClient: 既存ファイルがある場合、書き換え前にbackup/配下へ世代バックアップを作成する（Issue #183）", async () => {
+  const { filePath, dir } = await tempClientsPath();
+  try {
+    await upsertClient({ clientName: "A社", licenses: [{ licenseId: "既定", grantDateIso: "2024-01-01" }] }, filePath);
+    // 1回目は元ファイルが存在しないため、バックアップは作られないはず
+    assert.deepEqual(await listBackups(filePath), []);
+
+    await upsertClient({ clientName: "B社", licenses: [{ licenseId: "既定", grantDateIso: "2024-01-01" }] }, filePath);
+    // 2回目は「A社のみ」の状態がバックアップされるはず
+    const backups = await listBackups(filePath);
+    assert.equal(backups.length, 1);
+    assert.equal(path.dirname(backups[0].path), defaultBackupDir(filePath));
+    const backedUp = JSON.parse(await fs.readFile(backups[0].path, "utf8"));
+    assert.deepEqual(
+      backedUp.map((c) => c.clientName),
+      ["A社"]
+    );
+  } finally {
+    await fs.rm(dir, { recursive: true, force: true });
+  }
+});
+
+test("removeClient: 削除前の状態がbackup/配下へバックアップされる（Issue #183）", async () => {
+  const { filePath, dir } = await tempClientsPath();
+  try {
+    await upsertClient({ clientName: "削除予定社", licenses: [{ licenseId: "既定", grantDateIso: "2024-01-01" }] }, filePath);
+    await removeClient("削除予定社", filePath);
+
+    const backups = await listBackups(filePath);
+    assert.equal(backups.length, 1);
+    const backedUp = JSON.parse(await fs.readFile(backups[0].path, "utf8"));
+    assert.deepEqual(
+      backedUp.map((c) => c.clientName),
+      ["削除予定社"],
+      "削除前の内容が残っているはず"
+    );
+
+    // 本体データからは削除されている（自動削除の対象は常にbackup/側のみで、
+    // clients.json自体を勝手に削除する機能は無い）
+    assert.deepEqual(await loadClients(filePath), []);
   } finally {
     await fs.rm(dir, { recursive: true, force: true });
   }

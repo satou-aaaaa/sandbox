@@ -27,6 +27,7 @@ import path from "node:path";
 import fs from "node:fs/promises";
 import { loadClients, upsertClient, upsertClientLicense, removeClient } from "../src/core/reminders/clientStore.js";
 import { loadDrafts, upsertDraft } from "../src/web/draftStore.js";
+import { listBackups, DEFAULT_GENERATIONS } from "../src/core/reminders/backup.js";
 
 /** @returns {Promise<{ filePath: string, dir: string }>} */
 async function tempPath(prefix) {
@@ -85,6 +86,37 @@ test("カオス: 登録と削除がほぼ同時に発生しても、最終的な
     // （クラッシュしない・重複しない・意図しない値に化けない）。
     assert.ok(names.includes("残存社"));
     assert.equal(new Set(names).size, names.length, "重複したクライアントが生じていないこと");
+  } finally {
+    await fs.rm(dir, { recursive: true, force: true });
+  }
+});
+
+test("カオス: 同一クライアントへの許可追加を10件同時に呼んでも、世代バックアップが破損・重複ファイルを残さず直近N世代以内に収まる（Issue #183）", async () => {
+  const { filePath, dir } = await tempPath("race-upsert-license-backup");
+  try {
+    // バックアップは「元ファイルが既に存在する」場合のみ作られるため、
+    // あらかじめ1件目を確定させておく（0件目は空ファイルからのバックアップは無い）。
+    await upsertClientLicense("並行バックアップテスト建設", { licenseId: "許可0", grantDateIso: "2024-01-01" }, {}, filePath);
+
+    const calls = Array.from({ length: 10 }, (_, i) =>
+      upsertClientLicense("並行バックアップテスト建設", { licenseId: `許可${i + 1}`, grantDateIso: "2024-01-01" }, {}, filePath)
+    );
+    await Promise.all(calls);
+
+    // 本体データは競合で失われていないこと（既存のカオステストと同じ観点）
+    const clients = await loadClients(filePath);
+    assert.equal(clients.length, 1);
+    assert.equal(clients[0].licenses.length, 11);
+
+    // バックアップは直近N世代を超えず、すべて読み込み可能なJSONであること
+    // （同時書き込み下でタイムスタンプ+ランダムサフィックスのファイル名が
+    // 衝突し、破損・欠落したバックアップが残らないことの確認）
+    const backups = await listBackups(filePath);
+    assert.ok(backups.length <= DEFAULT_GENERATIONS, `世代数が上限(${DEFAULT_GENERATIONS})を超えていない`);
+    for (const b of backups) {
+      const content = JSON.parse(await fs.readFile(b.path, "utf8"));
+      assert.ok(Array.isArray(content), `${b.path} が壊れたJSONになっていない`);
+    }
   } finally {
     await fs.rm(dir, { recursive: true, force: true });
   }
