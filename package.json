@@ -85,7 +85,9 @@
     "incorporation:reminders": "node scripts/incorporation-reminders.js",
     "succession:case-add": "node scripts/succession-case-add.js",
     "succession:reminders": "node scripts/succession-reminders.js",
-    "web": "node src/web/server.js"
+    "web": "node src/web/server.js",
+    "changelog:draft": "node scripts/changelog-draft.mjs",
+    "scaffold:module": "node scripts/scaffold-module.mjs"
   },
   "dependencies": {
     "docx": "^9.7.2"

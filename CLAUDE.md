@@ -139,8 +139,15 @@ npm run test:bdd            # Cucumber.js（Gherkin/BDD。features/。ADR-0016�
 npm run test:load           # autocannon（同時アクセス下でのエラー・タイムアウト有無を確認）
 npm run typecheck           # tsc --noEmit（JSDoc型チェック）
 npm run lint                # ESLint（eslint-plugin-securityによる静的セキュリティ解析を含む）
+npm run scaffold:module -- <名前> "<和名>"   # 新しい許可種別アドオンの雛形（判定ロジックは作らない）
+npm run changelog:draft     # CHANGELOG用の下書きをgit履歴から標準出力へ（人が編集して取り込む）
 ```
 
+- **設計前提の機械検査**: `test/invariants.test.js`（ビルドレス・外部送信なし・127.0.0.1待受・DB無し・
+  `data/`未コミット・判定ロジック冒頭の法令根拠URL）と `test/docsConsistency.test.js`（モジュールと設計書の対応・
+  CLAUDE.mdの構成・ADR索引）が `npm test` で走る。法令根拠URLの未記載が既存に28ファイルあり、
+  `test/fixtures/legal-basis-baseline.json` の基準線で許容している（**増やさない**。URLを足したら行を消す。ADR-0018）。
+  新モジュールは `npm run scaffold:module` で作ると、`docs/`・`MODULE_DOCS`・CLAUDE.md の更新漏れも検知できる。
 - テストは `test/` に1モジュール1ファイル対応で配置し、`node --test` で実行する
   （Jest/Vitest等の外部フレームワークは導入しない）。**例外**: Gherkin/BDDに
   限定してCucumber.jsを導入している（`features/`。発注者の明示的な依頼に
