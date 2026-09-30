@@ -50,4 +50,25 @@ export default [
       "security/detect-non-literal-fs-filename": "off",
     },
   },
+  {
+    // test/ 限定の緩和（issue #182）。対象は detect-object-injection と
+    // detect-non-literal-regexp の2ルールのみ（全面的な無効化はしない）。
+    //
+    // - detect-object-injection: テストのモック（`test/agent-ghrest.test.js` の
+    //   `routes[key]` 等）・固定フィクスチャのキー列挙（`docsConsistency.test.js`
+    //   の `MODULE_DOCS[m]`、`reminderDigest.test.js` の `buckets[key]`
+    //   〈REMINDER_RANGES由来の固定集合〉、`documents.test.js` の
+    //   `cost[missingField]`〈4項目固定のオブジェクト〉等）が原因で、
+    //   いずれも外部入力ではなくテストコード自身が組み立てたデータへの
+    //   アクセスであり、実害のある対象ではない。
+    // - detect-non-literal-regexp: `new RegExp(profile.applicantName)` 等、
+    //   ダミーのサンプルデータ（`buildSample*Profile()`）や `crypto.randomUUID()`
+    //   の結果をアサーションの正規表現に埋め込んでいるだけで、外部入力・
+    //   攻撃者が制御できる文字列ではない。
+    files: ["test/**/*.js"],
+    rules: {
+      "security/detect-object-injection": "off",
+      "security/detect-non-literal-regexp": "off",
+    },
+  },
 ];

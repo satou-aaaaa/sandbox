@@ -73,7 +73,7 @@ export async function upsertCase(record, filePath = DEFAULT_CASES_PATH) {
     const cases = await loadCases(filePath);
     const index = cases.findIndex((c) => c.caseId === record.caseId);
     if (index >= 0) {
-      cases[index] = record;
+      cases.splice(index, 1, record);
     } else {
       cases.push(record);
     }

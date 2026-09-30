@@ -17,8 +17,8 @@ const [, , partnerId, partnerName, ...rest] = process.argv;
 /** @type {Record<string, string>} */
 const options = {};
 for (let i = 0; i < rest.length; i += 2) {
-  const key = rest[i];
-  const value = rest[i + 1];
+  const key = rest.at(i);
+  const value = rest.at(i + 1);
   if (!key || !key.startsWith("--") || value === undefined) {
     console.error(USAGE);
     process.exit(1);

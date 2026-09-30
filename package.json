@@ -11,7 +11,7 @@
   "description": "建設業許可の申請・更新業務を自動化するためのツールキット（要件判定エンジン／書類自動生成／更新リマインド）",
   "scripts": {
     "test": "node --test",
-    "test:coverage": "node --experimental-test-coverage --test",
+    "test:coverage": "node --experimental-test-coverage --test-coverage-lines=99 --test-coverage-branches=95 --test",
     "test:coverage:html": "c8 -r html -r text-summary node --test",
     "test:mutation": "stryker run",
     "test:a11y": "node --test test/accessibility.test.js",
@@ -19,7 +19,7 @@
     "test:bdd": "cucumber-js",
     "test:load": "node load/web-server.load.js",
     "typecheck": "tsc --noEmit",
-    "lint": "eslint .",
+    "lint": "eslint . --max-warnings 0",
     "check-secrets": "node hooks/check-secrets.mjs --all",
     "gen:eligibility": "node scripts/generate-eligibility-sample.js",
     "gen:youshiki1": "node scripts/generate-youshiki1-sample.js",

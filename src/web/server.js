@@ -315,6 +315,9 @@ export function createServer({
         const alerts = buildReminderDigest(clients);
         const buckets = bucketizeAlerts(alerts);
         const activeRange = requestedRange && Object.hasOwn(buckets, requestedRange) ? requestedRange : null;
+        // activeRange は直前の Object.hasOwn(buckets, requestedRange) で buckets 自身の
+        // 既存キー（REMINDER_RANGES由来の固定集合）であることを確認済みのため安全。
+        // eslint-disable-next-line security/detect-object-injection
         const displayedAlerts = activeRange ? buckets[activeRange] : alerts;
         const report = formatReminderDigest(displayedAlerts);
         respondHtml(

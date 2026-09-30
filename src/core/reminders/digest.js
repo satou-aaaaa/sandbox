@@ -175,8 +175,7 @@ export const REMINDER_RANGES = [
  */
 export function bucketizeAlerts(alerts) {
   /** @type {Record<string, ReminderAlert[]>} */
-  const buckets = {};
-  for (const { key } of REMINDER_RANGES) buckets[key] = [];
+  const buckets = Object.fromEntries(REMINDER_RANGES.map(({ key }) => [key, []]));
 
   for (const alert of alerts) {
     if (alert.isOverdue) {

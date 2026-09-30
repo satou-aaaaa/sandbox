@@ -126,7 +126,7 @@ export async function upsertClient(record, filePath = DEFAULT_CLIENTS_PATH) {
     const clients = await loadClients(filePath);
     const index = clients.findIndex((c) => c.clientName === record.clientName);
     if (index >= 0) {
-      clients[index] = record;
+      clients.splice(index, 1, record);
     } else {
       clients.push(record);
     }
@@ -187,17 +187,20 @@ export async function importClients(records, filePath = DEFAULT_CLIENTS_PATH) {
         continue;
       }
 
-      const existing = clients[index];
+      // index >= 0 はfindIndexで確認済みのため、要素は必ず存在する。
+      const existing = /** @type {import('./digest.js').ClientRecord} */ (clients.at(index));
       const licenses = [...existing.licenses];
       for (const license of incoming.licenses) {
         const licenseIndex = licenses.findIndex((l) => l.licenseId === license.licenseId);
         if (licenseIndex >= 0) {
-          licenses[licenseIndex] = mergeLicense(licenses[licenseIndex], license);
+          // licenseIndex >= 0 はfindIndexで確認済みのため、要素は必ず存在する。
+          const currentLicense = /** @type {import('./digest.js').LicenseEntry} */ (licenses.at(licenseIndex));
+          licenses.splice(licenseIndex, 1, mergeLicense(currentLicense, license));
         } else {
           licenses.push(license);
         }
       }
-      clients[index] = { ...existing, ...incoming, licenses };
+      clients.splice(index, 1, { ...existing, ...incoming, licenses });
       updated++;
     }
 
@@ -233,13 +236,14 @@ export async function upsertClientLicense(clientName, license, companyInfo = {},
     const index = clients.findIndex((c) => c.clientName === clientName);
 
     if (index >= 0) {
-      const client = clients[index];
+      // index >= 0 はfindIndexで確認済みのため、要素は必ず存在する。
+      const client = /** @type {import('./digest.js').ClientRecord} */ (clients.at(index));
       if (companyInfo.fiscalYearEndIso !== undefined) client.fiscalYearEndIso = companyInfo.fiscalYearEndIso;
       if (companyInfo.contactEmail !== undefined) client.contactEmail = companyInfo.contactEmail;
 
       const licenseIndex = client.licenses.findIndex((l) => l.licenseId === license.licenseId);
       if (licenseIndex >= 0) {
-        client.licenses[licenseIndex] = license;
+        client.licenses.splice(licenseIndex, 1, license);
       } else {
         client.licenses.push(license);
       }

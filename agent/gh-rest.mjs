@@ -49,10 +49,13 @@ export function parseArgs(argv, valueOpts) {
   const opts = Object.create(null);
   const flags = new Set();
   for (let i = 0; i < argv.length; i++) {
-    const a = argv[i];
+    const a = argv.at(i);
     if (a.startsWith("--")) {
       if (valueOpts.includes(a)) {
-        (opts[a] ??= []).push(String(argv[++i] ?? ""));
+        // a は直前の valueOpts.includes(a) で許可リスト（値を取るオプション名の固定一覧）と
+        // 照合済みであり、任意の外部入力がそのままキーになることはない。
+        // eslint-disable-next-line security/detect-object-injection
+        (opts[a] ??= []).push(String(argv.at(++i) ?? ""));
       } else {
         flags.add(a);
       }
@@ -63,6 +66,9 @@ export function parseArgs(argv, valueOpts) {
   return { positional, opts, flags };
 }
 
+// k はこのファイル内の呼び出し元がすべてリテラルで渡すCLIオプション名（"--repo" 等）であり、
+// 外部入力（Issue本文等）が直接キーになることはない。
+// eslint-disable-next-line security/detect-object-injection
 const first = (opts, k) => (opts[k] && opts[k].length > 0 ? opts[k][0] : undefined);
 const upper = (s) => (typeof s === "string" ? s.toUpperCase() : "");
 
@@ -78,16 +84,17 @@ function numberOf(token) {
 function simpleJq(value, expr) {
   if (!expr.startsWith(".")) throw new Error(`未対応のjq式: ${expr}`);
   let v = value;
-  for (const key of expr.slice(1).split(".").filter(Boolean)) v = v?.[key];
+  // key は `--jq` に渡された式（agent/ 内部の呼び出し元がすべてリテラルで指定する）の
+  // ドット区切りのフィールド名であり、外部入力が直接キーになることはない。
+  for (const key of expr.slice(1).split(".").filter(Boolean)) v = v?.[key]; // eslint-disable-line security/detect-object-injection
   return typeof v === "string" ? v : JSON.stringify(v);
 }
 
 /** `--json a,b` に従って、必要なフィールドだけを残す。 */
 function project(obj, jsonOpt) {
   if (!jsonOpt) return obj;
-  const out = {};
-  for (const k of jsonOpt.split(",").map((s) => s.trim()).filter(Boolean)) out[k] = obj[k];
-  return out;
+  const keys = jsonOpt.split(",").map((s) => s.trim()).filter(Boolean);
+  return Object.fromEntries(Object.entries(obj).filter(([k]) => keys.includes(k)));
 }
 
 /** 出力を `--json` / `--jq` の指定どおりに整形する。 */

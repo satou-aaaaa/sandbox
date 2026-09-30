@@ -52,7 +52,7 @@ const CSV_FORMULA_TRIGGER_RE = /^[=+\-@\t\r]/;
  */
 function countLeadingQuotes(str) {
   let i = 0;
-  while (str[i] === "'") i++;
+  while (str.at(i) === "'") i++;
   return i;
 }
 
@@ -82,7 +82,7 @@ function escapeCsvField(value) {
  */
 function unescapeCsvFormulaGuard(value) {
   const k = countLeadingQuotes(value);
-  const afterQuotes = value[k] ?? "";
+  const afterQuotes = value.at(k) ?? "";
   if (k > 0 && CSV_FORMULA_TRIGGER_RE.test(afterQuotes)) {
     return value.slice(1);
   }
@@ -98,17 +98,18 @@ export function clientsToCsv(clients) {
   const lines = [COLUMNS.join(",")];
   for (const client of clients) {
     for (const license of client.licenses) {
-      /** @type {Record<string, unknown>} */
-      const row = {
-        clientName: client.clientName,
-        licenseId: license.licenseId,
-        licenseCategory: license.licenseCategory,
-        licenseType: license.licenseType,
-        grantDateIso: license.grantDateIso,
-        fiscalYearEndIso: client.fiscalYearEndIso,
-        contactEmail: client.contactEmail,
-      };
-      lines.push(COLUMNS.map((key) => escapeCsvField(row[key])).join(","));
+      // COLUMNS（固定の列名一覧）でしか引かないMapにすることで、任意キーでの
+      // オブジェクトアクセスを避ける。
+      const row = new Map([
+        ["clientName", client.clientName],
+        ["licenseId", license.licenseId],
+        ["licenseCategory", license.licenseCategory],
+        ["licenseType", license.licenseType],
+        ["grantDateIso", license.grantDateIso],
+        ["fiscalYearEndIso", client.fiscalYearEndIso],
+        ["contactEmail", client.contactEmail],
+      ]);
+      lines.push(COLUMNS.map((key) => escapeCsvField(row.get(key))).join(","));
     }
   }
   return lines.join("\r\n") + "\r\n";
@@ -128,11 +129,11 @@ function parseCsvRows(text) {
   let inQuotes = false;
 
   for (let i = 0; i < text.length; i++) {
-    const char = text[i];
+    const char = text.at(i);
 
     if (inQuotes) {
       if (char === '"') {
-        if (text[i + 1] === '"') {
+        if (text.at(i + 1) === '"') {
           field += '"';
           i++;
         } else {
@@ -204,7 +205,12 @@ export function clientsFromCsv(text) {
     /** @type {Record<string, string>} */
     const record = {};
     header.forEach((key, index) => {
-      const value = row[index];
+      const value = row.at(index);
+      // key はCSVのヘッダー行の列名（インポートするファイルの内容次第で任意の
+      // 文字列になりうる）。value は常に文字列（unescapeCsvFormulaGuardの戻り値）
+      // なので、仮に key が "__proto__" でも代入は無視され、オブジェクトの
+      // プロトタイプ汚染にはならない。
+      // eslint-disable-next-line security/detect-object-injection
       if (value) record[key] = unescapeCsvFormulaGuard(value);
     });
     if (!record.clientName) continue;

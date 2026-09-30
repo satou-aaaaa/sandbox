@@ -76,7 +76,7 @@ export async function upsertPartner(record, filePath = DEFAULT_PARTNERS_PATH) {
     const partners = await loadPartners(filePath);
     const index = partners.findIndex((p) => p.partnerId === record.partnerId);
     if (index >= 0) {
-      partners[index] = record;
+      partners.splice(index, 1, record);
     } else {
       partners.push(record);
     }
@@ -114,7 +114,7 @@ export async function upsertCase(record, filePath = DEFAULT_CASES_PATH) {
     const cases = await loadCases(filePath);
     const index = cases.findIndex((c) => c.caseId === record.caseId);
     if (index >= 0) {
-      cases[index] = record;
+      cases.splice(index, 1, record);
     } else {
       cases.push(record);
     }

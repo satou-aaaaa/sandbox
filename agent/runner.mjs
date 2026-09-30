@@ -158,10 +158,12 @@ export function runMutationTests(workDir, files, timeoutMs) {
     });
     const raw = JSON.parse(readFileSync(join(workDir, "reports", "mutation", "mutation.json"), "utf8"));
     /** @type {Record<string, {mutants: {status: string, mutatorName: string, location: {start: {line: number}}}[]}>} */
-    const slim = {};
-    for (const [f, d] of Object.entries(raw.files ?? {})) {
-      slim[f] = { mutants: (d.mutants ?? []).map((m) => ({ status: m.status, mutatorName: m.mutatorName, location: { start: { line: m.location?.start?.line } } })) };
-    }
+    const slim = Object.fromEntries(
+      Object.entries(raw.files ?? {}).map(([f, d]) => [
+        f,
+        { mutants: (d.mutants ?? []).map((m) => ({ status: m.status, mutatorName: m.mutatorName, location: { start: { line: m.location?.start?.line } } })) },
+      ]),
+    );
     return { ok: true, report: { files: slim } };
   } catch (err) {
     const e = /** @type {any} */ (err);

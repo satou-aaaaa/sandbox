@@ -141,7 +141,7 @@ export function buildHeaderedTable(headers, rows, options = {}) {
     children: headers.map(
       (text, i) =>
         new TableCell({
-          width: { size: widths[i], type: WidthType.DXA },
+          width: { size: /** @type {number} */ (widths.at(i)), type: WidthType.DXA },
           shading: { type: ShadingType.CLEAR, color: "auto", fill: "D9D9D9" },
           margins: { top: 80, bottom: 80, left: 100, right: 100 },
           children: [new Paragraph({ children: [new TextRun({ text, font: FONT, size: 18, bold: true })] })],
@@ -155,7 +155,7 @@ export function buildHeaderedTable(headers, rows, options = {}) {
         children: row.map(
           (text, i) =>
             new TableCell({
-              width: { size: widths[i], type: WidthType.DXA },
+              width: { size: /** @type {number} */ (widths.at(i)), type: WidthType.DXA },
               margins: { top: 60, bottom: 60, left: 100, right: 100 },
               children: [new Paragraph({ children: [new TextRun({ text, font: FONT, size: 18 })] })],
             })

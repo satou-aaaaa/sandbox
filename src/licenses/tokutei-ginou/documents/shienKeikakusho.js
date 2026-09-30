@@ -45,7 +45,7 @@ export function resolveShienKeikakushoRows(shienTaisei) {
  * @returns {string[]}
  */
 export function resolveMandatorySupportStatus(shienTaisei) {
-  return MANDATORY_SUPPORT_LABELS.map((label, i) => `${shienTaisei.mandatorySupportItemsCovered[i] ? "○" : "×"} ${label}`);
+  return MANDATORY_SUPPORT_LABELS.map((label, i) => `${shienTaisei.mandatorySupportItemsCovered.at(i) ? "○" : "×"} ${label}`);
 }
 
 /**

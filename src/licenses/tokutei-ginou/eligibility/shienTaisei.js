@@ -73,7 +73,7 @@ export function checkShienTaisei(input) {
   const uncoveredCount = input.mandatorySupportItemsCovered.filter((covered) => !covered).length;
   if (uncoveredCount > 0) {
     input.mandatorySupportItemsCovered.forEach((covered, i) => {
-      if (!covered) warnings.push(`義務的支援10項目のうち「${MANDATORY_SUPPORT_LABELS[i]}」が計画に含まれていません`);
+      if (!covered) warnings.push(`義務的支援10項目のうち「${MANDATORY_SUPPORT_LABELS.at(i)}」が計画に含まれていません`);
     });
   }
 

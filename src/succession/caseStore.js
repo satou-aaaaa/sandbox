@@ -88,7 +88,7 @@ export async function upsertCase(record, filePath = DEFAULT_SUCCESSION_CASES_PAT
     };
     const index = cases.findIndex((c) => c.caseId === record.caseId);
     if (index >= 0) {
-      cases[index] = recalculated;
+      cases.splice(index, 1, recalculated);
     } else {
       cases.push(recalculated);
     }

@@ -131,7 +131,7 @@ export async function upsertDraft(profile, licenseCategory, id, filePath = DEFAU
 
     const index = drafts.findIndex((d) => d.id === draftId);
     if (index >= 0) {
-      drafts[index] = record;
+      drafts.splice(index, 1, record);
     } else {
       drafts.push(record);
     }
