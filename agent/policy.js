@@ -371,13 +371,17 @@ export function buildRetryPrompt(scriptName, output) {
 /** 隔離イメージ名（agent/Dockerfile からローカルビルドする）。 */
 export const DOCKER_IMAGE = "kkt-agent:local";
 
+/** 外向き通信を一切必要としないフェーズ。コンテナのネットワークを遮断する。 */
+export const OFFLINE_PHASES = ["verify", "mutation"];
+
 /**
  * `docker run` の引数を組み立てる（純粋関数。テストで安全設定の欠落を検出する）。
  * - 作業ツリー（/workspace）と監査ログ（/logs）と依頼文（/task, 読み取り専用）のみマウント
  * - ルートFS読み取り専用・全capability破棄・no-new-privileges・非root・資源制限
  * - GitHub認証情報・ホストのHOME・SSH鍵は一切渡さない
+ * - 通信が不要なフェーズ（OFFLINE_PHASES）は `--network none`
  * - 認証用の環境変数（authEnv。resolveAuth の passEnv）は agent フェーズにのみ渡す
- * @param {{phase: "install"|"agent"|"verify"|"triage"|"review", workDir: string, logDir: string, taskDir: string, auditName: string, authEnv?: string[], uid?: number, gid?: number, env?: Record<string,string|undefined>}} p
+ * @param {{phase: "install"|"agent"|"verify"|"triage"|"review"|"mutation", workDir: string, logDir: string, taskDir: string, auditName: string, authEnv?: string[], uid?: number, gid?: number, env?: Record<string,string|undefined>}} p
  * @returns {string[]}
  */
 export function buildDockerArgs({ phase, workDir, logDir, taskDir, auditName, authEnv = [], uid = 1000, gid = 1000, env = {} }) {
@@ -391,6 +395,8 @@ export function buildDockerArgs({ phase, workDir, logDir, taskDir, auditName, au
     "--cap-drop", "ALL",
     "--security-opt", "no-new-privileges",
     "--read-only",
+    // 通信が不要なフェーズ（検証・ミューテーション。PRのコードやテストを実行する）は、ネットワークを完全に遮断する（#115）
+    ...(OFFLINE_PHASES.includes(phase) ? ["--network", "none"] : []),
     "--tmpfs", "/tmp:rw,nosuid,size=512m",
     "--tmpfs", `/home/node:rw,nosuid,uid=${uid},gid=${gid},size=1g`,
     "--memory", "4g",
