@@ -4,7 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import fs from "node:fs/promises";
 
-import { loadDrafts, saveDrafts, upsertDraft, getDraft, removeDraft } from "../src/web/draftStore.js";
+import { loadDrafts, saveDrafts, upsertDraft, getDraft, removeDraft, getDraftLicenseCategory } from "../src/web/draftStore.js";
 
 /** テスト用に一時ファイルパスを発行する。 */
 async function tempDraftsPath() {
@@ -35,7 +35,7 @@ test("saveDrafts → loadDrafts の往復でデータが保持される", async 
 test("upsertDraft: idを指定しない場合は新規IDを発行して追加する", async () => {
   const { filePath, dir } = await tempDraftsPath();
   try {
-    const record = await upsertDraft({ applicantName: "テスト建設" }, undefined, filePath);
+    const record = await upsertDraft({ applicantName: "テスト建設" }, undefined, undefined, filePath);
     assert.ok(record.id);
     assert.equal(record.profile.applicantName, "テスト建設");
     const drafts = await loadDrafts(filePath);
@@ -48,8 +48,8 @@ test("upsertDraft: idを指定しない場合は新規IDを発行して追加す
 test("upsertDraft: 既存のidを指定すると上書き更新する（重複追加しない）", async () => {
   const { filePath, dir } = await tempDraftsPath();
   try {
-    const first = await upsertDraft({ applicantName: "テスト建設" }, undefined, filePath);
-    const second = await upsertDraft({ applicantName: "更新後の名前" }, first.id, filePath);
+    const first = await upsertDraft({ applicantName: "テスト建設" }, undefined, undefined, filePath);
+    const second = await upsertDraft({ applicantName: "更新後の名前" }, undefined, first.id, filePath);
     assert.equal(second.id, first.id);
     const drafts = await loadDrafts(filePath);
     assert.equal(drafts.length, 1);
@@ -62,7 +62,7 @@ test("upsertDraft: 既存のidを指定すると上書き更新する（重複�
 test("getDraft: 指定idの下書きを返す。存在しなければundefined", async () => {
   const { filePath, dir } = await tempDraftsPath();
   try {
-    const record = await upsertDraft({ applicantName: "テスト建設" }, undefined, filePath);
+    const record = await upsertDraft({ applicantName: "テスト建設" }, undefined, undefined, filePath);
     assert.equal((await getDraft(record.id, filePath)).profile.applicantName, "テスト建設");
     assert.equal(await getDraft("no-such-id", filePath), undefined);
   } finally {
@@ -91,11 +91,27 @@ test("loadDrafts: 配列でないJSONの場合はエラーを投げる", async (
   }
 });
 
+test("upsertDraft: licenseCategoryを指定すると保存され、getDraftLicenseCategoryで取得できる", async () => {
+  const { filePath, dir } = await tempDraftsPath();
+  try {
+    const record = await upsertDraft({ applicantName: "テスト商店" }, "kobutsu", undefined, filePath);
+    assert.equal(record.licenseCategory, "kobutsu");
+    assert.equal(getDraftLicenseCategory(record), "kobutsu");
+  } finally {
+    await fs.rm(dir, { recursive: true, force: true });
+  }
+});
+
+test("getDraftLicenseCategory: licenseCategory未設定の旧レコードは建設業許可として扱う", () => {
+  const legacyRecord = { id: "abc", savedAt: "2026-09-12T00:00:00.000Z", profile: { applicantName: "テスト建設" } };
+  assert.equal(getDraftLicenseCategory(legacyRecord), "construction");
+});
+
 test("removeDraft: 指定idの下書きのみ削除する", async () => {
   const { filePath, dir } = await tempDraftsPath();
   try {
-    const a = await upsertDraft({ applicantName: "A社" }, undefined, filePath);
-    await upsertDraft({ applicantName: "B社" }, undefined, filePath);
+    const a = await upsertDraft({ applicantName: "A社" }, undefined, undefined, filePath);
+    await upsertDraft({ applicantName: "B社" }, undefined, undefined, filePath);
     const remaining = await removeDraft(a.id, filePath);
     assert.equal(remaining.length, 1);
     assert.equal(remaining[0].profile.applicantName, "B社");

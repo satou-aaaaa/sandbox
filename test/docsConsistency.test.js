@@ -62,6 +62,15 @@ test("CLAUDE.md のディレクトリ構成に、すべてのモジュールが�
   }
 });
 
+test("README.md のモジュール一覧表に、すべてのモジュールの設計書リンクが載っている", () => {
+  const readme = read("README.md");
+  for (const m of [...licenseModules, ...domainModules]) {
+    const name = MODULE_DOCS[m];
+    const designDoc = name === null ? "docs/DESIGN.md" : `docs/DESIGN_${name}.md`;
+    assert.ok(readme.includes(designDoc), `README.md のモジュール一覧表に ${designDoc} へのリンクが無い（新モジュール追加時はREADME.mdの表も更新すること）`);
+  }
+});
+
 test("ADRファイルがすべて docs/adr/README.md の一覧に載っている", () => {
   const index = read("docs/adr/README.md");
   const adrs = readdirSync(join(REPO_ROOT, "docs/adr")).filter((f) => /^\d{4}-.+\.md$/.test(f));

@@ -58,7 +58,7 @@ import {
   bucketizeAlerts,
 } from "../core/reminders/digest.js";
 import { clientsToCsv } from "../core/reminders/clientCsv.js";
-import { loadDrafts, getDraft, upsertDraft, removeDraft, DEFAULT_DRAFTS_PATH } from "./draftStore.js";
+import { loadDrafts, getDraft, upsertDraft, removeDraft, getDraftLicenseCategory, DEFAULT_DRAFTS_PATH } from "./draftStore.js";
 import { renderFormPage } from "./formPage.js";
 import { renderKobutsuFormPage } from "./kobutsuFormPage.js";
 import { renderNouchiTenyoFormPage } from "./nouchiTenyoFormPage.js";
@@ -204,6 +204,24 @@ async function serveDownload(req, res, outDir) {
 }
 
 /**
+ * 下書きの許可種別に応じて、対応するインテイクフォームのHTMLを返す
+ * （#73。`/drafts`・`/drafts/<id>` が種別を問わず同じ一覧・保存先を
+ * 共有するための振り分け）。
+ * @param {import('./draftStore.js').DraftLicenseCategory} licenseCategory
+ * @param {{ profile?: import('./draftStore.js').DraftRecord["profile"], draftId?: string, savedNotice?: boolean }} options
+ * @returns {string}
+ */
+function renderDraftFormPage(licenseCategory, options) {
+  // profileの実際の型は`licenseCategory`ごとに異なる（DraftRecord.profileは3種の
+  // ユニオン型）が、保存時に対応するlicenseCategoryと一致させて書き込んでいるため
+  // 実行時には型は必ず合致する。`any`にキャストして各フォームの固有型へ渡す。
+  const anyOptions = /** @type {any} */ (options);
+  if (licenseCategory === "kobutsu") return renderKobutsuFormPage(anyOptions);
+  if (licenseCategory === "nouchi-tenyo") return renderNouchiTenyoFormPage(anyOptions);
+  return renderFormPage(anyOptions);
+}
+
+/**
  * インテイクフォームのHTTPサーバー（未起動）を作成する。
  * テストから `outDir` を差し替えられるよう、起動処理とは分離している。
  *
@@ -277,12 +295,19 @@ export function createServer({
         const params = new URLSearchParams(bodyText);
         const profileJson = params.get("profileJson");
         const draftId = params.get("draftId") || undefined;
+        const licenseCategory = /** @type {import('./draftStore.js').DraftLicenseCategory} */ (
+          params.get("licenseCategory") || "construction"
+        );
         if (!profileJson) {
           throw new Error("profileJson が送信されていません（フォームのJavaScriptが動作していない可能性があります）");
         }
         const profile = JSON.parse(profileJson);
-        const record = await upsertDraft(profile, draftId, draftsPath);
-        respondHtml(res, 200, renderFormPage({ profile: record.profile, draftId: record.id, savedNotice: true }));
+        const record = await upsertDraft(profile, licenseCategory, draftId, draftsPath);
+        respondHtml(
+          res,
+          200,
+          renderDraftFormPage(getDraftLicenseCategory(record), { profile: record.profile, draftId: record.id, savedNotice: true })
+        );
         return;
       }
 
@@ -301,7 +326,7 @@ export function createServer({
           respondHtml(res, 404, "<h1>Not Found</h1><p>指定の下書きが見つかりません。</p>");
           return;
         }
-        respondHtml(res, 200, renderFormPage({ profile: draft.profile, draftId: draft.id }));
+        respondHtml(res, 200, renderDraftFormPage(getDraftLicenseCategory(draft), { profile: draft.profile, draftId: draft.id }));
         return;
       }
 

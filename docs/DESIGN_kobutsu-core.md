@@ -939,9 +939,9 @@ CLIスクリプト（`scripts/generate-kobutsu-*.js` 等、新規追加分）・
   （`GET /kobutsu`・`POST /kobutsu/submit`。`src/web/kobutsuFormPage.js`）。
   法人申請の書類生成が引き続き未対応（下記参照）のため、Webフォームも
   個人申請のみを対象とし、`applicantType`/`officers`の入力UIは意図的に
-  設けていない。既存の`/drafts`下書き保存機能も、`DraftRecord`に
-  プロフィール種別の判別フィールドが無く誤って建設業許可フォームを
-  再表示してしまう恐れがあるため、古物商許可では対象外のままとした
+  設けていない。既存の`/drafts`下書き保存機能は**2026年9月・#73で対応済み**
+  （`DraftRecord.licenseCategory`で種別を判別するため、「続きから入力」が
+  誤って建設業許可フォームを開くことはない）
 - 法人申請への対応拡大: **2026年9月・欠格事由の判定のみ実装済み**。
   古物営業法第4条11号（法人でその役員のうちに第一号から第八号までの
   いずれかに該当する者があるもの）を確認し、`KobutsuApplicantProfile`に
