@@ -375,16 +375,40 @@ export const DOCKER_IMAGE = "kkt-agent:local";
 export const OFFLINE_PHASES = ["verify", "mutation"];
 
 /**
+ * 通信が要るフェーズ（npmレジストリ・Anthropic API）。外部への直接の経路を持たない内部ネットワークに置き、
+ * 許可リストのプロキシ（egress-proxy.mjs）経由でだけ外へ出す（#115）。
+ */
+export const PROXIED_PHASES = ["install", "agent", "triage", "review"];
+/** 内部ネットワーク（外への直接の経路を持たない）の名前。 */
+export const EGRESS_NETWORK = "kkt-agent-net";
+/** 許可リストのプロキシのコンテナ名（内部ネットワーク上のホスト名を兼ねる）。 */
+export const EGRESS_PROXY_NAME = "kkt-egress";
+export const EGRESS_PROXY_PORT = 3128;
+/** プロキシが通してよい宛先（ホスト名の完全一致・443のみ）。 */
+export const EGRESS_ALLOWED_HOSTS = ["api.anthropic.com", "registry.npmjs.org"];
+
+/**
+ * プロキシが接続を許してよい宛先か。
+ * @param {string} host
+ * @param {number|string} port
+ * @returns {boolean}
+ */
+export function isAllowedEgress(host, port) {
+  return Number(port) === 443 && EGRESS_ALLOWED_HOSTS.includes(String(host).toLowerCase().replace(/\.$/, ""));
+}
+
+/**
  * `docker run` の引数を組み立てる（純粋関数。テストで安全設定の欠落を検出する）。
  * - 作業ツリー（/workspace）と監査ログ（/logs）と依頼文（/task, 読み取り専用）のみマウント
  * - ルートFS読み取り専用・全capability破棄・no-new-privileges・非root・資源制限
  * - GitHub認証情報・ホストのHOME・SSH鍵は一切渡さない
  * - 通信が不要なフェーズ（OFFLINE_PHASES）は `--network none`
+ * - 通信が要るフェーズ（PROXIED_PHASES）は、内部ネットワーク＋許可リストのプロキシ経由（egressProxy=false で従来の無制限に戻せる）
  * - 認証用の環境変数（authEnv。resolveAuth の passEnv）は agent フェーズにのみ渡す
- * @param {{phase: "install"|"agent"|"verify"|"triage"|"review"|"mutation", workDir: string, logDir: string, taskDir: string, auditName: string, authEnv?: string[], uid?: number, gid?: number, env?: Record<string,string|undefined>}} p
+ * @param {{phase: "install"|"agent"|"verify"|"triage"|"review"|"mutation", workDir: string, logDir: string, taskDir: string, auditName: string, authEnv?: string[], uid?: number, gid?: number, env?: Record<string,string|undefined>, egressProxy?: boolean}} p
  * @returns {string[]}
  */
-export function buildDockerArgs({ phase, workDir, logDir, taskDir, auditName, authEnv = [], uid = 1000, gid = 1000, env = {} }) {
+export function buildDockerArgs({ phase, workDir, logDir, taskDir, auditName, authEnv = [], uid = 1000, gid = 1000, env = {}, egressProxy = true }) {
   // agent / triage フェーズはモデルを呼ぶため認証用の環境変数を渡す。triage は作業ツリーを読み取り専用でマウントする
   const usesModel = phase === "agent" || phase === "triage" || phase === "review";
   const passEnv = usesModel ? [...authEnv, "AGENT_MODEL", "AGENT_REVIEW_MODEL", "AGENT_AUTH"] : [];
@@ -397,6 +421,15 @@ export function buildDockerArgs({ phase, workDir, logDir, taskDir, auditName, au
     "--read-only",
     // 通信が不要なフェーズ（検証・ミューテーション。PRのコードやテストを実行する）は、ネットワークを完全に遮断する（#115）
     ...(OFFLINE_PHASES.includes(phase) ? ["--network", "none"] : []),
+    ...(egressProxy && PROXIED_PHASES.includes(phase)
+      ? [
+          "--network", EGRESS_NETWORK,
+          "-e", `HTTPS_PROXY=http://${EGRESS_PROXY_NAME}:${EGRESS_PROXY_PORT}`,
+          "-e", `HTTP_PROXY=http://${EGRESS_PROXY_NAME}:${EGRESS_PROXY_PORT}`,
+          "-e", `npm_config_https_proxy=http://${EGRESS_PROXY_NAME}:${EGRESS_PROXY_PORT}`,
+          "-e", "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1",
+        ]
+      : []),
     "--tmpfs", "/tmp:rw,nosuid,size=512m",
     "--tmpfs", `/home/node:rw,nosuid,uid=${uid},gid=${gid},size=1g`,
     "--memory", "4g",

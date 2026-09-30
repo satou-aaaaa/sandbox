@@ -428,3 +428,12 @@ Issue・コメント・ラベル・シークレット・Ruleset は履歴に含�
 Docker Desktop で実機検証した。固定したイメージのビルド、`install`（ネットワークあり）、`verify`（`--network none` で test・typecheck・lint が通る）、外向き通信の遮断（`--network none` は名前解決に失敗、既定は到達可）を確認した。
 **不具合を1件発見して修正**: `mutation` フェーズが、Stryker の要求する `ps` コマンドが slim イメージに無く失敗した（そのままだとDockerモードのミューテーション検査は常に不合格になり、法令ロジックのPRを承認できなかった）。`agent/Dockerfile` に `procps` を追加し、1ファイル（23ミュータント）で合格（100%）を確認した。
 **実測**: Docker（2CPU）では1ファイルで約8分（ネイティブの約4倍）。検査の時間制限は20分のため、複数ファイルの変更は時間切れ（不承認＝人手）になりうる。運用で頻発するなら、上限か並列度を見直す。
+
+## Amendment 28（2026-09-30）: 外向き通信を許可リストのプロキシに限る（#115）
+
+通信が要るフェーズ（`install`・`agent`・`triage`・`review`）のコンテナを、外への直接の経路を持たない**内部ネットワーク**（`kkt-agent-net`。`docker network create --internal`）に置き、
+許可リストのプロキシ（`egress-proxy.mjs`。コンテナ `kkt-egress`）経由でだけ外へ出す。プロキシが通すのは `registry.npmjs.org:443` と `api.anthropic.com:443` だけ（HTTPS CONNECT のみ。それ以外は403）。
+通信が不要なフェーズ（`verify`・`mutation`）は Amendment 22 のとおり `--network none`。プロキシは、イメージの更新に追従するため、プロセスごとに作り直す（`ensureEgressProxy`）。
+- **実機で確認**: 許可した2宛先は 200、`example.com:443`・`registry.npmjs.org:80` は 403（プロキシのログに DENY が残る）、内部ネットワークからの直接接続は名前解決に失敗。`install`（`npm ci`）がプロキシ経由で成功し、許可外への接続は発生しなかった。
+- **未確認**: `agent`／`review` フェーズでの Claude（Agent SDK）の `HTTPS_PROXY` の解釈は、認証トークンが無く実機で試せていない（API宛のCONNECTが通ることは確認）。失敗した場合は安全側（実行が失敗して差し戻し）に倒れる。詰まったら `AGENT_EGRESS=open` で従来の無制限に戻せる。
+- **限界**: プロキシは宛先のホスト名だけを見る（TLSの中身は検査しない）。許可した2宛先そのものへのデータ送信は防げない。クラウド実行（`AGENT_SANDBOX=none`）では対象外。

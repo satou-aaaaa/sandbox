@@ -10,7 +10,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends procps && rm -r
 WORKDIR /agent
 COPY package.json package-lock.json ./
 RUN npm ci --omit=dev --no-audit --no-fund
-COPY policy.js runner.mjs worker.mjs ./
+COPY policy.js runner.mjs worker.mjs egress-proxy.mjs ./
 RUN chown -R node:node /agent
 
 USER node
