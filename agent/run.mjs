@@ -251,10 +251,26 @@ async function processIssue(issue) {
   const be = backend();
   log(`#${issue.number} 「${issue.title}」を処理します（隔離: ${SANDBOX} / worktree: ${workDir}）`);
 
-  gh("issue", "edit", String(issue.number), "--repo", REPO, "--add-label", LABEL_WORKING, "--remove-label", LABEL_READY);
+  try {
+    gh("issue", "edit", String(issue.number), "--repo", REPO, "--add-label", LABEL_WORKING, "--remove-label", LABEL_READY);
+  } catch (err) {
+    // ここで失敗した場合、ラベルは agent-ready のまま（有効な状態）なので、このIssueの処理だけを諦める
+    log(`#${issue.number} 中止: 処理中ラベルへの更新に失敗しました（${err instanceof Error ? err.message.split("\n")[0] : String(err)}）`);
+    return;
+  }
+  // ラベル更新・コメント投稿はそれぞれ独立させ、片方が失敗してもラベルを「処理可能」または「人手」に
+  // 戻す試みを続ける。giveBack自体が例外を投げて呼び出し元を巻き込まないよう、ここで必ず捕捉する（#127）。
   const giveBack = (reason) => {
-    gh("issue", "edit", String(issue.number), "--repo", REPO, "--remove-label", LABEL_WORKING, "--add-label", LABEL_READY);
-    gh("issue", "comment", String(issue.number), "--repo", REPO, "--body", `エージェントは自動処理を中止しました: ${reason}\n\n人手で対応するか、条件を整えてから \`${LABEL_READY}\` を付け直してください。`);
+    try {
+      gh("issue", "edit", String(issue.number), "--repo", REPO, "--remove-label", LABEL_WORKING, "--add-label", LABEL_READY);
+    } catch (err) {
+      log(`#${issue.number} ラベルを ${LABEL_READY} へ戻せませんでした（次回のサイクルの回復処理に委ねます）: ${err instanceof Error ? err.message.split("\n")[0] : String(err)}`);
+    }
+    try {
+      gh("issue", "comment", String(issue.number), "--repo", REPO, "--body", `エージェントは自動処理を中止しました: ${reason}\n\n人手で対応するか、条件を整えてから \`${LABEL_READY}\` を付け直してください。`);
+    } catch (err) {
+      log(`#${issue.number} 中止コメントの投稿に失敗しました: ${err instanceof Error ? err.message.split("\n")[0] : String(err)}`);
+    }
     log(`#${issue.number} 中止: ${reason}`);
   };
 
@@ -321,7 +337,13 @@ async function processIssue(issue) {
     gh("issue", "edit", String(issue.number), "--repo", REPO, "--remove-label", LABEL_WORKING, "--add-label", LABEL_DONE);
     log(`#${issue.number} PRを作成しました: ${prUrl}`);
   } catch (err) {
-    giveBack(`予期しないエラー: ${err instanceof Error ? err.message.split("\n")[0] : String(err)}`);
+    try {
+      giveBack(`予期しないエラー: ${err instanceof Error ? err.message.split("\n")[0] : String(err)}`);
+    } catch (giveBackErr) {
+      // giveBack自体が想定外に失敗しても、この後のworktree後始末とサイクル全体は続行する。
+      // ラベルが宙に浮いた場合はcycle.mjsのisOrphanedTriageによる回復に委ねる
+      log(`#${issue.number} giveBackが失敗しました（次回のサイクルの回復処理に委ねます）: ${giveBackErr instanceof Error ? giveBackErr.message.split("\n")[0] : String(giveBackErr)}`);
+    }
   } finally {
     try {
       run("git", ["worktree", "remove", "--force", workDir]);
