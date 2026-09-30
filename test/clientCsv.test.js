@@ -297,6 +297,19 @@ test("clientsToCsv → clientsFromCsv の往復は、任意のlicenseCategory（
   );
 });
 
+test("clientsToCsv: 数式として評価されうる先頭文字（= + - @）を持つ値は '（アポストロフィ）を付けて無害化する（#194）", () => {
+  const csv = clientsToCsv([{ clientName: "=cmd|calc", licenses: [{ licenseId: "既定", grantDateIso: "2024-04-01" }] }]);
+  const lines = csv.trim().split("\r\n");
+  assert.equal(lines[1], "'=cmd|calc,既定,,,2024-04-01,,");
+});
+
+test("clientsToCsv → clientsFromCsv の往復は、数式インジェクション対策後も元の値に戻る（#194）", () => {
+  for (const clientName of ["=cmd", "+1", "-500000", "@SUM(A1)", "\ttab始まり", "普通の値", "'既に'で始まる値", "'=既にアポストロフィと=で始まる値"]) {
+    const parsed = clientsFromCsv(clientsToCsv([{ clientName, licenses: [{ licenseId: "既定", grantDateIso: "2024-04-01" }] }]));
+    assert.equal(parsed[0].clientName, clientName, `${JSON.stringify(clientName)} の往復`);
+  }
+});
+
 test("clientsFromCsv: 同一clientNameの複数行は1つのClientRecordのlicensesへ集約する", () => {
   const csv = [
     "clientName,licenseId,licenseType,grantDateIso,fiscalYearEndIso,contactEmail",
