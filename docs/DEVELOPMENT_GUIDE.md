@@ -17,7 +17,7 @@ Git運用・進め方を統一するためのガイド。`docs/REQUIREMENTS.md`�
 
 ### 1.1 必要なもの
 
-- Node.js v20以上（`engines` に指定。`node -v` で確認。`.nvmrc` があるので
+- Node.js v22.22.2以上（`engines` に指定。`node -v` で確認。`.nvmrc` があるので
   nvm利用者は `nvm use` で揃えられる）
 - npm（Node.jsに同梱）
 - Git
@@ -38,7 +38,7 @@ npm run web                 # インテイク用Webフォームを起動（任�
 ```
 
 `npm test` が失敗する場合、まずNode.jsのバージョンを確認すること
-（v20未満だと `node --test` の挙動が異なる場合がある）。
+（`engines` の要件〈v22.22.2以上〉を満たさないと、jsdomを使うテストが失敗する場合がある）。
 利用可能な全スクリプトは `README.md` の「セットアップ」節を参照。
 
 セットアップ後、以下を一度だけ実行してシークレット混入チェックの
@@ -125,7 +125,7 @@ Microsoft Word、LibreOffice Writer等で開いて内容を確認すること。
 - 小規模な副業プロジェクトのため、厳密なブランチ保護ルールは設定していない。
   ただし `main` へ直接pushする場合は、事前に `npm test` を通してからにすること。
 - GitHub Actions（`.github/workflows/test.yml`）が push・PR時に自動で
-  `npm test` を実行する（Node.js 20.x / 22.x × ubuntu-latest / windows-latest
+  `npm test` を実行する（Node.js 22.x / 24.x × ubuntu-latest / windows-latestのうち、windowsは22.xのみ
   の計4通りで実行。開発機がWindowsであるためWindows環境も対象に含めている）。
   ローカルでの確認を代替するものではないが、レビュー時の安全網として機能する。
 

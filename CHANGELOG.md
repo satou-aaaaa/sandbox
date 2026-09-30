@@ -21,6 +21,25 @@
 - **押印前レビューパック**: 判定の理由・警告・期限を1つのdocxにまとめる（`src/core/documents/reviewPack.js`。合否は再計算しない）
 - **開発補助**: `npm run scaffold:module`（許可種別アドオンの雛形）・`npm run changelog:draft`（CHANGELOG下書き）
 
+## Node 20のサポートを終了し、jsdomを30.xへ更新（2026年9月）
+
+Node.js 20が2026-04-30にEOLを迎えており、jsdom 30.xがNode 22.22.2以上を要求する
+ため、対応するNodeの下限を引き上げてjsdomのメジャー更新（29.1.1→30.1.1）を
+取り込んだ（#78。発注者の了承済み）。
+
+- `package.json`の`engines.node`を`>=20`から`>=22.22.2`に変更し、`jsdom`を`^30.1.1`
+  に更新した。`.nvmrc`も`22`に更新した
+- CIのマトリクスを`20.x/22.x`から`22.x/24.x`に変更した（Windowsは従来どおり1系統に
+  絞り、22.xのみ。`24.x`を除外）
+- `.github/dependabot.yml`のjsdomメジャー更新の無視ルールを削除した
+  （前回の「jsdomのメジャーアップデートがNode 20.xを壊す非互換を回避」の暫定対応を解消）
+- `docs/REQUIREMENTS.md`（NFR-1）・`docs/DEVELOPMENT_GUIDE.md`・
+  `docs/BEST_PRACTICES_AUDIT.md`の現状の記述を更新した（監査の履歴部分は当時の記録として
+  そのまま残している）
+- ローカルでNode 22.22.2とNode 24.21.0の両方で`npm test`（903件）が全件通ることを確認した
+- `agent/`（開発運用用のエージェントループ。ADR-0017）は本体と依存を分離した別パッケージで
+  jsdomを使わないため、`agent/package.json`の`engines`（`>=20`）は変更していない
+
 ## 運用エージェント（agent/）の導入（2026年9月）
 
 Issueを自律処理してPRを作成する運用エージェントを導入した（2026年9月29〜30日）。
