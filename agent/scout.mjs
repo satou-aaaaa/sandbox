@@ -19,7 +19,7 @@ import { existsSync, mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { DAILY_LIMITS, LABEL_SCOUTED, SCOUT_MAX_OPEN, buildScoutPrompt, parseScoutIssues, selectScoutIssues } from "./policy.js";
+import { DAILY_LIMITS, LABEL_SCOUTED, SCOUT_MAX_OPEN, buildScoutPrompt, parseScoutIssues, pickScoutFocus, selectScoutIssues } from "./policy.js";
 import { runAgent } from "./runner.mjs";
 import { AUTH, BASE, LOG_DIR, REPO, SANDBOX, buildImage, dockerAvailable, dockerPhase, gh, loadState, log, run, saveState } from "./run.mjs";
 
@@ -58,7 +58,9 @@ async function main() {
   const workDir = join(mkdtempSync(join(tmpdir(), "kkt-triage-")), "tree");
   run("git", ["worktree", "add", "--detach", workDir, `origin/${BASE}`]);
   try {
-    const prompt = buildScoutPrompt(existingTitles);
+    const focus = pickScoutFocus();
+    log(`スカウト: 今回の観点は「${focus.label}」です`);
+    const prompt = buildScoutPrompt(existingTitles, focus);
     const auditName = `${new Date().toISOString().replace(/[:.]/g, "-")}-scout.jsonl`;
     mkdirSync(LOG_DIR, { recursive: true });
     // 読み取り専用の評価と同じフェーズ（triage）を使う（Read/Glob/Grepのみ・作業ツリーは読み取り専用）

@@ -45,7 +45,9 @@ import {
   parseReviewVerdict,
   SCOUT_MAX_OPEN,
   SCOUT_MAX_PER_RUN,
+  SCOUT_FOCUSES,
   buildScoutPrompt,
+  pickScoutFocus,
   formatSummary,
   normalizeTitle,
   parseScoutIssues,
@@ -506,6 +508,22 @@ test("buildScoutPrompt: 提案してよい範囲と禁止事項、出力形式�
   assert.match(p, /法令に基づく判定・期限計算/);
   assert.match(p, /## 受け入れ条件/);
   assert.match(p, /- 既存のIssueA/);
+});
+
+test("pickScoutFocus: 日ごとに観点を巡回し、同じ日は同じ観点。全観点が一巡する", () => {
+  const d = (n) => new Date(n * 86400000 + 1000);
+  assert.equal(pickScoutFocus(d(100)).key, pickScoutFocus(new Date(100 * 86400000 + 80000000)).key);
+  const keys = new Set(SCOUT_FOCUSES.map((_, i) => pickScoutFocus(d(200 + i)).key));
+  assert.equal(keys.size, SCOUT_FOCUSES.length);
+});
+
+test("buildScoutPrompt: 観点を指定すると、その観点だけを許可し、法令領域の除外は維持する", () => {
+  const refactor = SCOUT_FOCUSES.find((f) => f.key === "refactor");
+  const p = buildScoutPrompt([], refactor);
+  assert.match(p, /小さなリファクタリング/);
+  assert.match(p, /法令に基づく判定・期限計算/);
+  assert.doesNotMatch(p, /README\.md \/ CHANGELOG\.md の修正/);
+  for (const f of SCOUT_FOCUSES) assert.ok(f.allowed.length > 0, f.key);
 });
 
 test("summarizeOutput/formatSummary: スカウト起票を数える", () => {
