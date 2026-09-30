@@ -190,10 +190,10 @@ async function main() {
     if (!breakerTripped()) {
       if (backedOff()) {
         throttled = true;
-        log("利用枠の逼迫による見送り期間中のため、重い処理（スカウト・トリアージ・実装・修復・レビュー）を見送ります");
+        log("利用枠の逼迫による見送り期間中のため、重い処理（スカウト・トリアージ・意思決定資料・実装・修復・レビュー）を見送ります");
       } else {
         // 利用枠の上限を検知したら、残りの重い処理を見送る（対話利用への支障を避ける）。次回以降は時間が過ぎれば自動で再開する
-        for (const script of ["scout.mjs", "triage.mjs", "run.mjs", "fix.mjs", "review.mjs"]) {
+        for (const script of ["scout.mjs", "triage.mjs", "decide.mjs", "run.mjs", "fix.mjs", "review.mjs"]) {
           const stepOut = runStep(script, flag);
           out += stepOut;
           if (detectUsageLimit(stepOut)) {
