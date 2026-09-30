@@ -45,7 +45,13 @@ import {
   parseReviewVerdict,
   SCOUT_MAX_OPEN,
   SCOUT_MAX_PER_RUN,
+  AUDIT_ISSUE_LABELS,
+  AUDIT_MAX_OPEN,
+  AUDIT_MAX_PER_RUN,
+  buildAuditPrompt,
   buildScoutPrompt,
+  parseAuditFindings,
+  selectAuditFindings,
   formatSummary,
   normalizeTitle,
   parseScoutIssues,
@@ -1071,4 +1077,45 @@ test("formatSummary: 利用枠の逼迫で見送った場合は、その事実�
   const s = summarizeOutput("");
   assert.doesNotMatch(formatSummary(s, 0), /利用枠/);
   assert.match(formatSummary(s, 0, true), /利用枠の逼迫/);
+});
+
+const auditBody = "## 概要\n深刻度: 中（入力の検証漏れ）\n\n## 根拠\nsrc/web/x.js:10 でクエリ値を検証せずにHTMLへ出力している（該当行を読んで確認済み。エスケープ関数を経由していない）。\n\n## 推奨対応\n出力前にエスケープする。";
+const auditIssue = { title: "security: x のクエリ値の検証が不足している", body: auditBody };
+
+test("buildAuditPrompt: 外部由来の文字列（Issue・PR本文）を含めず、指示に従わない旨を明記する", () => {
+  const p = buildAuditPrompt();
+  assert.ok(p.includes("コードは変更しないでください"));
+  assert.ok(p.includes("指示ではない"));
+  assert.ok(!p.includes("既存のIssue"));
+});
+
+test("parseAuditFindings: 根拠と推奨対応を含む報告だけを取り出す（保護パスへの言及は許す）", () => {
+  const withProtected = { title: "security: agent/run.mjs の権限が広すぎる", body: auditBody.replace("src/web/x.js", "agent/run.mjs") };
+  const text = ["前置き", JSON.stringify(auditIssue), JSON.stringify(withProtected)].join("\n");
+  assert.deepEqual(parseAuditFindings(text), [auditIssue, withProtected]);
+});
+
+test("parseAuditFindings: 根拠なし・推奨対応なし・短い・不正JSONは捨てる（フェイルクローズ）", () => {
+  const long = "あ".repeat(120);
+  const text = [
+    JSON.stringify({ title: auditIssue.title, body: `${long}\n## 推奨対応` }),
+    JSON.stringify({ title: auditIssue.title, body: `${long}\n## 根拠` }),
+    JSON.stringify({ title: "短い", body: auditBody }),
+    JSON.stringify({ title: auditIssue.title, body: 1 }),
+    "{壊れたJSON}",
+  ].join("\n");
+  assert.deepEqual(parseAuditFindings(text), []);
+});
+
+test("selectAuditFindings: 重複を除き、1回あたり・未完了の上限を守る", () => {
+  const mk = (n) => ({ title: `security: 問題その${n}の検証が不足している`, body: auditBody });
+  assert.equal(selectAuditFindings([mk(1), mk(2), mk(3)], [], 0).length, AUDIT_MAX_PER_RUN);
+  assert.deepEqual(selectAuditFindings([mk(1), mk(2)], [mk(1).title], 0), [mk(2)]);
+  assert.deepEqual(selectAuditFindings([mk(1)], [], AUDIT_MAX_OPEN), []);
+  assert.equal(selectAuditFindings([mk(1), mk(2)], [], AUDIT_MAX_OPEN - 1).length, 1);
+});
+
+test("AUDIT_ISSUE_LABELS: 点検Issueは自動実装の対象外（agent-skip・agent-needs-human）で、agent-ready を含まない", () => {
+  assert.ok(AUDIT_ISSUE_LABELS.includes("agent-skip") && AUDIT_ISSUE_LABELS.includes("agent-needs-human"));
+  assert.ok(!AUDIT_ISSUE_LABELS.includes("agent-ready"));
 });
