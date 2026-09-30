@@ -153,15 +153,13 @@ export const DISALLOWED_TOOLS = [
  * @returns {Record<string, string>}
  */
 export function buildAgentEnv(env, stripEnv = []) {
-  /** @type {Record<string, string>} */
-  const out = {};
-  for (const [k, v] of Object.entries(env)) {
-    if (v === undefined) continue;
-    if (/^(GH_|GITHUB_)/.test(k)) continue;
-    if (stripEnv.includes(k)) continue;
-    out[k] = v;
-  }
-  return out;
+  return /** @type {Record<string, string>} */ (
+    Object.fromEntries(
+      Object.entries(env).filter(
+        ([k, v]) => v !== undefined && !/^(GH_|GITHUB_)/.test(k) && !stripEnv.includes(k),
+      ),
+    )
+  );
 }
 
 /**
@@ -413,7 +411,8 @@ export function buildDockerArgs({ phase, workDir, logDir, taskDir, auditName, au
   // agent / triage フェーズはモデルを呼ぶため認証用の環境変数を渡す。triage は作業ツリーを読み取り専用でマウントする
   const usesModel = phase === "agent" || phase === "triage" || phase === "review";
   const passEnv = usesModel ? [...authEnv, "AGENT_MODEL", "AGENT_REVIEW_MODEL", "AGENT_AUTH"] : [];
-  const envArgs = passEnv.filter((k) => env[k]).flatMap((k) => ["-e", k]);
+  const envMap = new Map(Object.entries(env));
+  const envArgs = passEnv.filter((k) => envMap.get(k)).flatMap((k) => ["-e", k]);
   return [
     "run",
     "--rm",
@@ -1271,17 +1270,24 @@ export function parseReviewVerdict(text) {
     }
     if (v === null || typeof v !== "object" || typeof v.approve !== "boolean" || v.checks === null || typeof v.checks !== "object") continue;
     if (!Array.isArray(v.reasons) || v.reasons.length > 10 || !v.reasons.every((/** @type {unknown} */ r) => typeof r === "string")) continue;
-    const checks = /** @type {Record<string, "pass"|"fail"|"na">} */ ({});
+    // v.checks は外部（レビュアーLLMの出力）由来のオブジェクトのため、Mapに詰め替えてから
+    // REVIEW_CHECK_KEYS（固定の許可リスト）だけを読む。任意キーでのプロパティアクセスを避ける。
+    const rawChecks = new Map(Object.entries(v.checks));
+    /** @type {[string, "pass"|"fail"|"na"][]} */
+    const checkEntries = [];
     let valid = true;
     for (const key of REVIEW_CHECK_KEYS) {
-      const value = Object.hasOwn(v.checks, key) ? v.checks[key] : undefined;
+      const value = rawChecks.get(key);
       if (value !== "pass" && value !== "fail" && value !== "na") {
         valid = false;
         break;
       }
-      checks[key] = value;
+      checkEntries.push([key, value]);
     }
-    if (valid) return { approve: v.approve, checks, reasons: v.reasons.map((/** @type {string} */ r) => r.slice(0, 300)) };
+    if (valid) {
+      const checks = /** @type {Record<string, "pass"|"fail"|"na">} */ (Object.fromEntries(checkEntries));
+      return { approve: v.approve, checks, reasons: v.reasons.map((/** @type {string} */ r) => r.slice(0, 300)) };
+    }
   }
   return null;
 }
@@ -1294,7 +1300,9 @@ export function parseReviewVerdict(text) {
  */
 export function decideReviewVerdict(verdict, { legal }) {
   if (verdict === null) return { approve: false, reasons: ["レビュー結果を解釈できなかったため、不承認とします"] };
-  const failed = REVIEW_CHECK_KEYS.filter((k) => verdict.checks[k] === "fail");
+  const failed = Object.entries(verdict.checks)
+    .filter(([k, v]) => v === "fail" && REVIEW_CHECK_KEYS.includes(k))
+    .map(([k]) => k);
   if (failed.length > 0) return { approve: false, reasons: [`不合格のチェック: ${failed.join(", ")}`, ...verdict.reasons] };
   if (!verdict.approve) return { approve: false, reasons: verdict.reasons.length ? verdict.reasons : ["レビュアーが不承認としました"] };
   if (legal && verdict.checks.legalCitation !== "pass") return { approve: false, reasons: ["法令に関わる変更で、法令根拠の明記を確認できませんでした", ...verdict.reasons] };
@@ -1953,8 +1961,11 @@ export function selectMutationTargets(files) {
  * @returns {Record<string, number[]>}
  */
 export function parseChangedLines(diff) {
-  /** @type {Record<string, number[]>} */
-  const out = {};
+  // ファイル名（file）はPR diffの内容に由来し、外部からの入力を排除できない
+  // （"__proto__" 等になり得る）。プロトタイプ汚染を避けるため、集計はMapで行い、
+  // 最後にプレーンオブジェクトへ変換する。
+  /** @type {Map<string, number[]>} */
+  const out = new Map();
   /** @type {string | null} */
   let file = null;
   let line = 0;
@@ -1964,6 +1975,10 @@ export function parseChangedLines(diff) {
       file = m ? m[1] : null;
       continue;
     }
+    // 検出器（safe-regex）の保守的なヒューリスティックによる警告。実際には `\d+` の各量指定子は
+    // 重ならない固定区切り（"-"・","・" +"・" @@"）で区切られネストした量指定子も無いため、
+    // 破局的バックトラックは起きない（巨大な数字列を与えた検証でも所要時間は0msだった）。
+    // eslint-disable-next-line security/detect-unsafe-regex
     const h = /^@@ -\d+(?:,\d+)? \+(\d+)(?:,\d+)? @@/.exec(l);
     if (h) {
       line = Number(h[1]);
@@ -1971,13 +1986,14 @@ export function parseChangedLines(diff) {
     }
     if (file === null) continue;
     if (l.startsWith("+")) {
-      (out[file] ??= []).push(line);
+      if (!out.has(file)) out.set(file, []);
+      out.get(file).push(line);
       line++;
     } else if (l.startsWith(" ")) {
       line++;
     }
   }
-  return out;
+  return /** @type {Record<string, number[]>} */ (Object.fromEntries(out));
 }
 
 /**

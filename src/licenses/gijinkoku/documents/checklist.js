@@ -15,20 +15,26 @@ import { Document } from "docx";
 import { A4_PAGE_PROPERTIES, buildTitleHeading, buildDisclaimerParagraph, buildBulletList, writeDocxFile } from "../../../core/documents/common.js";
 
 /** カテゴリーごとの参考添付書類一覧（概要。必ず最新の公式チェックシートで確認すること）。 */
-const CATEGORY_DOCUMENTS = {
-  1: ["四季報の写し、または主要取引先・取引金融機関等を記載した書類"],
-  2: ["前年分の給与所得の源泉徴収税額等の法定調書合計表の写し"],
-  3: [
-    "前年分の給与所得の源泉徴収税額等の法定調書合計表の写し",
-    "直近年度の決算文書の写し",
-    "事業内容を明らかにする資料（会社案内・パンフレット等）",
+const CATEGORY_DOCUMENTS = new Map([
+  [1, ["四季報の写し、または主要取引先・取引金融機関等を記載した書類"]],
+  [2, ["前年分の給与所得の源泉徴収税額等の法定調書合計表の写し"]],
+  [
+    3,
+    [
+      "前年分の給与所得の源泉徴収税額等の法定調書合計表の写し",
+      "直近年度の決算文書の写し",
+      "事業内容を明らかにする資料（会社案内・パンフレット等）",
+    ],
   ],
-  4: [
-    "直近年度の決算文書の写し",
-    "事業内容を明らかにする資料（会社案内・パンフレット等）",
-    "その他、出入国在留管理局が必要と認める資料",
+  [
+    4,
+    [
+      "直近年度の決算文書の写し",
+      "事業内容を明らかにする資料（会社案内・パンフレット等）",
+      "その他、出入国在留管理局が必要と認める資料",
+    ],
   ],
-};
+]);
 
 const VERIFICATION_WARNING =
   "この一覧は一般に公表されている概要に基づく参考情報です。出入国在留管理庁公式サイトの" +
@@ -40,7 +46,7 @@ const VERIFICATION_WARNING =
  */
 export function resolveChecklistDocuments(companyCategory) {
   if (!companyCategory) return [];
-  return CATEGORY_DOCUMENTS[companyCategory] ?? [];
+  return CATEGORY_DOCUMENTS.get(companyCategory) ?? [];
 }
 
 /**

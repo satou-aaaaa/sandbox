@@ -40,16 +40,20 @@ const multiOptions = {};
 /** @type {Record<string, string>} */
 const options = {};
 for (let i = 0; i < rest.length; i += 2) {
-  const key = rest[i];
-  const value = rest[i + 1];
+  const key = rest.at(i);
+  const value = rest.at(i + 1);
   if (!key || !key.startsWith("--") || value === undefined) {
     console.error(USAGE);
     process.exit(1);
   }
   const name = key.slice(2);
   if (name === "child") {
-    multiOptions[name] = [...(multiOptions[name] ?? []), value];
+    multiOptions.child = [...(multiOptions.child ?? []), value];
   } else {
+    // name はコマンドライン引数のオプション名そのもの（ローカルCLI実行のみ・外部入力ではない）。
+    // valueは常に文字列なので、仮に name が "__proto__" でも代入は無視される（オブジェクトの
+    // プロトタイプ汚染にはならない）。
+    // eslint-disable-next-line security/detect-object-injection
     options[name] = value;
   }
 }

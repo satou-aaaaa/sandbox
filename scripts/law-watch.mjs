@@ -76,15 +76,19 @@ for (const url of sources.keys()) {
 const baseline = readJson(BASELINE_PATH, {});
 
 if (update) {
-  const next = {};
+  // next/baselineMap はいずれもURL（sources由来。ローカルのソースコードコメントや
+  // docs/law-watch-extra.jsonから収集したもの）をキーとするため、Mapで保持してから
+  // 最後にプレーンオブジェクトへ変換する（任意キーでのオブジェクトアクセスを避ける）。
+  const baselineMap = new Map(Object.entries(baseline));
+  const next = new Map();
   for (const url of [...sources.keys()].sort()) {
     const r = results.get(url);
-    if (r?.ok) next[url] = r.snapshot;
-    else if (baseline[url]) next[url] = baseline[url]; // 取得できなかったものは据え置く
+    if (r?.ok) next.set(url, r.snapshot);
+    else if (baselineMap.has(url)) next.set(url, baselineMap.get(url)); // 取得できなかったものは据え置く
     else console.error(`取得できず、基準線に入れませんでした: ${url}`);
   }
-  writeFileSync(BASELINE_PATH, `${JSON.stringify(next, null, 2)}\n`);
-  console.log(`基準線を更新しました（${Object.keys(next).length} 件）: docs/law-watch-baseline.json`);
+  writeFileSync(BASELINE_PATH, `${JSON.stringify(Object.fromEntries(next), null, 2)}\n`);
+  console.log(`基準線を更新しました（${next.size} 件）: docs/law-watch-baseline.json`);
   process.exit(0);
 }
 

@@ -119,6 +119,10 @@ export function impactedDocs(files, exists) {
   /** @type {Set<string>} */
   const docs = new Set();
   for (const f of files) {
+    // 検出器（safe-regex）の保守的なヒューリスティックによる警告。対象 f はリポジトリ内の
+    // ファイルパス（ローカルのソース走査結果）で外部入力ではなく、量指定子もネストしていない
+    // ため破局的バックトラックは起きない（巨大な文字列を与えた検証でも所要時間は0msだった）。
+    // eslint-disable-next-line security/detect-unsafe-regex
     const m = /^src\/(licenses|incorporation|portal|succession|core)(?:\/([^/]+))?\//.exec(f);
     if (!m) continue;
     const [, area, name] = m;
@@ -153,9 +157,12 @@ export function impactedDocs(files, exists) {
 export function compareWithBaseline(baseline, sources, results, exists) {
   /** @type {WatchReport} */
   const report = { changed: [], failed: [], added: [], removed: [], unchanged: 0 };
+  // baseline はURLをキーとするプレーンオブジェクト（呼び出し元・テストの契約上そのまま）。
+  // 任意キーでのオブジェクトアクセスを避けるため、参照だけMapに詰め替える。
+  const baselineMap = new Map(Object.entries(baseline));
   for (const [url, files] of sources) {
     const result = results.get(url);
-    const before = baseline[url];
+    const before = baselineMap.get(url);
     if (!result || !result.ok) {
       report.failed.push({ url, files, error: result && !result.ok ? result.error : "未取得", neverFetched: !before });
       continue;

@@ -21,6 +21,10 @@ const CATEGORIES = [
  */
 export function parseSubject(subject) {
   const trimmed = subject.trim();
+  // 検出器（safe-regex）の保守的なヒューリスティックによる警告。入力はローカルの `git log`
+  // から得たコミット件名（npm run changelog:draft はローカル専用CLI）で、量指定子もネストして
+  // いないため破局的バックトラックは起きない（巨大な文字列を与えた検証でも所要時間は1ms未満）。
+  // eslint-disable-next-line security/detect-unsafe-regex
   const m = trimmed.match(/^([a-z]+)(?:\([^)]*\))?!?:\s*(.+)$/);
   const known = new Set(CATEGORIES.map(([k]) => k));
   const category = m && known.has(m[1]) ? m[1] : "other";

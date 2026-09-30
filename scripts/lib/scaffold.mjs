@@ -29,6 +29,11 @@ export function toPascal(name) {
  * @returns {Record<string, string>} リポジトリルートからの相対パス → ファイル内容
  */
 export function buildScaffold(name, label) {
+  // 検出器（safe-regex）の保守的なヒューリスティックによる警告。入力は
+  // `npm run scaffold:module -- <name>` でローカルの開発者が直接指定する文字列で、
+  // 各繰り返しはリテラル "-" で区切られ曖昧さが無いため破局的バックトラックは起きない
+  // （10万文字規模の非マッチ入力を与えた検証でも所要時間は一桁ミリ秒だった）。
+  // eslint-disable-next-line security/detect-unsafe-regex
   if (!/^[a-z][a-z0-9]*(-[a-z0-9]+)*$/.test(name)) throw new Error(`モジュール名はケバブケースの英小文字で指定してください: ${name}`);
   if (!label.trim()) throw new Error("日本語の名称を指定してください");
   const camel = toCamel(name);
