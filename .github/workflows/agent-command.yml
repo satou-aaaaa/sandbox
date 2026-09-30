@@ -1,0 +1,70 @@
+name: Agent command
+
+# Issue/PRのコメントで、エージェントを操作する（ADR-0017 Amendment 24。ラベル操作はスマホでは手数が多いため）。
+#   /agent retry   Issueを再挑戦させる（人手・対象外・完了のラベルを外して agent-ready を付ける）
+#   /agent revert  マージ済みのPRを取り消す（agent-revert ラベルを付ける）
+#   /agent skip    自動処理の対象から外す（agent-skip を付け、agent-ready を外す）
+#   /agent status  ラベルと状態をコメントで表示する
+# 所有者本人のコメントだけが有効（第三者のコメントでは何も起きない）。結果は必ずコメントで返す。
+# ラベルの付与は、後続のworkflow（即時実行・リバート）を起動できるよう、AGENT_GH_TOKEN（所有者のPAT）で行う。
+# 未設定なら GITHUB_TOKEN で付与し、後続の処理は次の定期実行（cycle）が拾う。
+on:
+  issue_comment:
+    types: [created]
+
+permissions:
+  issues: write
+  pull-requests: write
+  contents: read
+
+concurrency:
+  group: agent-command-${{ github.event.issue.number }}
+  cancel-in-progress: false
+
+jobs:
+  command:
+    if: >-
+      github.event.comment.user.login == github.repository_owner
+      && startsWith(github.event.comment.body, '/agent ')
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      GH_TOKEN: ${{ secrets.AGENT_GH_TOKEN || secrets.GITHUB_TOKEN }}
+      REPO: ${{ github.repository }}
+      NUMBER: ${{ github.event.issue.number }}
+      IS_PR: ${{ github.event.issue.pull_request != null }}
+      # コメント本文はシェルに展開せず、環境変数として受け取る（インジェクション対策）
+      COMMENT_BODY: ${{ github.event.comment.body }}
+    steps:
+      - name: コマンドを実行
+        run: |
+          cmd=$(printf '%s' "$COMMENT_BODY" | head -n1 | awk '{print $2}')
+          reply() { gh issue comment "$NUMBER" --repo "$REPO" --body "$1"; }
+          case "$cmd" in
+            status)
+              labels=$(gh issue view "$NUMBER" --repo "$REPO" --json labels,state --jq '"状態: \(.state) / ラベル: \([.labels[].name] | join(", "))"')
+              reply "agent status: $labels"
+              ;;
+            skip)
+              gh issue edit "$NUMBER" --repo "$REPO" --add-label agent-skip --remove-label agent-ready || true
+              reply "agent skip: 自動処理の対象から外しました（\`agent-skip\`）。戻す場合は \`/agent retry\`。"
+              ;;
+            retry)
+              if [ "$IS_PR" = "true" ]; then reply "agent retry: PRには使えません（Issueで使ってください）。"; exit 0; fi
+              for l in agent-skip agent-needs-human agent-done agent-working agent-triaged; do
+                gh issue edit "$NUMBER" --repo "$REPO" --remove-label "$l" 2>/dev/null || true
+              done
+              gh issue edit "$NUMBER" --repo "$REPO" --add-label agent-ready
+              reply "agent retry: 再挑戦に回しました（\`agent-ready\`）。"
+              ;;
+            revert)
+              if [ "$IS_PR" != "true" ]; then reply "agent revert: Issueには使えません（マージ済みのPRで使ってください）。"; exit 0; fi
+              merged=$(gh pr view "$NUMBER" --repo "$REPO" --json mergedAt --jq '.mergedAt // ""')
+              if [ -z "$merged" ]; then reply "agent revert: このPRはまだマージされていません。"; exit 0; fi
+              gh pr edit "$NUMBER" --repo "$REPO" --add-label agent-revert
+              reply "agent revert: 取り消しを依頼しました（\`agent-revert\`）。リバートPRが作られ、自動マージされます。"
+              ;;
+            *)
+              reply "agent: 不明なコマンドです。使えるのは \`/agent retry\` \`/agent revert\` \`/agent skip\` \`/agent status\` です。"
+              ;;
+          esac

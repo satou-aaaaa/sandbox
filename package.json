@@ -85,7 +85,13 @@
     "incorporation:reminders": "node scripts/incorporation-reminders.js",
     "succession:case-add": "node scripts/succession-case-add.js",
     "succession:reminders": "node scripts/succession-reminders.js",
-    "web": "node src/web/server.js"
+    "web": "node src/web/server.js",
+    "changelog:draft": "node scripts/changelog-draft.mjs",
+    "scaffold:module": "node scripts/scaffold-module.mjs",
+    "reminders:daily": "node scripts/reminders-daily.js",
+    "gen:review-pack": "node scripts/generate-review-pack-sample.js",
+    "law-watch": "node scripts/law-watch.mjs",
+    "mutation:summary": "node scripts/mutation-summary.mjs"
   },
   "dependencies": {
     "docx": "^9.7.2"
@@ -112,7 +118,7 @@
     "node": ">=22.22.2"
   },
   "overrides": {
-    "qs": "6.15.2",
+    "qs": "6.16.0",
     "uuid": "11.1.1"
   }
 }

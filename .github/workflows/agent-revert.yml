@@ -1,0 +1,66 @@
+name: Agent revert
+
+# 事後の取消（リバート）。原則はマージ前に人が承認しないため、問題があれば事後に取り消す（ADR-0017 Amendment 12）。
+#  - 所有者がマージ済みPRに `agent-revert` ラベルを付けたとき（人による取消。ラベル1つ）
+#  - mainのCI（Test）が失敗したとき（エージェントのPRの直後だけが対象。一時的な失敗の誤検知を避けるため、
+#    まず1回再実行し、再実行後も失敗した場合だけ取り消す）
+# 取り消しはリバートPRを作って必須チェック成功後に自動マージし、元のIssueは失敗の記録を添えて再挑戦させる（最大2回）。
+#
+# リバートPRのCIを起動するため、PR作成にはFine-grained PAT（AGENT_GH_TOKEN）を使う
+# （GITHUB_TOKEN で作ったPRは他のworkflowを起動しない）。未設定の場合はスキップし、
+# ローカル/Actionsのサイクル（cycle.mjs）が次回の点検で代行する。
+on:
+  pull_request:
+    types: [labeled]
+  workflow_run:
+    workflows: ["Test"]
+    types: [completed]
+    branches: [main]
+
+permissions:
+  contents: read
+
+# 取り消しを同時に走らせない（二重リバートの防止）
+concurrency:
+  group: agent-revert
+  cancel-in-progress: false
+
+jobs:
+  revert:
+    if: >-
+      (github.event_name == 'pull_request'
+        && github.event.label.name == 'agent-revert'
+        && github.event.sender.login == github.repository_owner
+        && github.event.pull_request.merged == true)
+      || (github.event_name == 'workflow_run'
+        && github.event.workflow_run.conclusion == 'failure')
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      GH_TOKEN: ${{ secrets.AGENT_GH_TOKEN }}
+    steps:
+      - name: シークレットの存在を確認
+        id: guard
+        run: |
+          if [ -z "$GH_TOKEN" ]; then
+            echo "::notice::AGENT_GH_TOKEN が未設定のため、リバートをスキップします（cycle.mjs の点検が代行します）"
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          fi
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        if: steps.guard.outputs.skip != 'true'
+        with:
+          ref: main
+          token: ${{ secrets.AGENT_GH_TOKEN }}
+          fetch-depth: 0
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        if: steps.guard.outputs.skip != 'true'
+        with:
+          node-version: 22.x
+      - name: コミット用の識別情報を設定
+        if: steps.guard.outputs.skip != 'true'
+        run: |
+          git config user.name "kensetsu-agent"
+          git config user.email "kensetsu-agent@users.noreply.github.com"
+      - name: 点検して、必要なら取り消す
+        if: steps.guard.outputs.skip != 'true'
+        run: node agent/revert.mjs --sweep

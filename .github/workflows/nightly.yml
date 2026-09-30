@@ -1,0 +1,63 @@
+name: Nightly
+
+# `npm test` に含まれない受け入れテスト（Cucumber.js／BDD。ADR-0016）を夜間に実行し、失敗したときだけ
+# 常設Issue（ラベル nightly-failure）に集約する（ADR-0018）。E2E・負荷テストは通常のCI（test.yml）で
+# 毎PR実行しているため、ここでは重複させない。
+on:
+  schedule:
+    # 毎日 02:30 JST（= 17:30 UTC）
+    - cron: "30 17 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: nightly
+  cancel-in-progress: false
+
+jobs:
+  bdd:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: 22.x
+          cache: npm
+      - run: npm ci
+      - name: 受け入れテスト（BDD）
+        id: bdd
+        shell: bash
+        run: |
+          set +e
+          npm run test:bdd 2>&1 | tee bdd.log
+          rc=${PIPESTATUS[0]}
+          echo "rc=$rc" >> "$GITHUB_OUTPUT"
+          {
+            echo '## 受け入れテスト（BDD）'
+            echo
+            echo '```'
+            tail -n 40 bdd.log
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          exit 0
+      - name: 失敗をIssueに集約
+        if: steps.bdd.outputs.rc != '0'
+        shell: bash
+        run: |
+          {
+            echo "夜間の受け入れテスト（BDD）が失敗しました（$(date -u +%Y-%m-%d)）。実行: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+            echo
+            echo '```'
+            tail -n 60 bdd.log
+            echo '```'
+          } > nightly-failure.md
+          scripts/gh-upsert-issue.sh nightly-failure "夜間テストの失敗（自動投稿）" nightly-failure.md
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: 失敗ならジョブも失敗にする
+        if: steps.bdd.outputs.rc != '0'
+        run: exit 1

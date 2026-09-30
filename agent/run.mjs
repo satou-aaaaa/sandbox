@@ -42,8 +42,10 @@ import {
   LABEL_READY,
   LABEL_WORKING,
   branchNameForIssue,
+  USAGE_LIMIT_MARKER,
   buildDockerArgs,
   resolveAuth,
+  buildLessons,
   buildPrompt,
   buildRetryPrompt,
   checkDailyBudget,
@@ -51,8 +53,10 @@ import {
   isEligibleIssue,
   normalizeState,
   recordRun,
+  retryCount,
 } from "./policy.js";
-import { AGENT_TIMEOUT_MS, MAX_BUDGET_USD, MAX_TURNS, MODEL, installDeps, runAgent, verifyAll } from "./runner.mjs";
+import { createGhRest } from "./gh-rest.mjs";
+import { AGENT_TIMEOUT_MS, MAX_BUDGET_USD, MAX_TURNS, MODEL, installDeps, npmCommand, runAgent, verifyAll } from "./runner.mjs";
 
 export const REPO = "satou-aaaaa/sandbox";
 export const BASE = "main";
@@ -80,19 +84,26 @@ const MAX_ISSUES = args.includes("--max") ? Number(args[args.indexOf("--max") + 
 
 /** コマンドを実行して標準出力を返す（引数は配列で渡し、シェル展開を避ける）。 */
 export function run(cmd, cmdArgs, cwd = REPO_ROOT) {
-  return execFileSync(cmd, cmdArgs, {
+  const [bin, binArgs] = cmd === "npm" ? npmCommand(cmdArgs) : [cmd, cmdArgs];
+  return execFileSync(bin, binArgs, {
     cwd,
     encoding: "utf8",
     stdio: ["ignore", "pipe", "pipe"],
     maxBuffer: 64 * 1024 * 1024,
-    // Windowsでは npm が .cmd のためシェル経由が必要（引数は固定の安全な値のみ）
-    shell: process.platform === "win32" && cmd === "npm",
   }).trim();
 }
 
+/**
+ * GitHub操作。既定は `gh` CLI。GraphQLが使えない環境（Claude Codeのクラウドセッション）では、
+ * AGENT_GH_MODE=rest で、同じ引数をREST APIに翻訳して実行する（gh-rest.mjs）。
+ */
+const ghRest = process.env.AGENT_GH_MODE === "rest" ? createGhRest({ repo: "satou-aaaaa/sandbox" }) : null;
 export function gh(...ghArgs) {
-  return run("gh", ghArgs);
+  return ghRest ? ghRest(ghArgs) : run("gh", ghArgs);
 }
+
+/** 状態の保存先。cloud（クラウドのセッションは毎回状態が消える）では、GitHubの状態から復元する（AGENT_STATE=github）。 */
+const STATE_IN_GITHUB = process.env.AGENT_STATE === "github";
 
 export function log(msg) {
   console.log(`[agent] ${msg}`);
@@ -103,7 +114,21 @@ function today() {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
+/** その日（実行環境の日付）に作られたエージェントのPR数 = 実装の実行回数。費用は記録できないため 0 とする。 */
+function githubDailyState() {
+  const prs = JSON.parse(gh("pr", "list", "--repo", REPO, "--state", "all", "--json", "headRefName,createdAt", "--limit", "100"));
+  const t = today();
+  const runs = prs.filter((p) => p.headRefName.startsWith("agent/issue-") && localDate(p.createdAt) === t).length;
+  return { date: t, runs, costUsd: 0 };
+}
+
+function localDate(iso) {
+  const d = new Date(iso);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
 export function loadState() {
+  if (STATE_IN_GITHUB) return githubDailyState();
   try {
     return normalizeState(JSON.parse(readFileSync(STATE_FILE, "utf8")), today());
   } catch {
@@ -112,6 +137,7 @@ export function loadState() {
 }
 
 export function saveState(state) {
+  if (STATE_IN_GITHUB) return; // GitHubの状態から復元するため、保存しない
   mkdirSync(dirname(STATE_FILE), { recursive: true });
   writeFileSync(STATE_FILE, JSON.stringify(state));
 }
@@ -164,7 +190,7 @@ export function buildImage() {
 
 /**
  * コンテナ内でフェーズを実行し、最終行の `RESULT:` JSONを返す。
- * @param {"install"|"agent"|"verify"|"triage"|"review"} phase
+ * @param {"install"|"agent"|"verify"|"triage"|"review"|"mutation"} phase
  * @param {string} workDir
  * @param {string} auditName
  * @param {string} [prompt] agentフェーズの依頼文
@@ -178,14 +204,16 @@ export function dockerPhase(phase, workDir, auditName, prompt) {
     const out = run("docker", buildDockerArgs({ phase, workDir, logDir: LOG_DIR, taskDir, auditName, authEnv: AUTH.error ? [] : AUTH.passEnv, uid: HOST_UID, gid: HOST_GID, env: process.env }));
     const line = out.split("\n").reverse().find((l) => l.startsWith("RESULT:"));
     if (!line) throw new Error(`コンテナからRESULTが返りませんでした（phase=${phase}）`);
-    return JSON.parse(line.slice("RESULT:".length));
+    const res = JSON.parse(line.slice("RESULT:".length));
+    if (res?.usageLimit) console.error(`[agent] ${USAGE_LIMIT_MARKER}`);
+    return res;
   } finally {
     rmSync(taskDir, { recursive: true, force: true });
   }
 }
 
 /** @returns {{install: (w: string) => void, agent: (p: string, w: string, a: string) => Promise<{ok: boolean, cost: number, summary: string}>, verify: (w: string) => {name: string, output: string} | null}} */
-function backend() {
+export function backend() {
   if (SANDBOX === "docker") {
     return {
       install: (w) => void dockerPhase("install", w, ""),
@@ -209,7 +237,7 @@ ${e.stderr ?? ""}` };
 }
 
 /** @param {string} workDir @returns {string[]} 変更ファイル一覧 */
-function changedFiles(workDir) {
+export function changedFiles(workDir) {
   return run("git", ["status", "--porcelain"], workDir)
     .split("\n")
     .filter(Boolean)
@@ -231,7 +259,8 @@ async function processIssue(issue) {
   };
 
   try {
-    run("git", ["fetch", "origin", BASE]);
+    // 削除済みブランチの古い追跡情報を掃除する（残っていると、同じIssueの再挑戦で push --force-with-lease が「古い情報」として拒否される）
+    run("git", ["fetch", "--prune", "origin"]);
     run("git", ["worktree", "add", "-B", branch, workDir, `origin/${BASE}`]);
     be.install(workDir);
 
@@ -239,7 +268,9 @@ async function processIssue(issue) {
     const auditFile = join(LOG_DIR, `${new Date().toISOString().replace(/[:.]/g, "-")}-issue-${issue.number}.jsonl`);
     log(`監査ログ: ${auditFile}`);
 
-    const first = await be.agent(buildPrompt(issue), workDir, auditFile);
+    // 取り消し後の再挑戦では、過去の失敗の記録（教訓）をプロンプトに含める
+    const lessons = retryCount(issue.labels) > 0 ? buildLessons(JSON.parse(gh("issue", "view", String(issue.number), "--repo", REPO, "--json", "comments")).comments) : "";
+    const first = await be.agent(buildPrompt(issue, lessons), workDir, auditFile);
     let cost = first.cost;
     let summary = first.summary;
     saveState(recordRun(loadState(), first.cost));

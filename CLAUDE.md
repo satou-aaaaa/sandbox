@@ -81,7 +81,7 @@ src/
                                   農地転用許可対応。古物商許可は個人申請のみ・
                                   ローカルホスト限定）
 agent/         Issue自律処理ループ（Agent SDK。開発運用ツールでアプリ本体ではない。
-               依存は`agent/package.json`に分離。PR作成まで・マージは人手。ADR-0017）
+               依存は`agent/package.json`に分離。PR作成・リスクに応じた自動マージ・事後リバート。押印/提出は人手。ADR-0017）
 test/          node --test のユニットテスト（1ファイル1モジュール対応が基本）
 features/      Cucumber.js（BDD/Gherkin）の受け入れ基準（`.feature`・
                `step_definitions/`。2026年9月・ADR-0016で例外的に導入。
@@ -139,8 +139,18 @@ npm run test:bdd            # Cucumber.js（Gherkin/BDD。features/。ADR-0016�
 npm run test:load           # autocannon（同時アクセス下でのエラー・タイムアウト有無を確認）
 npm run typecheck           # tsc --noEmit（JSDoc型チェック）
 npm run lint                # ESLint（eslint-plugin-securityによる静的セキュリティ解析を含む）
+npm run scaffold:module -- <名前> "<和名>"   # 新しい許可種別アドオンの雛形（判定ロジックは作らない）
+npm run changelog:draft     # CHANGELOG用の下書きをgit履歴から標準出力へ（人が編集して取り込む）
+npm run reminders:daily     # 期限の日次点検。全文は out/ にだけ保存、標準出力は件数と最短期限のみ（名前は出さない）
+npm run gen:review-pack     # 押印前レビューパック（判定理由・警告・期限を1枚のdocxに）のサンプル出力
 ```
 
+- **設計前提の機械検査**: `test/invariants.test.js`（ビルドレス・外部送信なし・127.0.0.1待受・DB無し・
+  `data/`未コミット・判定ロジック冒頭の法令根拠URL）と `test/docsConsistency.test.js`（モジュールと設計書の対応・
+  CLAUDE.mdの構成・ADR索引）が `npm test` で走る。法令根拠URLは全ロジックに記載済み（2026-09-30に条文を再確認）。
+  法令に基づかないファイル（算術ヘルパー・レジストリ等）だけ `test/fixtures/legal-basis-exempt.json` に理由つきで免除し、
+  `legal-basis-baseline.json`（未了分の基準線）は空。**新規ロジックはURLを書く**（基準線・免除への逃げは不可。ADR-0018）。
+  新モジュールは `npm run scaffold:module` で作ると、`docs/`・`MODULE_DOCS`・CLAUDE.md の更新漏れも検知できる。
 - テストは `test/` に1モジュール1ファイル対応で配置し、`node --test` で実行する
   （Jest/Vitest等の外部フレームワークは導入しない）。**例外**: Gherkin/BDDに
   限定してCucumber.jsを導入している（`features/`。発注者の明示的な依頼に

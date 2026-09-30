@@ -6,6 +6,10 @@
  *
  * @param {boolean} hasOdorSpillPreventionMeasures 運搬容器の飛散・流出・悪臭防止措置（自己申告）
  * @returns {import('../../../core/eligibility/types.js').RequirementCheckResult}
+ *
+ * 法令根拠（2026-09-30に e-Gov法令API v2 で条文との対応を再確認）:
+ * - 廃棄物の処理及び清掃に関する法律 第14条第5項（許可の基準。施設・申請者の能力の基準は環境省令に委任）: https://laws.e-gov.go.jp/law/345AC0000000137
+ * - 廃棄物の処理及び清掃に関する法律施行規則（環境省令）: https://laws.e-gov.go.jp/law/346M50000100035
  */
 export function checkShisetsu(hasOdorSpillPreventionMeasures) {
   const passed = !!hasOdorSpillPreventionMeasures;

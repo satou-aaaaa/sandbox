@@ -6,9 +6,12 @@
  * （それらはホスト側の `run.mjs` だけが持つ）。
  */
 import { execFileSync } from "node:child_process";
-import { appendFileSync } from "node:fs";
+import { appendFileSync, readFileSync } from "node:fs";
+import { join } from "node:path";
 import {
   ALLOWED_TOOLS,
+  USAGE_LIMIT_MARKER,
+  looksLikeUsageLimit,
   DISALLOWED_TOOLS,
   TRIAGE_ALLOWED_TOOLS,
   TRIAGE_DISALLOWED_TOOLS,
@@ -33,7 +36,7 @@ export const MODEL = process.env.AGENT_MODEL || "claude-sonnet-5-5";
  * @param {string} workDir
  * @param {string} auditFile
  * @param {"implement"|"triage"|"review"} [mode] triage は読み取り専用・短時間・低予算で評価だけを行う。review は独立したレビュアー（別の強いモデル・読み取り専用）
- * @returns {Promise<{ok: boolean, cost: number, summary: string}>}
+ * @returns {Promise<{ok: boolean, cost: number, summary: string, usageLimit?: boolean}>}
  */
 export async function runAgent(prompt, workDir, auditFile, mode = "implement") {
   const review = mode === "review";
@@ -56,6 +59,7 @@ export async function runAgent(prompt, workDir, auditFile, mode = "implement") {
   let cost = 0;
   let ok = false;
   let summary = "";
+  let usageLimit = false;
   try {
     for await (const message of query({
       prompt,
@@ -73,7 +77,7 @@ export async function runAgent(prompt, workDir, auditFile, mode = "implement") {
         settingSources: ["project"],
         systemPrompt: { type: "preset", preset: "claude_code" },
         // サブスクリプション認証（既定）では、環境にあってもAPIキー系は渡さない（従量課金の防止）
-        env: buildAgentEnv(process.env, process.env.AGENT_AUTH === "api-key" ? [] : ["ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN"]),
+        env: buildAgentEnv(process.env, process.env.AGENT_AUTH === "api-key" || process.env.AGENT_AUTH === "inherit" ? [] : ["ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN"]),
         persistSession: false,
       },
     })) {
@@ -82,7 +86,8 @@ export async function runAgent(prompt, workDir, auditFile, mode = "implement") {
         ok = message.subtype === "success";
         summary = "result" in message ? String(message.result ?? "") : "";
         audit({ event: "result", subtype: message.subtype, cost, turns: message.num_turns });
-        console.error(`[agent] エージェント終了: ${message.subtype}（費用 $${cost.toFixed(4)}, ${message.num_turns}ターン）`);
+        console.error(`[agent] エージェント終了: ${message.subtype}（費用 ${cost.toFixed(4)}, ${message.num_turns}ターン）`);
+        if (!ok && looksLikeUsageLimit(`${summary} ${JSON.stringify(message)}`)) usageLimit = true;
       }
     }
   } catch (err) {
@@ -91,7 +96,18 @@ export async function runAgent(prompt, workDir, auditFile, mode = "implement") {
   } finally {
     clearTimeout(timer);
   }
-  return { ok, cost, summary };
+  if (usageLimit) console.error(`[agent] ${USAGE_LIMIT_MARKER}`);
+  return { ok, cost, summary, usageLimit };
+}
+
+/**
+ * npm を起動するコマンドと引数を返す。Windowsでは npm が .cmd のため cmd.exe 経由にする
+ * （`shell: true` に引数を渡すと DEP0190 の警告が出るため。引数は固定の安全な値のみ）。
+ * @param {string[]} npmArgs
+ * @returns {[string, string[]]}
+ */
+export function npmCommand(npmArgs) {
+  return process.platform === "win32" ? ["cmd.exe", ["/d", "/s", "/c", "npm", ...npmArgs]] : ["npm", npmArgs];
 }
 
 /**
@@ -106,7 +122,7 @@ export function verifyAll(workDir, { secrets = true } = {}) {
   if (secrets) scripts.push(["run", "check-secrets"]);
   for (const script of scripts) {
     try {
-      execFileSync("npm", script, { cwd: workDir, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], shell: process.platform === "win32" });
+      execFileSync(...npmCommand(script), { cwd: workDir, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
     } catch (err) {
       const e = /** @type {any} */ (err);
       return { name: `npm ${script.join(" ")}`, output: `${e.stdout ?? ""}\n${e.stderr ?? ""}` };
@@ -120,5 +136,35 @@ export function verifyAll(workDir, { secrets = true } = {}) {
  * @param {string} workDir
  */
 export function installDeps(workDir) {
-  execFileSync("npm", ["ci", "--no-audit", "--no-fund"], { cwd: workDir, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], shell: process.platform === "win32" });
+  execFileSync(...npmCommand(["ci", "--no-audit", "--no-fund"]), { cwd: workDir, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
+}
+
+/**
+ * 指定ファイルだけを対象にStrykerを実行し、JSONレポート（必要な項目だけ）を返す。
+ * 作業ツリーに依存（devDependencies）が入っている前提。失敗・時間切れは ok: false。
+ * @param {string} workDir
+ * @param {string[]} files 変更対象（リポジトリルートからの相対パス）
+ * @param {number} timeoutMs
+ * @returns {{ok: boolean, report?: unknown, error?: string}}
+ */
+export function runMutationTests(workDir, files, timeoutMs) {
+  try {
+    execFileSync(...npmCommand(["exec", "--", "stryker", "run", "--mutate", files.join(","), "--reporters", "json", "--concurrency", "2"]), {
+      cwd: workDir,
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "pipe"],
+      timeout: timeoutMs,
+      maxBuffer: 64 * 1024 * 1024,
+    });
+    const raw = JSON.parse(readFileSync(join(workDir, "reports", "mutation", "mutation.json"), "utf8"));
+    /** @type {Record<string, {mutants: {status: string, mutatorName: string, location: {start: {line: number}}}[]}>} */
+    const slim = {};
+    for (const [f, d] of Object.entries(raw.files ?? {})) {
+      slim[f] = { mutants: (d.mutants ?? []).map((m) => ({ status: m.status, mutatorName: m.mutatorName, location: { start: { line: m.location?.start?.line } } })) };
+    }
+    return { ok: true, report: { files: slim } };
+  } catch (err) {
+    const e = /** @type {any} */ (err);
+    return { ok: false, error: e.code === "ETIMEDOUT" ? "時間切れ" : String(e.message ?? e).slice(0, 500) };
+  }
 }

@@ -20,3 +20,9 @@ updates:
     directory: "/agent"
     schedule:
       interval: "weekly"
+
+  # エージェントのコンテナ（agent/Dockerfile）のベースイメージ。ダイジェスト固定（#117）の更新を追従する。
+  - package-ecosystem: "docker"
+    directory: "/agent"
+    schedule:
+      interval: "weekly"

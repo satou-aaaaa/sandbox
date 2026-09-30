@@ -18,6 +18,10 @@
  * 使わず、`docs/DESIGN_uketsuke-portal.md` 4.3節の`buildCaseDeadlineAlerts`
  * と同じパターンで、`SuccessionCaseRecord`から直接、コアの`ReminderAlert`と
  * 同じ形のオブジェクトを組み立てる（1.2節の設計原則）。
+ *
+ * 法令根拠（2026-09-30に e-Gov法令API v2 で条文との対応を再確認）:
+ * - 民法 第915条（熟慮期間）・第1048条（遺留分侵害額請求権の期間）: https://laws.e-gov.go.jp/law/129AC0000000089
+ * - 相続税法 第27条（申告）・第33条（納付）: https://laws.e-gov.go.jp/law/325AC0000000073
  */
 import { daysUntil, addDaysIso } from "../../core/reminders/dateUtils.js";
 

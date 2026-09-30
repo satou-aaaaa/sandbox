@@ -5,6 +5,9 @@
  *
  * @param {import('./types.js').NouchiTenyoIppanKijunInput} input
  * @returns {import('../../../core/eligibility/types.js').RequirementCheckResult}
+ *
+ * 法令根拠（2026-09-30に e-Gov法令API v2 で条文との対応を再確認）:
+ * - 農地法 第4条第6項（許可の基準。資力・信用と転用の確実性、周辺農地の営農条件への支障）: https://laws.e-gov.go.jp/law/327AC0000000229
  */
 export function checkIppanKijun(input) {
   const reasons = [];
