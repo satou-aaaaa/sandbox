@@ -354,6 +354,10 @@ GitHub APIで計測し、確実な無駄を2件特定して解消した（テス
    報告経路。Settings > Code security > Private vulnerability reportingから
    有効化しないと、`SECURITY.md`記載の報告手段が機能しない点に注意
 
+5. **CodeQLアラートの扱い（#180）**:
+   - `js/shell-command-injection-from-environment`（`agent/run.mjs` の `run()`）: 実行対象を許可リスト（git・gh・docker・npm・node）に限る対応を入れた。引数は配列渡しでシェル展開はもともと無い。
+   - `js/unvalidated-dynamic-method-call`（`src/licenses/construction/eligibility/engine.js:36`。**却下済み・根拠**）: `getPrefectureRules(prefecture)` は `Map`（`registry`）の `get` で関数を引くだけで、オブジェクトのプロパティ参照ではない。そのため `__proto__` や `constructor` などの名前で既存メソッドを呼び出す経路は無く、未登録の値は `undefined`（スキップ）になる。登録は `registerPrefectureRules` のみで、値は固定のレジストリ由来。誤検知として却下した判断は妥当。
+
 ## 参考情報
 
 ### 社内資料
