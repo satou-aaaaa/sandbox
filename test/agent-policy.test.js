@@ -46,6 +46,7 @@ import {
   SCOUT_MAX_OPEN,
   SCOUT_MAX_PER_RUN,
   buildScoutPrompt,
+  pickScoutFocus,
   formatSummary,
   normalizeTitle,
   parseScoutIssues,
@@ -1071,4 +1072,23 @@ test("formatSummary: 利用枠の逼迫で見送った場合は、その事実�
   const s = summarizeOutput("");
   assert.doesNotMatch(formatSummary(s, 0), /利用枠/);
   assert.match(formatSummary(s, 0, true), /利用枠の逼迫/);
+});
+
+test("pickScoutFocus: 明示指定を優先し、不正値は all、未指定は日付で tests/docs を交互に回す", () => {
+  assert.equal(pickScoutFocus("docs"), "docs");
+  assert.equal(pickScoutFocus("bogus"), "all");
+  const d0 = new Date(0);
+  const d1 = new Date(86_400_000);
+  assert.equal(pickScoutFocus(undefined, d0), "tests");
+  assert.equal(pickScoutFocus("", d1), "docs");
+});
+
+test("buildScoutPrompt: 観点で提案の種類を絞り、除外事項は全観点で維持する", () => {
+  const tests = buildScoutPrompt([], "tests");
+  const docs = buildScoutPrompt([], "docs");
+  assert.match(tests, /テストの追加/);
+  assert.ok(!tests.includes("CHANGELOG.md の修正"));
+  assert.ok(docs.includes("CHANGELOG.md の修正"));
+  assert.ok(!docs.includes("テストの追加"));
+  for (const p of [tests, docs, buildScoutPrompt([])]) assert.ok(p.includes("提案してはならないもの") && p.includes("法令に基づく判定"));
 });

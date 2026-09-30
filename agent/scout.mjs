@@ -12,6 +12,7 @@
  * 使い方:
  *   node scout.mjs --dry-run    提案を表示するのみ（起票しない）
  *   node scout.mjs              起票する
+ *   --focus tests|docs|all      観点を指定する（省略時は日付で tests / docs を交互に回す。Amendment 29）
  *
  * 設計の根拠: docs/adr/0017-agent-sdk-issue-loop.md（Amendment 8）
  */
@@ -19,13 +20,15 @@ import { existsSync, mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { DAILY_LIMITS, LABEL_SCOUTED, SCOUT_MAX_OPEN, buildScoutPrompt, parseScoutIssues, selectScoutIssues } from "./policy.js";
+import { DAILY_LIMITS, LABEL_SCOUTED, SCOUT_MAX_OPEN, buildScoutPrompt, parseScoutIssues, pickScoutFocus, selectScoutIssues } from "./policy.js";
 import { runAgent } from "./runner.mjs";
 import { AUTH, BASE, LOG_DIR, REPO, SANDBOX, buildImage, dockerAvailable, dockerPhase, gh, loadState, log, run, saveState } from "./run.mjs";
 
 const AGENT_DIR = resolve(dirname(fileURLToPath(import.meta.url)));
 const KILL_SWITCH_FILE = join(AGENT_DIR, ".disabled");
 const DRY_RUN = process.argv.includes("--dry-run");
+const focusIdx = process.argv.indexOf("--focus");
+const FOCUS = pickScoutFocus(focusIdx >= 0 ? process.argv[focusIdx + 1] : undefined);
 
 async function main() {
   if (existsSync(KILL_SWITCH_FILE) || process.env.AGENT_DISABLED === "1") {
@@ -58,7 +61,8 @@ async function main() {
   const workDir = join(mkdtempSync(join(tmpdir(), "kkt-triage-")), "tree");
   run("git", ["worktree", "add", "--detach", workDir, `origin/${BASE}`]);
   try {
-    const prompt = buildScoutPrompt(existingTitles);
+    const prompt = buildScoutPrompt(existingTitles, FOCUS);
+    log(`スカウト: 観点=${FOCUS}`);
     const auditName = `${new Date().toISOString().replace(/[:.]/g, "-")}-scout.jsonl`;
     mkdirSync(LOG_DIR, { recursive: true });
     // 読み取り専用の評価と同じフェーズ（triage）を使う（Read/Glob/Grepのみ・作業ツリーは読み取り専用）

@@ -836,16 +836,44 @@ export function normalizeTitle(title) {
 }
 
 /**
+ * スカウトの観点（分野）。範囲はいずれも Amendment 8 の「自動マージできる低リスクな作業」の内側に収める。
+ * 観点を絞ると探索が深くなり、提案の具体性が上がる（all は従来どおりの全観点）。
+ * @typedef {"tests" | "docs" | "all"} ScoutFocus
+ */
+export const SCOUT_FOCUSES = /** @type {const} */ (["tests", "docs", "all"]);
+
+const SCOUT_KIND_TESTS =
+  "**テストの追加**: 既存の挙動を固定するテストを追加する。実装（src/）は変更しない。既存テストを削除・書き換えない。対象の例: テストが無い・薄いモジュール、境界値、エラー系。比較演算子の境界や空配列・nullなど、ミューテーションテストで見逃されやすい分岐も歓迎。";
+const SCOUT_KIND_DOCS =
+  "**README.md / CHANGELOG.md の修正**: 実装・他ドキュメントとの食い違いや記載漏れの修正（実在しないファイル・npmスクリプトへの言及、モジュール一覧の抜け、成熟度表記のずれなど）。";
+
+/**
+ * 観点を決める。明示指定（--focus）が有効ならそれを使い、無ければ日付で tests / docs を交互に回す。
+ * 不正な指定は all にフォールバックする（止めない）。
+ * @param {string | undefined} requested
+ * @param {Date} [now]
+ * @returns {ScoutFocus}
+ */
+export function pickScoutFocus(requested, now = new Date()) {
+  if (requested !== undefined && requested !== "") {
+    return SCOUT_FOCUSES.includes(/** @type {ScoutFocus} */ (requested)) ? /** @type {ScoutFocus} */ (requested) : "all";
+  }
+  const dayNumber = Math.floor(now.getTime() / 86_400_000);
+  return dayNumber % 2 === 0 ? "tests" : "docs";
+}
+
+/**
  * @param {string[]} existingTitles 既存Issue（open/closed）のタイトル
+ * @param {ScoutFocus} [focus] 観点。省略時は all（従来どおり）
  * @returns {string}
  */
-export function buildScoutPrompt(existingTitles) {
+export function buildScoutPrompt(existingTitles, focus = "all") {
+  const kinds = focus === "tests" ? [SCOUT_KIND_TESTS] : focus === "docs" ? [SCOUT_KIND_DOCS] : [SCOUT_KIND_TESTS, SCOUT_KIND_DOCS];
   return [
     "このリポジトリを読み取り専用で調べ、エージェントが安全に実装できる「小さく具体的な作業」を最大3件、提案してください。コードは変更しないでください。",
     "",
     "## 提案してよい作業の種類（これ以外は提案しない）",
-    "1. **テストの追加**: 既存の挙動を固定するテストを追加する。実装（src/）は変更しない。既存テストを削除・書き換えない。対象の例: テストが無い・薄いモジュール、境界値、エラー系。",
-    "2. **README.md / CHANGELOG.md の修正**: 実装・他ドキュメントとの食い違いや記載漏れの修正。",
+    ...kinds.map((k, i) => `${i + 1}. ${k}`),
     "",
     "## 提案してはならないもの",
     "- 法令に基づく判定・期限計算のロジック（src/licenses/**/eligibility, src/core/reminders 等）に関するテスト・変更（法令解釈を含むため）",
