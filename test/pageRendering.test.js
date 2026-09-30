@@ -11,6 +11,8 @@ import { renderFormPage } from "../src/web/formPage.js";
 import { renderResultPage } from "../src/web/resultPage.js";
 import { renderReminderPage } from "../src/web/reminderPage.js";
 import { renderDraftsPage } from "../src/web/draftsPage.js";
+import { renderKobutsuFormPage } from "../src/web/kobutsuFormPage.js";
+import { renderNouchiTenyoFormPage } from "../src/web/nouchiTenyoFormPage.js";
 
 test("renderFormPage: errorを指定するとエラーメッセージ用のブロックを表示する", () => {
   const html = renderFormPage({ error: "テストエラー内容" });
@@ -65,4 +67,66 @@ test("renderDraftsPage: 下書きのプロフィールにapplicantNameが無け�
     drafts: [{ id: "abc123", savedAt: "2026-09-12T00:00:00.000Z", profile: {} }],
   });
   assert.match(html, /（名称未設定）/);
+});
+
+test("renderDraftsPage: 下書きが0件なら「保存済みの下書きはありません。」を表示し、<table>は表示しない", () => {
+  const html = renderDraftsPage({ drafts: [] });
+  assert.match(html, /保存済みの下書きはありません。/);
+  assert.doesNotMatch(html, /<table>/);
+});
+
+test("renderDraftsPage: applicantNameに含まれるHTMLタグをエスケープする", () => {
+  const html = renderDraftsPage({
+    drafts: [
+      {
+        id: "abc123",
+        savedAt: "2026-09-12T00:00:00.000Z",
+        profile: { applicantName: "<script>alert(1)</script>" },
+      },
+    ],
+  });
+  assert.doesNotMatch(html, /<script>alert\(1\)<\/script>/);
+  assert.match(html, /&lt;script&gt;alert\(1\)&lt;\/script&gt;/);
+});
+
+test("renderDraftsPage: idに含まれる特殊文字をURLエンコードしてリンク・削除フォームのactionに使う", () => {
+  const html = renderDraftsPage({
+    drafts: [{ id: "a b/c", savedAt: "2026-09-12T00:00:00.000Z", profile: {} }],
+  });
+  assert.match(html, /href="\/drafts\/a%20b%2Fc"/);
+  assert.match(html, /action="\/drafts\/a%20b%2Fc\/delete"/);
+});
+
+test("renderKobutsuFormPage: errorを指定するとエラーメッセージ用のブロックを表示する", () => {
+  const html = renderKobutsuFormPage({ error: "テスト用エラー" });
+  assert.match(html, /class="error"/);
+  assert.match(html, /入力内容の処理中にエラーが発生しました: テスト用エラー/);
+});
+
+test("renderKobutsuFormPage: errorを指定しなければエラーブロックは表示されない", () => {
+  const html = renderKobutsuFormPage();
+  assert.doesNotMatch(html, /class="error"/);
+});
+
+test("renderKobutsuFormPage: errorに含まれるHTMLタグをエスケープする", () => {
+  const html = renderKobutsuFormPage({ error: "<b>x</b>" });
+  assert.doesNotMatch(html, /<b>x<\/b>/);
+  assert.match(html, /&lt;b&gt;x&lt;\/b&gt;/);
+});
+
+test("renderNouchiTenyoFormPage: errorを指定するとエラーメッセージ用のブロックを表示する", () => {
+  const html = renderNouchiTenyoFormPage({ error: "テスト用エラー" });
+  assert.match(html, /class="error"/);
+  assert.match(html, /入力内容の処理中にエラーが発生しました: テスト用エラー/);
+});
+
+test("renderNouchiTenyoFormPage: errorを指定しなければエラーブロックは表示されない", () => {
+  const html = renderNouchiTenyoFormPage();
+  assert.doesNotMatch(html, /class="error"/);
+});
+
+test("renderNouchiTenyoFormPage: errorに含まれるHTMLタグをエスケープする", () => {
+  const html = renderNouchiTenyoFormPage({ error: "<b>x</b>" });
+  assert.doesNotMatch(html, /<b>x<\/b>/);
+  assert.match(html, /&lt;b&gt;x&lt;\/b&gt;/);
 });
