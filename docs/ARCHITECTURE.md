@@ -302,13 +302,13 @@ BtoB下請けポータル・会社設立サポートとも異なり、判定す�
 
 - 正式な様式（国交省・都道府県指定のレイアウト）への完全準拠したPDF/docx出力
   （現状は内容確認用のサマリー表のみ）
-- 様式第二十号の二（誓約書）は本ツールが判定に用いる欠格要件10項目
-  （2026年9月に6→10項目へ拡充。第1・2・3・5・6・7・8・9・10・14号相当）を
-  確認しているが、建設業法第8条の全14号への完全対応はしていない。
-  未対応の第4・11・12・13号は、申請者本人以外の複数人物（役員・使用人・
-  法定代理人）ごとの欠格状況の保持が必要で、個人の申請者1名を前提とする
-  現行の`ApplicantProfile`型では表現できないため対象外
-  （`src/licenses/construction/eligibility/types.js`のKekkakuInput定義コメント参照）
+- 様式第二十号の二（誓約書）・欠格要件判定（`checkKekkaku`）は建設業法第8条の
+  全14号に対応済み（2026年9月・Issue #72）。役員（`OfficerInput.kekkaku`）・
+  政令で定める使用人（`ApplicantProfile.regulatoryEmployees[].kekkaku`）・
+  未成年者の法定代理人（`KekkakuInput.legalRepresentativeKekkaku`）ごとの
+  欠格事由を任意項目として保持し、未入力の場合は合格に固定せず`warnings`で
+  未確認である旨を出す（`src/licenses/construction/eligibility/types.js`の
+  KekkakuInput定義コメント参照）
 - JCIP外部インターフェイス仕様書に沿ったデータ連携（電子申請の自動化）。
   仕様書の存在・概要（XML形式、2026年9月時点でv1.3が公開）は調査済みだが、
   行政書士登録・対象都道府県の確定・仕様書本文の精査が完了するまでは

@@ -141,6 +141,7 @@ ${savedNoticeBlock}
     <label><input type="checkbox" id="isUndischargedBankrupt"> 破産者で復権を得ていない</label>
     <label><input type="checkbox" id="hadLicenseRevokedWithin5Years"> 5年以内に建設業許可を取り消された経験がある</label>
     <label><input type="checkbox" id="hasWithdrawnLicenseDuringRevocationHearingWithin5Years"> 許可取消しの聴聞通知後、取消しを免れるため廃業届出をしてから5年を経過していない</label>
+    <label><input type="checkbox" id="hasRevocationNoticeWithin60DaysAsOfficer"> 許可取消しの聴聞通知前60日以内に当該法人の役員等であった</label>
     <label><input type="checkbox" id="hasBusinessSuspensionOrderInEffect"> 営業停止命令の停止期間が経過していない</label>
     <label><input type="checkbox" id="hasBusinessProhibitionOrderInEffect"> 営業禁止処分の禁止期間が経過していない</label>
     <label><input type="checkbox" id="hasCriminalRecordWithin5Years"> 拘禁刑以上の刑、または関連法令違反による罰金刑から5年を経過していない</label>
@@ -389,6 +390,7 @@ if (INITIAL_PROFILE) {
   setChecked("isUndischargedBankrupt", kk.isUndischargedBankrupt);
   setChecked("hadLicenseRevokedWithin5Years", kk.hadLicenseRevokedWithin5Years);
   setChecked("hasWithdrawnLicenseDuringRevocationHearingWithin5Years", kk.hasWithdrawnLicenseDuringRevocationHearingWithin5Years);
+  setChecked("hasRevocationNoticeWithin60DaysAsOfficer", kk.hasRevocationNoticeWithin60DaysAsOfficer);
   setChecked("hasBusinessSuspensionOrderInEffect", kk.hasBusinessSuspensionOrderInEffect);
   setChecked("hasBusinessProhibitionOrderInEffect", kk.hasBusinessProhibitionOrderInEffect);
   setChecked("hasCriminalRecordWithin5Years", kk.hasCriminalRecordWithin5Years);
@@ -513,6 +515,7 @@ function buildProfile() {
       isUndischargedBankrupt: checked("isUndischargedBankrupt"),
       hadLicenseRevokedWithin5Years: checked("hadLicenseRevokedWithin5Years"),
       hasWithdrawnLicenseDuringRevocationHearingWithin5Years: checked("hasWithdrawnLicenseDuringRevocationHearingWithin5Years"),
+      hasRevocationNoticeWithin60DaysAsOfficer: checked("hasRevocationNoticeWithin60DaysAsOfficer"),
       hasBusinessSuspensionOrderInEffect: checked("hasBusinessSuspensionOrderInEffect"),
       hasBusinessProhibitionOrderInEffect: checked("hasBusinessProhibitionOrderInEffect"),
       hasCriminalRecordWithin5Years: checked("hasCriminalRecordWithin5Years"),
