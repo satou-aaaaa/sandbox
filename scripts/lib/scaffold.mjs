@@ -113,7 +113,7 @@ export function format${pascal}EligibilityReport(result) {
   files[`${base}/index.js`] = `/**
  * ${label}アドオンをコアへ登録するエントリポイント。
  * 更新・変更のリマインドを計算するより前に、この関数を呼ぶこと
- * （scripts/reminder-digest.js と src/web/ の登録箇所にも追加する）。
+ * （src/licenses/registerAll.js・scripts/reminder-digest.js・src/web/server.js の登録箇所にも追加する）。
  *
  * ${legalTodo}
  */
@@ -222,7 +222,7 @@ export function followUpChecklist(name, label) {
   return [
     `test/docsConsistency.test.js の MODULE_DOCS に "licenses/${name}": "${name}-core" を追加する`,
     `CLAUDE.md のディレクトリ構成に ${name}/ の説明（${label}）を追加する`,
-    `scripts/reminder-digest.js と src/web/ で register${toPascal(name)}License() を呼ぶ`,
+    `src/licenses/registerAll.js・scripts/reminder-digest.js・src/web/server.js に register${toPascal(name)}License() を追加する（test/dailySummary.test.js が registerAll.js とserver.jsの差を検知する）`,
     "TODO(法令根拠) を、原文を確認したURLに置き換える（残っていると npm test が失敗する）",
     `docs/DESIGN_${name}-core.md・docs/REQUIREMENTS_${name}-core.md の TODO を埋める`,
     `判定ロジックを実装し、test/${toCamel(name)}Engine.test.js を拡充する`,
