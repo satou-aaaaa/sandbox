@@ -31,17 +31,62 @@ const COLUMNS = [
 const DEFAULT_LICENSE_ID = "既定";
 
 /**
+ * 数式インジェクション対策（CSVインジェクション）。表計算ソフトは `=` `+` `-` `@`
+ * （またはタブ・CR）で始まるセルを数式として評価しうるため、該当する場合は
+ * 見た目に影響しない `'`（アポストロフィ）を先頭に付けて無害化する
+ * （OWASP CSV Injection の一般的な対策。参考: https://owasp.org/www-community/attacks/CSV_Injection ）。
+ *
+ * 先頭の `'` の連続数（0個も含む）を数え、その直後の文字が上記のいずれかなら
+ * `'` を1個追加する（0個→1個も含む）方式にすることで、値がもともと `'` で
+ * 始まっていても一意に復元できるようにしている（`unescapeCsvFormulaGuard` で
+ * 直後の文字が対象文字なら `'` を1個取り除く。素朴に「先頭が `'` なら1個取る」
+ * だと、無害化前から `'=foo` だった値と、無害化で `=foo` が `'=foo` になった値を
+ * 区別できず往復性が壊れるため、連続数で判定する）。
+ */
+const CSV_FORMULA_TRIGGER_RE = /^[=+\-@\t\r]/;
+
+/**
+ * 先頭から連続する `'` の個数を数える。
+ * @param {string} str
+ * @returns {number}
+ */
+function countLeadingQuotes(str) {
+  let i = 0;
+  while (str[i] === "'") i++;
+  return i;
+}
+
+/**
  * 1フィールドをCSV用にエスケープする。カンマ・ダブルクォート・改行を
  * 含む場合はダブルクォートで囲み、内部のダブルクォートは2つに置き換える。
+ * 数式として評価されうる先頭文字には `'` を付けて無害化する。
  * @param {unknown} value
  * @returns {string}
  */
 function escapeCsvField(value) {
-  const str = value === null || value === undefined ? "" : String(value);
+  let str = value === null || value === undefined ? "" : String(value);
+  const afterQuotes = str[countLeadingQuotes(str)] ?? "";
+  if (CSV_FORMULA_TRIGGER_RE.test(afterQuotes)) {
+    str = `'${str}`;
+  }
   if (/[",\r\n]/.test(str)) {
     return `"${str.replace(/"/g, '""')}"`;
   }
   return str;
+}
+
+/**
+ * `escapeCsvField` が付けた数式インジェクション対策の `'` を取り除く（往復性の維持）。
+ * @param {string} value
+ * @returns {string}
+ */
+function unescapeCsvFormulaGuard(value) {
+  const k = countLeadingQuotes(value);
+  const afterQuotes = value[k] ?? "";
+  if (k > 0 && CSV_FORMULA_TRIGGER_RE.test(afterQuotes)) {
+    return value.slice(1);
+  }
+  return value;
 }
 
 /**
@@ -160,7 +205,7 @@ export function clientsFromCsv(text) {
     const record = {};
     header.forEach((key, index) => {
       const value = row[index];
-      if (value) record[key] = value;
+      if (value) record[key] = unescapeCsvFormulaGuard(value);
     });
     if (!record.clientName) continue;
     const licenseCategory = record.licenseCategory || "construction";
