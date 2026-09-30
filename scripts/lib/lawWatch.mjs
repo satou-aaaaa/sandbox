@@ -50,10 +50,11 @@ export function normalizeHtml(html) {
     .replace(/<(script|style|noscript|svg)[\s\S]*?<\/\1>/gi, " ")
     .replace(/<[^>]+>/g, " ")
     .replace(/&nbsp;|&#160;/g, " ")
-    .replace(/&amp;/g, "&")
     .replace(/&lt;/g, "<")
     .replace(/&gt;/g, ">")
     .replace(/&quot;/g, '"')
+    // &amp; は最後に戻す（先に戻すと &amp;lt; が二重にアンエスケープされて < になるため）
+    .replace(/&amp;/g, "&")
     .replace(/\s+/g, " ")
     .trim();
   return { title, text };

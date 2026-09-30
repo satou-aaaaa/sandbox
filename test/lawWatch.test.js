@@ -84,3 +84,7 @@ test("extractHeaderUrls: 末尾の句読点・括弧を除き、重複をまと�
   const src = "/**\n * 参照: https://laws.e-gov.go.jp/law/1 。\n * (https://example.com/a).\n * https://laws.e-gov.go.jp/law/1\n */\n";
   assert.deepEqual(extractHeaderUrls(src), ["https://laws.e-gov.go.jp/law/1", "https://example.com/a"]);
 });
+
+test("normalizeHtml: &amp;lt; を二重にアンエスケープしない（&lt; という文字列のまま残る）", () => {
+  assert.equal(normalizeHtml("<p>&amp;lt; と &lt;b&gt; と &amp;</p>").text, "&lt; と <b> と &");
+});
