@@ -1,0 +1,46 @@
+name: Law watch
+
+# 法令・様式の根拠URL（ソースの冒頭コメント＋docs/law-watch-extra.json）を週次で点検し、
+# 内容の変化・リンク切れがあれば、常設Issue（ラベル law-watch）に集約する（ADR-0018）。
+# 取得するのは公開ページ（e-Gov法令API・所管官庁）のみ。個人情報・実データは扱わない。
+# 検知だけを行い、ロジックの修正・基準線の更新は人が内容を確認してから行う。
+on:
+  schedule:
+    # 毎週月曜 07:00 JST（= 日曜 22:00 UTC）
+    - cron: "0 22 * * 0"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: law-watch
+  cancel-in-progress: false
+
+jobs:
+  watch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: 22.x
+      - name: 根拠URLの点検
+        id: watch
+        shell: bash
+        run: |
+          # 終了コード 3 は「人の対応が必要」（ジョブは失敗させず、後続でIssueにする）。それ以外の異常は失敗させる。
+          set +e
+          node scripts/law-watch.mjs --out law-watch-report.md
+          rc=$?
+          set -e
+          if [ "$rc" -ne 0 ] && [ "$rc" -ne 3 ]; then exit "$rc"; fi
+          cat law-watch-report.md >> "$GITHUB_STEP_SUMMARY"
+      - name: 変化があればIssueに集約
+        if: steps.watch.outputs.attention == 'true'
+        shell: bash
+        run: scripts/gh-upsert-issue.sh law-watch "法令・様式の根拠URLに変化があります（自動点検）" law-watch-report.md
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

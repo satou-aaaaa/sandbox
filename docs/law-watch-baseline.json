@@ -1,0 +1,108 @@
+{
+  "https://laws.e-gov.go.jp/data/MinisterialOrdinance/324M50004000014/621062_1/pict/2FH00000061301.pdf": {
+    "kind": "html",
+    "title": "",
+    "hash": "e146f876c4f48c9a2e665adcf56b4b57c8415ab62e55594da253f5b8cdb36d0c",
+    "chars": 132812
+  },
+  "https://laws.e-gov.go.jp/law/324AC0000000100": {
+    "kind": "egov",
+    "title": "建設業法",
+    "revisionId": "324AC0000000100_20251212_506AC0000000049",
+    "enforcementDate": "2025-12-12",
+    "scheduledDate": null,
+    "hash": "c2f189ab51a82b67e825ed3c83744383c4998cac37d7a17eec493e232a7c043b"
+  },
+  "https://laws.e-gov.go.jp/law/324AC0000000108": {
+    "kind": "egov",
+    "title": "古物営業法",
+    "revisionId": "324AC0000000108_20250601_504AC0000000068",
+    "enforcementDate": "2025-06-01",
+    "scheduledDate": null,
+    "hash": "a50097e77ff70d1f415acbc7d057c2c8fdcafd6aeb41e6822be38861e47f1974"
+  },
+  "https://laws.e-gov.go.jp/law/324M50004000014": {
+    "kind": "egov",
+    "title": "建設業法施行規則",
+    "revisionId": "324M50004000014_20260701_508M60000800006",
+    "enforcementDate": "2026-07-01",
+    "scheduledDate": null,
+    "hash": "ee3e4c147f4ac283ed3cba7bfaca300bfd04d81427b12f5432e042bfa83737ee"
+  },
+  "https://laws.e-gov.go.jp/law/327AC0000000229": {
+    "kind": "egov",
+    "title": "農地法",
+    "revisionId": "327AC0000000229_20250601_504AC0000000068",
+    "enforcementDate": "2025-06-01",
+    "scheduledDate": null,
+    "hash": "7a7c8190ee583f2113db9ddfd5f3aed72f87570a5ad931fab5711c40702e747a"
+  },
+  "https://laws.e-gov.go.jp/law/345AC0000000137": {
+    "kind": "egov",
+    "title": "廃棄物の処理及び清掃に関する法律",
+    "revisionId": "345AC0000000137_20260916_508AC0000000043",
+    "enforcementDate": "2026-09-16",
+    "scheduledDate": null,
+    "hash": "66036834c81bf2c2ca84bcb6d63d880bcb444e6533eeeb4e8e41780125e58ce3"
+  },
+  "https://laws.e-gov.go.jp/law/402M50000010016": {
+    "kind": "egov",
+    "title": "出入国管理及び難民認定法第七条第一項第二号の基準を定める省令",
+    "revisionId": "402M50000010016_20260401_508M60000010012",
+    "enforcementDate": "2026-04-01",
+    "scheduledDate": null,
+    "hash": "a17add39e806236b6fbff874e51b3d715b041c273ad760fc6952ee7b8c46ecd4"
+  },
+  "https://laws.e-gov.go.jp/law/407M50400000010": {
+    "kind": "egov",
+    "title": "古物営業法施行規則",
+    "revisionId": "407M50400000010_20260812_508M60400000017",
+    "enforcementDate": "2026-08-12",
+    "scheduledDate": null,
+    "hash": "5ad267f228b1c367a92787618c3148774055c47113cd09cdfa3aadcef22e128f"
+  },
+  "https://laws.e-gov.go.jp/law/429AC0000000065": {
+    "kind": "egov",
+    "title": "住宅宿泊事業法",
+    "revisionId": "429AC0000000065_20250601_504AC0000000068",
+    "enforcementDate": "2025-06-01",
+    "scheduledDate": null,
+    "hash": "66d008bf3876b8e81dfe83caac2cb1463889823330c5ec64d8785e239dbcd9f5"
+  },
+  "https://www.ciac.jp/kensetuzaimu/hojin/kansei": {
+    "kind": "html",
+    "title": "完成工事原価報告書 ｜ 法人用 ｜ 建設業財務諸表の解説",
+    "hash": "284959f385017fd7e3c86fc0e092d36fb2b79696bf2e3df9a6d0bb6c1c184ffa",
+    "chars": 3076
+  },
+  "https://www.kensetu.office-kamiyama-tokyo.com/blog-keishin-documents2/": {
+    "kind": "html",
+    "title": "経営規模等評価申請書と総合評定値請求書の書き方",
+    "hash": "d2ade7271cc670f176db404bff4e97c6cd526638c3ebc67a8746b3e2a6caad7d",
+    "chars": 3812
+  },
+  "https://www.mlit.go.jp/totikensangyo/const/1_6_bt_000082.html": {
+    "kind": "html",
+    "title": "建設産業・不動産業：許可の要件 - 国土交通省",
+    "hash": "1b2b1dfe4cee4f7c9a5e83378c1ee3a2fd4cf09fcd21c6ce82b2b71106a7ecea",
+    "chars": 7026
+  },
+  "https://www.moj.go.jp/isa/applications/procedures/tokureikikan_00001.html": {
+    "kind": "html",
+    "title": "特例期間とは？ | 出入国在留管理庁",
+    "hash": "4d4d2414399b67437ea867f46977b21180e818c75880a3947b4f5ea835c7c0ad",
+    "chars": 2164
+  },
+  "https://www.moj.go.jp/isa/applications/status/gijinkoku.html": {
+    "kind": "html",
+    "title": "在留資格「技術・人文知識・国際業務」 | 出入国在留管理庁",
+    "hash": "475d740cc710a772aaa6ba9381a5844d236540ea6491061fbdaa5e374a00be0e",
+    "chars": 17376
+  },
+  "https://www.pref.aichi.jp/soshiki/junkan/0000059102.html": {
+    "kind": "html",
+    "title": "産業廃棄物処理業許可申請に添付する修了証の取扱いについて - 愛知県",
+    "hash": "8bebb6331ffe4dd0173e73e31f4dfd4ee895d3a79f46f2806a6cbaeab4278ac1",
+    "chars": 1457
+  }
+}
