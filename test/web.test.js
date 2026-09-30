@@ -663,7 +663,7 @@ test("POST /drafts: 下書きを新規保存し、保存済み通知と共にフ
 test("POST /drafts: 既存のdraftIdを指定すると新規作成せず上書き更新する", async () => {
   const ctx = await startTestServer();
   try {
-    const first = await upsertDraft(buildSampleApplicantProfile(), undefined, ctx.draftsPath);
+    const first = await upsertDraft(buildSampleApplicantProfile(), undefined, undefined, ctx.draftsPath);
     const updatedProfile = { ...buildSampleApplicantProfile(), applicantName: "更新後の名前" };
     const body = new URLSearchParams({ profileJson: JSON.stringify(updatedProfile), draftId: first.id });
     await fetch(`${ctx.baseUrl}/drafts`, {
@@ -683,7 +683,7 @@ test("POST /drafts: 既存のdraftIdを指定すると新規作成せず上書�
 test("GET /drafts/<id>: 下書きの内容でフォームを事前入力する", async () => {
   const ctx = await startTestServer();
   try {
-    const record = await upsertDraft(buildSampleApplicantProfile(), undefined, ctx.draftsPath);
+    const record = await upsertDraft(buildSampleApplicantProfile(), undefined, undefined, ctx.draftsPath);
     const res = await fetch(`${ctx.baseUrl}/drafts/${record.id}`);
     assert.equal(res.status, 200);
     const html = await res.text();
@@ -707,8 +707,8 @@ test("GET /drafts/<id>: 存在しない下書きは404を返す", async () => {
 test("POST /drafts/<id>/delete: 指定した下書きのみ削除する", async () => {
   const ctx = await startTestServer();
   try {
-    const a = await upsertDraft(buildSampleApplicantProfile(), undefined, ctx.draftsPath);
-    await upsertDraft({ ...buildSampleApplicantProfile(), applicantName: "B社" }, undefined, ctx.draftsPath);
+    const a = await upsertDraft(buildSampleApplicantProfile(), undefined, undefined, ctx.draftsPath);
+    await upsertDraft({ ...buildSampleApplicantProfile(), applicantName: "B社" }, undefined, undefined, ctx.draftsPath);
 
     const res = await fetch(`${ctx.baseUrl}/drafts/${a.id}/delete`, { method: "POST" });
     assert.equal(res.status, 200);
@@ -741,6 +741,43 @@ test("不正なHostヘッダーのリクエストは403で拒否する（DNS reb
   }
 });
 
+test("POST /drafts: licenseCategory=kobutsuで保存すると古物商許可として記録され、続きから入力すると古物商フォームが開く（#73）", async () => {
+  const ctx = await startTestServer();
+  try {
+    const profile = buildSampleKobutsuProfile();
+    const body = new URLSearchParams({
+      profileJson: JSON.stringify(profile),
+      licenseCategory: "kobutsu",
+      draftId: "",
+    });
+    const saveRes = await fetch(`${ctx.baseUrl}/drafts`, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: body.toString(),
+    });
+    assert.equal(saveRes.status, 200);
+    const savedHtml = await saveRes.text();
+    assert.match(savedHtml, /古物商許可 申請者情報インテイク/);
+    assert.match(savedHtml, /下書きを保存しました/);
+
+    const drafts = await loadDrafts(ctx.draftsPath);
+    assert.equal(drafts.length, 1);
+    assert.equal(drafts[0].licenseCategory, "kobutsu");
+
+    const listRes = await fetch(`${ctx.baseUrl}/drafts`);
+    const listHtml = await listRes.text();
+    assert.match(listHtml, /古物商許可/);
+
+    const reopenRes = await fetch(`${ctx.baseUrl}/drafts/${drafts[0].id}`);
+    assert.equal(reopenRes.status, 200);
+    const reopenHtml = await reopenRes.text();
+    assert.match(reopenHtml, /古物商許可 申請者情報インテイク/);
+    assert.match(reopenHtml, /"applicantName":"山田 太郎"/);
+  } finally {
+    await ctx.close();
+  }
+});
+
 test("他サイトのOriginからのPOSTは403で拒否し、同一OriginのPOSTは受理する", async () => {
   const ctx = await startTestServer();
   try {
@@ -756,6 +793,35 @@ test("他サイトのOriginからのPOSTは403で拒否し、同一OriginのPOST
   }
 });
 
+test("POST /drafts: licenseCategory=nouchi-tenyoで保存すると農地転用許可として記録され、続きから入力すると農地転用フォームが開く（#73）", async () => {
+  const ctx = await startTestServer();
+  try {
+    const profile = buildSampleNouchiTenyoProfile();
+    const body = new URLSearchParams({
+      profileJson: JSON.stringify(profile),
+      licenseCategory: "nouchi-tenyo",
+      draftId: "",
+    });
+    const saveRes = await fetch(`${ctx.baseUrl}/drafts`, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: body.toString(),
+    });
+    assert.equal(saveRes.status, 200);
+
+    const drafts = await loadDrafts(ctx.draftsPath);
+    assert.equal(drafts.length, 1);
+    assert.equal(drafts[0].licenseCategory, "nouchi-tenyo");
+
+    const reopenRes = await fetch(`${ctx.baseUrl}/drafts/${drafts[0].id}`);
+    const reopenHtml = await reopenRes.text();
+    assert.match(reopenHtml, /農地転用許可 申請者情報インテイク/);
+    assert.match(reopenHtml, /"applicantName":"サンプル建設株式会社"/);
+  } finally {
+    await ctx.close();
+  }
+});
+
 test("全レスポンスにセキュリティヘッダーを付与する", async () => {
   const ctx = await startTestServer();
   try {
@@ -763,6 +829,19 @@ test("全レスポンスにセキュリティヘッダーを付与する", async
     assert.match(res.headers.get("content-security-policy"), /frame-ancestors 'none'/);
     assert.equal(res.headers.get("x-content-type-options"), "nosniff");
     assert.equal(res.headers.get("x-frame-options"), "DENY");
+  } finally {
+    await ctx.close();
+  }
+});
+
+test("既存（licenseCategory未設定）の下書きは建設業許可フォームとして開く（後方互換）", async () => {
+  const ctx = await startTestServer();
+  try {
+    const record = await upsertDraft(buildSampleApplicantProfile(), undefined, undefined, ctx.draftsPath);
+    const res = await fetch(`${ctx.baseUrl}/drafts/${record.id}`);
+    assert.equal(res.status, 200);
+    const html = await res.text();
+    assert.match(html, /建設業許可 申請者情報インテイク/);
   } finally {
     await ctx.close();
   }

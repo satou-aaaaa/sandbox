@@ -27,7 +27,7 @@ export function evaluateEligibility(profile) {
     checkKeieiGyomuKanri(profile.keieiGyomuKanri),
     checkSenninGijutsusha(profile.senninGijutsushaList),
     checkZaisanKiso(profile.zaisanKiso),
-    checkKekkaku(profile.kekkaku),
+    checkKekkaku(profile.kekkaku, profile.officers, profile.regulatoryEmployees, profile.applicantType),
     checkSeijitsusei(profile.seijitsusei),
   ];
 
