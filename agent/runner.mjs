@@ -10,6 +10,8 @@ import { appendFileSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import {
   ALLOWED_TOOLS,
+  USAGE_LIMIT_MARKER,
+  looksLikeUsageLimit,
   DISALLOWED_TOOLS,
   TRIAGE_ALLOWED_TOOLS,
   TRIAGE_DISALLOWED_TOOLS,
@@ -34,7 +36,7 @@ export const MODEL = process.env.AGENT_MODEL || "claude-sonnet-5-5";
  * @param {string} workDir
  * @param {string} auditFile
  * @param {"implement"|"triage"|"review"} [mode] triage は読み取り専用・短時間・低予算で評価だけを行う。review は独立したレビュアー（別の強いモデル・読み取り専用）
- * @returns {Promise<{ok: boolean, cost: number, summary: string}>}
+ * @returns {Promise<{ok: boolean, cost: number, summary: string, usageLimit?: boolean}>}
  */
 export async function runAgent(prompt, workDir, auditFile, mode = "implement") {
   const review = mode === "review";
@@ -57,6 +59,7 @@ export async function runAgent(prompt, workDir, auditFile, mode = "implement") {
   let cost = 0;
   let ok = false;
   let summary = "";
+  let usageLimit = false;
   try {
     for await (const message of query({
       prompt,
@@ -83,7 +86,8 @@ export async function runAgent(prompt, workDir, auditFile, mode = "implement") {
         ok = message.subtype === "success";
         summary = "result" in message ? String(message.result ?? "") : "";
         audit({ event: "result", subtype: message.subtype, cost, turns: message.num_turns });
-        console.error(`[agent] エージェント終了: ${message.subtype}（費用 $${cost.toFixed(4)}, ${message.num_turns}ターン）`);
+        console.error(`[agent] エージェント終了: ${message.subtype}（費用 ${cost.toFixed(4)}, ${message.num_turns}ターン）`);
+        if (!ok && looksLikeUsageLimit(`${summary} ${JSON.stringify(message)}`)) usageLimit = true;
       }
     }
   } catch (err) {
@@ -92,7 +96,8 @@ export async function runAgent(prompt, workDir, auditFile, mode = "implement") {
   } finally {
     clearTimeout(timer);
   }
-  return { ok, cost, summary };
+  if (usageLimit) console.error(`[agent] ${USAGE_LIMIT_MARKER}`);
+  return { ok, cost, summary, usageLimit };
 }
 
 /**

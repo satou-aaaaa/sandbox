@@ -18,11 +18,14 @@
  * 設計の根拠: docs/adr/0017-agent-sdk-issue-loop.md（Amendment 6）
  */
 import { spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, readdirSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
+  USAGE_BACKOFF_MS,
+  detectUsageLimit,
+  isBackedOff,
   LABEL_INCIDENT,
   LABEL_NEEDS_HUMAN,
   LABEL_REVERT_PR,
@@ -41,6 +44,7 @@ import { LOG_DIR, REPO, gh, log, run } from "./run.mjs";
 const AGENT_DIR = resolve(dirname(fileURLToPath(import.meta.url)));
 const LOCK_FILE = join(AGENT_DIR, ".state", "cycle.lock");
 const KILL_SWITCH_FILE = join(AGENT_DIR, ".disabled");
+const BACKOFF_FILE = join(AGENT_DIR, ".state", "backoff.json");
 const DRY_RUN = process.argv.includes("--dry-run");
 const TMP_PREFIXES = ["kkt-agent-", "kkt-triage-", "kkt-task-"];
 
@@ -131,6 +135,25 @@ function runStep(script, args) {
   return out;
 }
 
+/** 利用枠の逼迫による見送り期間中か（前回のサイクルが上限を検知して保存した状態）。 */
+function backedOff() {
+  try {
+    return isBackedOff(JSON.parse(readFileSync(BACKOFF_FILE, "utf8")), Date.now());
+  } catch {
+    return false; // 状態が無い・壊れている場合は、見送らない
+  }
+}
+
+/** 利用枠の上限を検知したので、一定時間、重い処理を見送る状態を保存する。 */
+function startBackoff() {
+  try {
+    mkdirSync(dirname(BACKOFF_FILE), { recursive: true });
+    writeFileSync(BACKOFF_FILE, JSON.stringify({ until: Date.now() + USAGE_BACKOFF_MS }));
+  } catch {
+    /* 保存できなくても、このサイクルの見送りは行う */
+  }
+}
+
 /** リモートの一時停止: 開いているIssueに agent-pause ラベルが付いていれば、自動運用を止める（スマホから停止・再開できる）。 */
 function remotePaused() {
   try {
@@ -163,14 +186,30 @@ async function main() {
     let out = runStep("sync.mjs", flag);
     out += runStep("revert.mjs", ["--sweep", ...flag]);
     // 2. ブレーカーが作動していなければ、通常の流れ（スカウト→トリアージ→実装→レビュー）を実行する
+    let throttled = false;
     if (!breakerTripped()) {
-      out += runStep("scout.mjs", flag) + runStep("triage.mjs", flag) + runStep("run.mjs", flag) + runStep("fix.mjs", flag) + runStep("review.mjs", flag);
+      if (backedOff()) {
+        throttled = true;
+        log("利用枠の逼迫による見送り期間中のため、重い処理（スカウト・トリアージ・実装・修復・レビュー）を見送ります");
+      } else {
+        // 利用枠の上限を検知したら、残りの重い処理を見送る（対話利用への支障を避ける）。次回以降は時間が過ぎれば自動で再開する
+        for (const script of ["scout.mjs", "triage.mjs", "run.mjs", "fix.mjs", "review.mjs"]) {
+          const stepOut = runStep(script, flag);
+          out += stepOut;
+          if (detectUsageLimit(stepOut)) {
+            throttled = true;
+            log("利用枠の上限を検知したため、残りの重い処理を見送ります");
+            if (!DRY_RUN) startBackoff();
+            break;
+          }
+        }
+      }
       // 3. 週1回、パイプライン全体を通す自動の点検（回帰の検知。--if-due で、間隔が空いた場合だけ実施）
       if (!DRY_RUN) out += runStep("selftest.mjs", ["--if-due"]);
     }
     // 4. 運用レポート（GitHubの状態から決定的に集計。日次は動き・問題がある日だけ投稿、週次は7日ごと）
     if (!DRY_RUN) out += runStep("report.mjs", ["--post"]) + runStep("report.mjs", ["--if-weekly-due", "--post"]);
-    const summary = formatSummary(summarizeOutput(out), recovered);
+    const summary = formatSummary(summarizeOutput(out), recovered, throttled);
     log(`サマリー: ${summary}`);
     mkdirSync(LOG_DIR, { recursive: true });
     const stamp = started.toISOString().replace(/[:.]/g, "-");

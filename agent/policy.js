@@ -609,9 +609,10 @@ export function summarizeOutput(text) {
  * 通知用の日本語サマリー。
  * @param {ReturnType<typeof summarizeOutput>} s
  * @param {number} recovered 異常終了から回復したIssue数
+ * @param {boolean} [throttled] 利用枠の逼迫で、重い処理を見送ったか
  * @returns {string}
  */
-export function formatSummary(s, recovered) {
+export function formatSummary(s, recovered, throttled = false) {
   const parts = [
     `スカウト起票: ${s.scouted}件`,
     `トリアージ: 実行可 ${s.ready}件 / 人手 ${s.needsHuman}件`,
@@ -622,7 +623,52 @@ export function formatSummary(s, recovered) {
   if (s.fixed > 0) parts.push(`自己修復: ${s.fixed}件`);
   if (s.reverted > 0) parts.push(`取り消し（リバート）: ${s.reverted}件`);
   if (recovered > 0) parts.push(`異常終了から回復: ${recovered}件`);
+  if (throttled) parts.push("利用枠の逼迫のため、重い処理を見送り（次回以降に自動で再開）");
   return parts.join(" / ");
+}
+
+// ---------------------------------------------------------------------------
+// 利用枠の逼迫への対処（#114）
+//
+// サブスクリプションの利用枠は対話利用と共有される。利用枠の上限に当たったら、そのサイクルの残りの重い処理
+// （スカウト・トリアージ・実装・自己修復・レビュー）を見送り、一定時間は次のサイクルでも見送る（対話利用への支障と、
+// 上限に当たり続ける無駄を防ぐ）。見送った事実は要約に残り、時間が過ぎれば自動で再開する。
+// 残りの利用枠を取得する公式APIは無いため、「上限に当たったこと」の検知（エラー文言）で判断する。
+// ---------------------------------------------------------------------------
+
+/** エージェント・子スクリプトが、利用枠の上限を検知したときに出力する目印。 */
+export const USAGE_LIMIT_MARKER = "[利用枠の上限を検知]";
+/** 上限を検知したあと、重い処理を見送る時間（ミリ秒）。 */
+export const USAGE_BACKOFF_MS = 60 * 60 * 1000;
+
+/**
+ * 出力・エラー文言が、利用枠（使用量）の上限に当たったことを示すか。
+ * 一般的な一時エラー（ネットワーク等）は含めない。
+ * @param {string} text
+ * @returns {boolean}
+ */
+export function looksLikeUsageLimit(text) {
+  return /usage limit|limit reached|rate[ _-]?limit|too many requests|quota|\b429\b|利用枠|使用量の上限/i.test(String(text));
+}
+
+/**
+ * 子スクリプトの出力に、利用枠の上限の目印が含まれるか。
+ * @param {string} output
+ * @returns {boolean}
+ */
+export function detectUsageLimit(output) {
+  return String(output).includes(USAGE_LIMIT_MARKER);
+}
+
+/**
+ * 見送り期間中か。
+ * @param {{until?: unknown} | null | undefined} backoff 保存済みの状態
+ * @param {number} nowMs
+ * @returns {boolean}
+ */
+export function isBackedOff(backoff, nowMs) {
+  const until = backoff && typeof backoff.until === "number" ? backoff.until : 0;
+  return Number.isFinite(until) && until > nowMs;
 }
 
 // ---------------------------------------------------------------------------

@@ -42,6 +42,7 @@ import {
   LABEL_READY,
   LABEL_WORKING,
   branchNameForIssue,
+  USAGE_LIMIT_MARKER,
   buildDockerArgs,
   resolveAuth,
   buildLessons,
@@ -203,7 +204,9 @@ export function dockerPhase(phase, workDir, auditName, prompt) {
     const out = run("docker", buildDockerArgs({ phase, workDir, logDir: LOG_DIR, taskDir, auditName, authEnv: AUTH.error ? [] : AUTH.passEnv, uid: HOST_UID, gid: HOST_GID, env: process.env }));
     const line = out.split("\n").reverse().find((l) => l.startsWith("RESULT:"));
     if (!line) throw new Error(`コンテナからRESULTが返りませんでした（phase=${phase}）`);
-    return JSON.parse(line.slice("RESULT:".length));
+    const res = JSON.parse(line.slice("RESULT:".length));
+    if (res?.usageLimit) console.error(`[agent] ${USAGE_LIMIT_MARKER}`);
+    return res;
   } finally {
     rmSync(taskDir, { recursive: true, force: true });
   }

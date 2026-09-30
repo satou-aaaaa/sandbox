@@ -33,6 +33,11 @@ import {
   buildReviewPrompt,
   decideReview,
   decideReviewVerdict,
+  USAGE_BACKOFF_MS,
+  USAGE_LIMIT_MARKER,
+  detectUsageLimit,
+  isBackedOff,
+  looksLikeUsageLimit,
   evaluateMutation,
   parseChangedLines,
   selectMutationTargets,
@@ -1044,4 +1049,26 @@ test("reportSeverity / buildReport: 滞留PRは要確認になり、メジャー
   // 追加項目が無い（従来の）データでは、新しい節を出さない
   assert.doesNotMatch(buildReport(baseReport()), /メジャー更新|承認・マージされていない/);
   assert.equal(reportSeverity(baseReport()), "ok");
+});
+
+test("looksLikeUsageLimit: 利用枠・レート制限を示す文言だけを検知する（一般的なエラーは対象外）", () => {
+  for (const s of ["Claude AI usage limit reached", "429 Too Many Requests", "rate_limit_error", "You have reached your limit (quota)"]) assert.equal(looksLikeUsageLimit(s), true, s);
+  for (const s of ["ECONNRESET", "テストに失敗しました", "", "max turns reached"]) assert.equal(looksLikeUsageLimit(s), false, s);
+});
+
+test("detectUsageLimit / isBackedOff: 目印の検知と、見送り期間の判定（壊れた状態は見送らない）", () => {
+  assert.equal(detectUsageLimit(`他の出力
+[agent] ${USAGE_LIMIT_MARKER}
+`), true);
+  assert.equal(detectUsageLimit("通常の出力"), false);
+  const now = Date.now();
+  assert.equal(isBackedOff({ until: now + USAGE_BACKOFF_MS }, now), true);
+  assert.equal(isBackedOff({ until: now - 1 }, now), false);
+  for (const bad of [null, undefined, {}, { until: "x" }, { until: Number.NaN }]) assert.equal(isBackedOff(/** @type {any} */ (bad), now), false);
+});
+
+test("formatSummary: 利用枠の逼迫で見送った場合は、その事実を要約に残す", () => {
+  const s = summarizeOutput("");
+  assert.doesNotMatch(formatSummary(s, 0), /利用枠/);
+  assert.match(formatSummary(s, 0, true), /利用枠の逼迫/);
 });
