@@ -1,0 +1,57 @@
+name: Agent CI probe
+
+# 【実験用・使い捨て】GITHUB_TOKEN だけ（PATなし）で、エージェントのPRに必須チェックを付けて自動マージできるかを確認する。
+# GITHUB_TOKEN で作ったPRは他のworkflowを起動しないが、workflow_dispatch だけは例外（GitHubの仕様）。
+# そこで、PRのブランチに対して Test を workflow_dispatch で起動すれば、必須チェック（test (...)）がPRのコミットに付く見込み。
+# 確認後に、このworkflowは削除する。
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+  actions: write
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - name: ブランチを作ってPRを出し、Testをworkflow_dispatchで起動する
+        run: |
+          set -euo pipefail
+          git config user.name "kensetsu-agent"
+          git config user.email "kensetsu-agent@users.noreply.github.com"
+          BRANCH="probe/ci-$(date +%s)"
+          git checkout -b "$BRANCH"
+          mkdir -p docs
+          echo "- CIプローブ: $(date -u +%Y-%m-%dT%H:%M:%SZ)" >> docs/PROBE.md
+          git add docs/PROBE.md
+          git commit -m "probe: GITHUB_TOKENのPRに必須チェックを付けられるかの確認"
+          git push origin "$BRANCH"
+          PR_URL="$(gh pr create --base main --head "$BRANCH" --title "probe: GITHUB_TOKENのPRの必須チェック確認（自動で閉じます）" --body "実験用のPRです。確認後に自動で閉じます。")"
+          echo "PR: $PR_URL"
+          echo "BRANCH=$BRANCH" >> "$GITHUB_ENV"
+          echo "PR_URL=$PR_URL" >> "$GITHUB_ENV"
+          gh workflow run test.yml --ref "$BRANCH"
+      - name: PRのチェックの状態を確認する
+        run: |
+          set -uo pipefail
+          for i in $(seq 1 30); do
+            sleep 30
+            gh pr checks "$PR_URL" || true
+            echo "--- mergeStateStatus: $(gh pr view "$PR_URL" --json mergeStateStatus --jq .mergeStateStatus)"
+            if gh pr checks "$PR_URL" 2>/dev/null | grep -qE "^test \(" && ! gh pr checks "$PR_URL" 2>/dev/null | grep -qE "pending|queued|in_progress"; then break; fi
+          done
+          echo "=== 最終 ==="
+          gh pr checks "$PR_URL" || true
+          gh pr view "$PR_URL" --json mergeStateStatus,statusCheckRollup --jq '{mergeStateStatus, checks: [.statusCheckRollup[] | "\(.name // .context): \(.status // "") \(.conclusion // .state // "")"]}'
+      - name: PRを閉じてブランチを削除する
+        if: always()
+        run: |
+          gh pr close "$PR_URL" --delete-branch --comment "実験終了のため閉じます。" || true
