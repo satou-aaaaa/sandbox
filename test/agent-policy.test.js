@@ -117,6 +117,26 @@ test("findProtectedPaths: 通常のソース・テスト・docsは保護対象�
   assert.deepEqual(findProtectedPaths(["src/a.js", "test/a.test.js", "docs/x.md", "docs/agent/x.md"]), []);
 });
 
+test("findProtectedPaths: 運用系の agent/ ファイルは例外（strict なら保護対象）、信頼の根拠は常に保護", () => {
+  const ops = ["agent/report.mjs", "agent/triage.mjs", "agent/README.md"];
+  assert.deepEqual(findProtectedPaths(ops), []);
+  assert.deepEqual(findProtectedPaths(ops, { strict: true }), ops);
+  const root = ["agent/policy.js", "agent/run.mjs", "agent/review.mjs", "agent/cycle.mjs", "agent/Dockerfile", "agent/package.json", ".github/workflows/agent-cycle.yml"];
+  assert.equal(findProtectedPaths(root).length, root.length);
+  assert.equal(decideToolUse("Edit", { file_path: path.join(CWD, "agent/report.mjs") }, CWD).decision, "allow");
+  assert.equal(decideToolUse("Edit", { file_path: path.join(CWD, "agent/policy.js") }, CWD).decision, "deny");
+});
+
+test("classifyPrRisk: 運用系の agent/ ファイルは high だが、AIレビューの対象になる（保護パスではない）", () => {
+  const r = classifyPrRisk([f("agent/report.mjs"), f("test/agent-report.test.js", 5, 0)]);
+  assert.equal(r.level, "high");
+  assert.match(r.reasons.join(" "), /運用コード/);
+  assert.doesNotMatch(r.reasons.join(" "), /保護対象パス/);
+  assert.equal(isReviewCandidate({ labels: [{ name: "agent-needs-review" }] }, r).eligible, true);
+  const mixed = classifyPrRisk([f("agent/report.mjs"), f("agent/policy.js")]);
+  assert.equal(isReviewCandidate({ labels: [{ name: "agent-needs-review" }] }, mixed).eligible, false);
+});
+
 test("findProtectedPaths: Windows区切り・./接頭辞でも検出する", () => {
   assert.deepEqual(findProtectedPaths([".github\\workflows\\a.yml", "./package.json"]), [".github/workflows/a.yml", "package.json"]);
 });

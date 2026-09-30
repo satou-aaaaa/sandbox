@@ -37,19 +37,37 @@ const PROTECTED_EXACT = [
 ];
 
 /**
+ * `agent/` のうち、保護パスの例外として「AIレビューの承認つき」で変更を許す運用系ファイル（完全一致。ADR-0017 Amendment 19）。
+ * 信頼の根拠（判定・権限・実行・レビュー・取消・認証・隔離・排他・cycle）は含めない。
+ * 該当するPRは自動マージされず、必ずAIレビュアー（全員一致）の承認を経る。
+ */
+export const AGENT_OPS_FILES = [
+  "agent/README.md",
+  "agent/cloud-routine.md",
+  "agent/report.mjs",
+  "agent/sync.mjs",
+  "agent/scout.mjs",
+  "agent/triage.mjs",
+  "agent/selftest.mjs",
+];
+
+/**
  * 変更ファイル一覧から、触ってはならないパスを抜き出す。
  * @param {string[]} changedFiles リポジトリルートからの相対パス（`/` 区切り）
+ * @param {{strict?: boolean}} [opts] strict なら `agent/` 配下を例外なく保護対象にする
  * @returns {string[]} 保護対象に該当したパス
  */
-export function findProtectedPaths(changedFiles) {
+export function findProtectedPaths(changedFiles, { strict = false } = {}) {
   return changedFiles
     .map((f) => f.replaceAll("\\", "/").replace(/^\.\//, ""))
-    .filter(
-      (f) =>
+    .filter((f) => {
+      if (!strict && AGENT_OPS_FILES.includes(f)) return false;
+      return (
         PROTECTED_PREFIXES.some((p) => f.startsWith(p)) ||
         PROTECTED_EXACT.includes(f) ||
-        /(^|\/)\.env(\.|$)/.test(f),
-    );
+        /(^|\/)\.env(\.|$)/.test(f)
+      );
+    });
 }
 
 /**
@@ -659,6 +677,10 @@ export function classifyPrRisk(files, { allowLegal = false } = {}) {
   for (const f of files) {
     const p = f.path.replaceAll("\\", "/");
     if (protectedHits.includes(p)) continue;
+    if (AGENT_OPS_FILES.includes(p)) {
+      reasons.push(`エージェント運用コードの変更（AIレビューの承認が必要）: ${p}`);
+      continue;
+    }
     if (LEGAL_LOGIC_PREFIXES.some((pre) => p.startsWith(pre)) && !p.startsWith("test/")) {
       if (!allowLegal) reasons.push(`法令判定・期限計算・様式生成の領域: ${p}`);
       continue;
@@ -765,7 +787,7 @@ export function parseScoutIssues(text) {
     if (body.length < 100 || body.length > 4000) continue;
     if (!body.includes("## 受け入れ条件")) continue;
     // 提案が保護パスの変更を要求している場合は起票しない（実装できないIssueを作らない）
-    if (findProtectedPaths(body.match(/[\w./-]+\.(?:json|mjs|js|md|yml|yaml)(?!\w)/g) ?? []).length > 0) continue;
+    if (findProtectedPaths(body.match(/[\w./-]+\.(?:json|mjs|js|md|yml|yaml)(?!\w)/g) ?? [], { strict: true }).length > 0) continue;
     out.push({ title: title.trim(), body });
   }
   return out;
@@ -848,7 +870,7 @@ export function buildReviewPrompt({ issue, prTitle, files, diff, legal, focus })
     "## チェック項目",
     "- requirements: Issueの要件・受け入れ条件を満たしている",
     "- tests: 追加・変更されたテストが要件を実際に検証している（変更に見合うテストがある。テストを弱めていない）",
-    "- scope: 依頼された範囲だけを変更している（無関係な変更・保護パス・依存追加がない）",
+    "- scope: 依頼された範囲だけを変更している（無関係な変更・保護パス・依存追加がない）。agent/ の運用コードを変更する場合は、安全機構（許可リスト・保護パス・検証ゲート・上限・キルスイッチ・レビュー/リバートの判定）を弱めていない、または迂回する経路を作っていないことを特に厳しく確認し、少しでも疑わしければ fail",
     "- secrets: 秘密情報・実データ（氏名・住所・財務情報）・外部送信の追加がない",
     "- compatibility: 既存の挙動・公開関数のシグネチャを不用意に壊していない",
     legal

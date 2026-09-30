@@ -359,3 +359,15 @@ PCの電源が切れていても動かすため、Anthropicのクラウド（ル
 
 **限界**: セッションの最大時間は未確認。ブランチ削除ができないため、マージされずに閉じたPRのブランチは残る。排他ロックは行わない（ルーティンの間隔を1時間以上にする）。
 Dockerが使えない前提のため、コンテナ隔離（Amendment 2）は行わない（クラウドのサンドボックスが代替）。
+
+## Amendment 19（2026-09-30）: 運用系の `agent/` ファイルを、AIレビューの承認つきで自律化する
+
+**動機**: バックログ（`agent-skip` 付き）の多くは `agent/` を直す作業で、`agent/` 全体が保護パスのため、トリアージは常に人手に回していた。所有者の判断で、保護の範囲を最小限だけ狭める。
+
+**決定**:
+- `agent/` のうち、`AGENT_OPS_FILES`（`README.md`・`cloud-routine.md`・`report.mjs`・`sync.mjs`・`scout.mjs`・`triage.mjs`・`selftest.mjs`）だけを保護パスの例外とする（完全一致）。
+- 例外のファイルを変更するPRは、`classifyPrRisk` で必ず `high`（自動マージしない）とし、**AIレビュアーの全員一致の承認**（`agent-approved`）を経てマージされる。レビュアーの `scope` 観点に「安全機構の弱体化・迂回がないか」を厳しく見る指示を追加した。
+- **保護のまま**: `.github/`・`hooks/`・`data/`・依存定義・`CLAUDE.md`・`policy.js`（判定・権限）、`run.mjs`・`runner.mjs`・`worker.mjs`（実行）、`review.mjs`・`fix.mjs`・`revert.mjs`・`pr-risk.mjs`（レビュー・取消・分類）、`cycle.mjs`・`lock.mjs`（制御・排他）、`gh-rest.mjs`・`Dockerfile`・`setup-auth.ps1`（認証・隔離）。これらと混在するPRは、従来どおり人手（AIは承認しない）。
+- スカウトの起票は従来どおり `agent/` 配下を一切提案しない（`findProtectedPaths(..., {strict: true})`）。
+
+**限界・残リスク**: 例外のファイルは通知・起票・点検を担うため、誤った変更は運用の可視性を下げうる（事後の取消と週次の自動点検で検知する）。AIレビュアーは実装側と盲点が近い。運用実績を見て、例外の範囲を広げる・戻す判断をする。
