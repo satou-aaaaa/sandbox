@@ -62,6 +62,7 @@ ${savedNoticeBlock}
 <main>
 <form id="applicantForm" method="POST" action="/submit">
   <input type="hidden" name="profileJson" id="profileJson">
+  <input type="hidden" name="licenseCategory" value="construction">
   <input type="hidden" name="draftId" id="draftId" value="${escapeHtml(options.draftId ?? "")}">
 
   <section>
