@@ -30,10 +30,15 @@ import {
   buildReviewPrompt,
   classifyPrRisk,
   decideReview,
+  MUTATION_MAX_FILES,
+  MUTATION_TIMEOUT_MS,
+  evaluateMutation,
   isReviewCandidate,
+  parseChangedLines,
   parseReviewVerdict,
+  selectMutationTargets,
 } from "./policy.js";
-import { runAgent } from "./runner.mjs";
+import { installDeps, runAgent, runMutationTests } from "./runner.mjs";
 import { AUTH, LOG_DIR, REPO, SANDBOX, buildImage, dockerAvailable, dockerPhase, gh, loadState, log, run, saveState } from "./run.mjs";
 
 const AGENT_DIR = resolve(dirname(fileURLToPath(import.meta.url)));
@@ -59,6 +64,32 @@ function checksGreen(rollup) {
   });
 }
 
+/**
+ * 変更した法令ロジックの変更行に対して、ミューテーション検査を行う（#116）。PRのコードを実行するため、隔離モードではコンテナ内で行う。
+ * 実行できない・時間切れ・対象が多すぎる場合は、不合格（フェイルクローズ）。
+ * @param {string} workDir
+ * @param {string[]} targets
+ * @param {string} diff
+ */
+function mutationGate(workDir, targets, diff) {
+  const fail = (/** @type {string} */ reason) => ({ ok: false, score: null, total: 0, killed: 0, survivors: [], reasons: [reason] });
+  if (targets.length > MUTATION_MAX_FILES) return fail(`変更した法令ロジックのファイルが多すぎます（${targets.length}件 > ${MUTATION_MAX_FILES}件）。分割するか人手で確認してください`);
+  let res;
+  try {
+    if (SANDBOX === "docker") {
+      dockerPhase("install", workDir, "");
+      res = dockerPhase("mutation", workDir, "", JSON.stringify(targets));
+    } else {
+      installDeps(workDir);
+      res = runMutationTests(workDir, targets, MUTATION_TIMEOUT_MS);
+    }
+  } catch (err) {
+    return fail(`ミューテーション検査を実行できませんでした: ${String(/** @type {any} */ (err).message ?? err).slice(0, 300)}`);
+  }
+  if (!res?.ok) return fail(`ミューテーション検査に失敗しました（${res?.error ?? "不明"}）`);
+  return evaluateMutation(res.report, parseChangedLines(diff));
+}
+
 /** 1つのPRを、観点の異なる独立したレビュアーで順にレビューする。 */
 async function reviewPr(pr, files, legal) {
   const issueNo = issueNumberOf(pr.headRefName);
@@ -71,8 +102,16 @@ async function reviewPr(pr, files, legal) {
   run("git", ["worktree", "add", "--detach", workDir, "FETCH_HEAD"]);
   const verdicts = [];
   let cost = 0;
+  /** @type {ReturnType<typeof evaluateMutation> | null} */
+  let mutation = null;
   try {
     mkdirSync(LOG_DIR, { recursive: true });
+    const targets = legal ? selectMutationTargets(files) : [];
+    if (targets.length > 0) {
+      mutation = mutationGate(workDir, targets, diff);
+      log(`  ミューテーション検査: ${mutation.ok ? "合格" : "不合格"}（${mutation.reasons.join(" / ")}）`);
+      if (!mutation.ok) return { tooLarge: false, verdicts, cost, mutation };
+    }
     for (const focus of REVIEW_FOCUSES) {
       const prompt = buildReviewPrompt({ issue, prTitle: pr.title, files, diff, legal, focus });
       const auditName = `${new Date().toISOString().replace(/[:.]/g, "-")}-review-pr-${pr.number}-${focus.key}.jsonl`;
@@ -89,7 +128,7 @@ async function reviewPr(pr, files, legal) {
       /* 後始末の失敗は結果に影響させない */
     }
   }
-  return { tooLarge: false, verdicts, cost };
+  return { tooLarge: false, verdicts, cost, mutation };
 }
 
 async function main() {
@@ -143,10 +182,17 @@ async function main() {
   }
   for (const { pr, files, legal } of targets.slice(0, MAX_PRS)) {
     log(`PR #${pr.number} 「${pr.title}」をレビューします（法令領域: ${legal ? "はい" : "いいえ"}）`);
-    const { tooLarge, verdicts, cost } = await reviewPr(pr, files, legal);
+    const { tooLarge, verdicts, cost, mutation } = await reviewPr(pr, files, legal);
     const s = loadState();
     saveState({ ...s, costUsd: s.costUsd + cost });
-    const decision = tooLarge ? { approve: false, reasons: ["差分が大きすぎるため、AIレビューの対象外です（人手または分割が必要）"] } : decideReview(verdicts, { legal });
+    const decision = tooLarge
+      ? { approve: false, reasons: ["差分が大きすぎるため、AIレビューの対象外です（人手または分割が必要）"] }
+      : mutation && !mutation.ok
+        ? { approve: false, reasons: [`ミューテーション検査に不合格（AIレビューには進めません）: ${mutation.reasons.join(" / ")}`] }
+        : (() => {
+            const d = decideReview(verdicts, { legal });
+            return mutation ? { ...d, reasons: [...mutation.reasons.map((x) => `ミューテーション検査: ${x}`), ...d.reasons] } : d;
+          })();
     log(`PR #${pr.number} → ${decision.approve ? "承認" : "不承認"}: ${decision.reasons.join(" / ")}`);
     if (DRY_RUN) continue;
     const listing = decision.reasons.map((r) => `- ${r}`).join("\n");

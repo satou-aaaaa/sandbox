@@ -6,7 +6,8 @@
  * （それらはホスト側の `run.mjs` だけが持つ）。
  */
 import { execFileSync } from "node:child_process";
-import { appendFileSync } from "node:fs";
+import { appendFileSync, readFileSync } from "node:fs";
+import { join } from "node:path";
 import {
   ALLOWED_TOOLS,
   DISALLOWED_TOOLS,
@@ -131,4 +132,34 @@ export function verifyAll(workDir, { secrets = true } = {}) {
  */
 export function installDeps(workDir) {
   execFileSync(...npmCommand(["ci", "--no-audit", "--no-fund"]), { cwd: workDir, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
+}
+
+/**
+ * 指定ファイルだけを対象にStrykerを実行し、JSONレポート（必要な項目だけ）を返す。
+ * 作業ツリーに依存（devDependencies）が入っている前提。失敗・時間切れは ok: false。
+ * @param {string} workDir
+ * @param {string[]} files 変更対象（リポジトリルートからの相対パス）
+ * @param {number} timeoutMs
+ * @returns {{ok: boolean, report?: unknown, error?: string}}
+ */
+export function runMutationTests(workDir, files, timeoutMs) {
+  try {
+    execFileSync(...npmCommand(["exec", "--", "stryker", "run", "--mutate", files.join(","), "--reporters", "json", "--concurrency", "2"]), {
+      cwd: workDir,
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "pipe"],
+      timeout: timeoutMs,
+      maxBuffer: 64 * 1024 * 1024,
+    });
+    const raw = JSON.parse(readFileSync(join(workDir, "reports", "mutation", "mutation.json"), "utf8"));
+    /** @type {Record<string, {mutants: {status: string, mutatorName: string, location: {start: {line: number}}}[]}>} */
+    const slim = {};
+    for (const [f, d] of Object.entries(raw.files ?? {})) {
+      slim[f] = { mutants: (d.mutants ?? []).map((m) => ({ status: m.status, mutatorName: m.mutatorName, location: { start: { line: m.location?.start?.line } } })) };
+    }
+    return { ok: true, report: { files: slim } };
+  } catch (err) {
+    const e = /** @type {any} */ (err);
+    return { ok: false, error: e.code === "ETIMEDOUT" ? "時間切れ" : String(e.message ?? e).slice(0, 500) };
+  }
 }
