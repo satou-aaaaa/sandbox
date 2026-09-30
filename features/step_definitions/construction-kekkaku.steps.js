@@ -66,8 +66,26 @@ Given("申請書類に虚偽記載または重要事実の記載漏れがある"
   this.kekkakuInput.hasFalseOrOmittedStatement = true;
 });
 
+Given("申請者は許可取消しの通知前60日以内に当該法人の役員等であった", function () {
+  this.kekkakuInput.hasRevocationNoticeWithin60DaysAsOfficer = true;
+});
+
+Given("申請者は未成年者であり、その法定代理人が破産者で復権を得ていない", function () {
+  this.kekkakuInput.isMinor = true;
+  this.kekkakuInput.legalRepresentativeKekkaku = { isUndischargedBankrupt: true };
+});
+
+Given("法人の役員（鈴木花子）が暴力団員である、または脱退から5年を経過していない", function () {
+  this.officers = [{ name: "鈴木花子", title: "取締役", kekkaku: { isBoryokudanMemberOrWithin5Years: true } }];
+});
+
+Given("個人事業主の政令で定める使用人（田中次郎）が心身の故障により業務を適正に行うことができない", function () {
+  this.applicantType = "個人";
+  this.regulatoryEmployees = [{ name: "田中次郎", kekkaku: { hasMentalImpairmentAffectingDuties: true } }];
+});
+
 When("欠格要件を判定する", function () {
-  this.result = checkKekkaku(this.kekkakuInput);
+  this.result = checkKekkaku(this.kekkakuInput, this.officers, this.regulatoryEmployees, this.applicantType);
 });
 
 Then("判定結果は合格になる", function () {

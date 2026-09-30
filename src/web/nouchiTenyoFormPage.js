@@ -7,9 +7,8 @@
  *   `NouchiTenyoApplicantProfile`型と同じ構造のJSONに組み立て、hiddenフィールド
  *   経由で通常のPOSTとして送信する。
  * - 通信は常にローカルホスト内で完結する（NFR-4: 外部送信をしない）。
- * - 下書き保存機能（`/drafts`）は本フォームでは対象外（`kobutsuFormPage.js`と
- *   同じ理由。既存の`/drafts`は建設業許可専用のプロフィール型を前提としており、
- *   プロフィールの種類を区別する仕組みが無いため安易に共有しない）。
+ * - 下書き保存機能（`/drafts`）は建設業許可・古物商許可と共通の`draftStore.js`
+ *   を使う（2026年9月・#73。`DraftRecord.licenseCategory`で種別を判別する）。
  */
 import { escapeHtml } from "./htmlUtils.js";
 
@@ -17,13 +16,16 @@ const NOUCHI_KUBUN_OPTIONS = ["農用地区域内農地", "甲種農地", "第1�
 
 /**
  * 農地転用許可のインテイクフォームのHTMLページを返す。
- * @param {{ error?: string }} [options]
+ * @param {{ error?: string, profile?: import('../licenses/nouchi-tenyo/eligibility/types.js').NouchiTenyoApplicantProfile, draftId?: string, savedNotice?: boolean }} [options]
  * @returns {string}
  */
 export function renderNouchiTenyoFormPage(options = {}) {
   const errorBlock = options.error
     ? `<div class="error">入力内容の処理中にエラーが発生しました: ${escapeHtml(options.error)}</div>`
     : "";
+  const savedNoticeBlock = options.savedNotice ? `<div class="saved-notice">下書きを保存しました。</div>` : "";
+
+  const initialProfileJson = JSON.stringify(options.profile ?? null).replace(/</g, "\\u003c");
 
   return `<!doctype html>
 <html lang="ja">
@@ -41,12 +43,18 @@ export function renderNouchiTenyoFormPage(options = {}) {
     最終的な適格性の判断・書類の内容確認・提出は必ず登録行政書士本人が行ってください。
     実在の顧客情報を入力する場合、このツールはローカルでのみ動作し外部へは送信しません。
   </p>
-  <p><a href="/">← 建設業許可のインテイクフォームへ戻る</a></p>
+  <p>
+    <a href="/">← 建設業許可のインテイクフォームへ戻る</a>
+    ・ <a href="/drafts">→ 保存済みの下書き一覧を見る</a>
+  </p>
 </header>
 ${errorBlock}
+${savedNoticeBlock}
 <main>
 <form id="nouchiTenyoForm" method="POST" action="/nouchi-tenyo/submit">
   <input type="hidden" name="profileJson" id="profileJson">
+  <input type="hidden" name="licenseCategory" value="nouchi-tenyo">
+  <input type="hidden" name="draftId" id="draftId" value="${escapeHtml(options.draftId ?? "")}">
 
   <section>
     <h2>1. 基本情報</h2>
@@ -92,6 +100,7 @@ ${errorBlock}
 
   <div class="actions">
     <button type="submit" class="primary">要件判定＋書類サマリーを生成する</button>
+    <button type="submit" formaction="/drafts" formnovalidate class="secondary">下書きとして保存</button>
   </div>
 </form>
 </main>
@@ -107,6 +116,7 @@ ${errorBlock}
 </template>
 
 <script>
+  const INITIAL_PROFILE = ${initialProfileJson};
   ${CLIENT_SCRIPT}
 </script>
 </body>
@@ -119,6 +129,7 @@ const STYLE = `
   header h1 { margin-bottom: 4px; }
   .notice { background: #FFF4E5; border: 1px solid #E0A030; padding: 10px 14px; font-size: 0.9em; }
   .error { background: #FDECEC; border: 1px solid #C0392B; color: #7A1F1F; padding: 10px 14px; margin: 12px 0; }
+  .saved-notice { background: #E7F6EC; border: 1px solid #1E7A34; color: #1E7A34; padding: 10px 14px; margin: 12px 0; }
   section { border: 1px solid #ddd; border-radius: 6px; padding: 12px 16px; margin: 16px 0; }
   section h2 { margin-top: 0; font-size: 1.05em; }
   label { display: block; margin: 8px 0; }
@@ -129,21 +140,39 @@ const STYLE = `
   button { cursor: pointer; }
   .actions { display: flex; gap: 10px; align-items: center; margin-top: 8px; }
   button.primary { font-size: 1.05em; padding: 10px 20px; }
+  button.secondary { font-size: 0.95em; padding: 10px 16px; background: #fff; border: 1px solid #888; border-radius: 4px; }
   .removeRowBtn { color: #a33; margin-top: 8px; }
 `;
 
 const CLIENT_SCRIPT = `
-function addRow(containerId, templateId) {
+function addRow(containerId, templateId, values) {
   const template = document.getElementById(templateId);
   const container = document.getElementById(containerId);
   const node = template.content.cloneNode(true);
   node.querySelector(".removeRowBtn").addEventListener("click", (e) => {
     e.target.closest(".row").remove();
   });
+  if (values) {
+    for (const [className, value] of Object.entries(values)) {
+      const el = node.querySelector("." + className);
+      if (!el) continue;
+      if (el.type === "checkbox") el.checked = !!value;
+      else el.value = value ?? "";
+    }
+  }
   container.appendChild(node);
 }
 
 document.getElementById("addShikinChotatsuBtn").addEventListener("click", () => addRow("shikinChotatsuContainer", "shikinChotatsuRowTemplate"));
+
+// 下書きに資金調達内訳の入力があれば復元する。
+for (const s of (INITIAL_PROFILE && INITIAL_PROFILE.shikinChotatsu) || []) {
+  addRow("shikinChotatsuContainer", "shikinChotatsuRowTemplate", {
+    "shikinChotatsu-kubun": s.kubun,
+    "shikinChotatsu-amountYen": s.amountYen,
+    "shikinChotatsu-note": s.note,
+  });
+}
 
 function collectShikinChotatsu() {
   return Array.from(document.querySelectorAll("#shikinChotatsuContainer .shikinChotatsu-row"))
@@ -190,6 +219,33 @@ function buildProfile() {
     },
     shikinChotatsu: shikinChotatsu.length > 0 ? shikinChotatsu : undefined,
   };
+}
+
+// 下書きからの基本情報・立地基準・一般基準の復元。
+if (INITIAL_PROFILE) {
+  const setVal = (id, value) => { document.getElementById(id).value = value ?? ""; };
+  const setChecked = (id, value) => { document.getElementById(id).checked = !!value; };
+  const p = INITIAL_PROFILE;
+  const rk = p.ricchiKijun || {};
+  const ik = p.ippanKijun || {};
+
+  setVal("article", p.article);
+  setVal("applicantName", p.applicantName);
+  setVal("address", p.address);
+  setVal("landAddress", p.landAddress);
+  setVal("landAreaSqm", p.landAreaSqm);
+  setVal("purposeOfConversion", p.purposeOfConversion);
+  setVal("rightsHolderName", p.rightsHolderName);
+
+  setVal("nouchiKubun", rk.nouchiKubun);
+  setChecked("hasExceptionReason", rk.hasExceptionReason);
+  setVal("exceptionReasonNote", rk.exceptionReasonNote);
+  setChecked("hasNoAlternativeLand", rk.hasNoAlternativeLand);
+
+  setChecked("hasSufficientFundsAndCredit", ik.hasSufficientFundsAndCredit);
+  setChecked("hasConstructionSchedule", ik.hasConstructionSchedule);
+  setChecked("hasNeighborDamagePreventionMeasures", ik.hasNeighborDamagePreventionMeasures);
+  setChecked("hasNeighborConsent", ik.hasNeighborConsent);
 }
 
 document.getElementById("nouchiTenyoForm").addEventListener("submit", () => {

@@ -197,12 +197,24 @@ docs/            設計方針・アーキテクチャドキュメント一式。
 | deficitRatio | number | 欠損の額 ÷ 資本金（%。特定建設業判定用） |
 | currentRatio | number | 流動比率（%。特定建設業判定用） |
 
-### 4.5 KekkakuInput（欠格要件・6フラグ）
+### 4.5 KekkakuInput（欠格要件。建設業法第8条 全14号対応。2026年9月・Issue #72）
 
-`isUndischargedBankrupt` / `hadLicenseRevokedWithin5Years` /
+申請者本人分は `isUndischargedBankrupt` / `hadLicenseRevokedWithin5Years` /
+`hasWithdrawnLicenseDuringRevocationHearingWithin5Years`（第3号） /
+`hasRevocationNoticeWithin60DaysAsOfficer`（第4号） /
+`hasBusinessSuspensionOrderInEffect`（第5号） /
+`hasBusinessProhibitionOrderInEffect`（第6号） /
 `hasCriminalRecordWithin5Years` / `isBoryokudanMemberOrWithin5Years` /
-`hasMentalImpairmentAffectingDuties` / `hasFalseOrOmittedStatement`
-（すべて boolean。1つでも true なら不合格）
+`hasMentalImpairmentAffectingDuties` / `isControlledByBoryokudanMember`（第14号） /
+`hasFalseOrOmittedStatement`（すべて boolean。1つでも true なら不合格）。
+
+未成年者の法定代理人の欠格（第11号）は `isMinor`＋`legalRepresentativeKekkaku`、
+法人役員等の欠格（第12号）は `OfficerInput.kekkaku`、政令で定める使用人の欠格
+（法人は第12号・個人は第13号）は `ApplicantProfile.regulatoryEmployees[].kekkaku`
+（いずれも `PersonKekkakuInput` 型。第1〜4号・第6〜10号相当のサブセット）で、
+本人以外の人物ごとに判定する。人物の情報が未入力の場合は合格扱いに固定せず、
+`RequirementCheckResult.warnings` に未確認である旨を出す
+（`src/licenses/construction/eligibility/rules/kekkaku.js`参照）。
 
 ### 4.6 SeijitsuseiInput
 
@@ -370,9 +382,12 @@ docs/            設計方針・アーキテクチャドキュメント一式。
 
 ### 5.4 `src/eligibility/rules/kekkaku.js` — 欠格要件
 
-6項目のネガティブリスト形式。1つでも該当すれば不合格。新規の様式・要件を
+ネガティブリスト形式。1つでも該当すれば不合格。新規の様式・要件を
 追加する際にこの形式（フラグ配列 → filter → 該当項目を reasons に列挙）は
-横展開しやすいパターンなので踏襲すること。
+横展開しやすいパターンなので踏襲すること。2026年9月に、申請者本人分の
+フラグ配列に加え、役員・政令使用人・法定代理人（人物ごとの
+`PersonKekkakuInput`）を同じ形式で `flags` 配列へ連結する設計に拡張した
+（`buildPersonFlags`ヘルパー。古物商許可の役員ループ実装と同型）。
 
 ### 5.5 `src/eligibility/rules/seijitsusei.js` — 誠実性
 
@@ -469,7 +484,7 @@ URLをコメントに明記、`node --test` によるユニットテスト）で
 | `youshiki6.js` | 様式第六号（役員等の一覧表） | `profile.officers[]` を1名につき氏名・役名・生年月日の3行に展開。0件の場合はその旨の1行を返す |
 | `youshiki7.js` | 様式第七号（経営業務管理責任者証明書） | `checkKeieiGyomuKanri` を再利用し、判定結果（`RequirementCheckResult`）の reasons/warnings をそのまま箇条書き表示。判定ロジックを再実装しない |
 | `youshiki8.js` | 様式第八号（専任技術者証明書） | `senninGijutsushaList` の営業所ごとに `checkSenninGijutsushaForOffice` を呼び、見出し＋表＋根拠のセクションを繰り返す。正式提出は営業所ごとに分割する必要がある旨をコメントで明記 |
-| `youshiki20-2.js` | 様式第二十号の二（誓約書） | `checkKekkaku` を再利用。本ツールが確認するのは欠格要件10項目（2026年9月に6→10項目へ拡充）のみで、建設業法第8条全14号の確認は行政書士本人が行う旨を警告として明示 |
+| `youshiki20-2.js` | 様式第二十号の二（誓約書） | `checkKekkaku` を再利用。建設業法第8条全14号を判定対象とするが（2026年9月・Issue #72）、役員・政令使用人・法定代理人の情報が未入力の号は`warnings`で未確認である旨を明示する |
 | `youshiki2.js` | 様式第二号（工事経歴書。M8） | `checkKekkaku`等の判定ロジック再利用はない（工事経歴には合否判定が存在しないため）。並び順の解決（§5.17）と、掲載件数の絞り込み・税込税抜換算を自動化しない旨の注記（ADR-0009）が実装の中心 |
 | `youshiki16.js` | 様式第十六号の一部（完成工事原価報告書。M10） | 貸借対照表・損益計算書本体は対象外（ADR-0010）。材料費・労務費・外注費・経費の4区分・6項目の合計表示と、損益計算書との整合性は自動チェックしない旨の注記（§5.19）が実装の中心 |
 

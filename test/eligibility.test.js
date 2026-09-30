@@ -737,6 +737,88 @@ test("欠格要件: 虚偽記載・重要事実の記載漏れがある場合は
   assert.ok(check.reasons.some((r) => r.includes("虚偽の記載")));
 });
 
+test("欠格要件: 取消し通知前60日以内に役員等であった場合は不合格（建設業法第8条第4号）", () => {
+  const profile = baseProfile();
+  profile.kekkaku.hasRevocationNoticeWithin60DaysAsOfficer = true;
+  const result = evaluateEligibility(profile);
+  const check = result.checks.find((c) => c.key === "kekkaku");
+  assert.equal(check.passed, false);
+  assert.ok(check.reasons.some((r) => r.includes("第4号")));
+});
+
+test("欠格要件: 未成年者の法定代理人が欠格事由に該当する場合は不合格（建設業法第8条第11号）", () => {
+  const profile = baseProfile();
+  profile.kekkaku.isMinor = true;
+  profile.kekkaku.legalRepresentativeName = "山田 一郎";
+  profile.kekkaku.legalRepresentativeKekkaku = { isUndischargedBankrupt: true };
+  const result = evaluateEligibility(profile);
+  const check = result.checks.find((c) => c.key === "kekkaku");
+  assert.equal(check.passed, false);
+  assert.ok(check.reasons.some((r) => r.includes("法定代理人（山田 一郎）") && r.includes("第十一号")));
+});
+
+test("欠格要件: 未成年者だが法定代理人の欠格事由が未入力の場合は合格扱いにせず警告を出す（第11号）", () => {
+  const profile = baseProfile();
+  profile.kekkaku.isMinor = true;
+  const result = evaluateEligibility(profile);
+  const check = result.checks.find((c) => c.key === "kekkaku");
+  assert.equal(check.passed, true);
+  assert.ok(check.warnings.some((w) => w.includes("法定代理人") && w.includes("第十一号")));
+});
+
+test("欠格要件: 法人役員が欠格事由に該当する場合は不合格（建設業法第8条第12号）", () => {
+  const profile = baseProfile();
+  profile.officers = [
+    { name: "鈴木 花子", title: "取締役", kekkaku: { hasCriminalRecordWithin5Years: true } },
+  ];
+  const result = evaluateEligibility(profile);
+  const check = result.checks.find((c) => c.key === "kekkaku");
+  assert.equal(check.passed, false);
+  assert.ok(check.reasons.some((r) => r.includes("役員（鈴木 花子）") && r.includes("第十二号")));
+});
+
+test("欠格要件: 役員がいるが欠格事由が未入力の場合は合格扱いにせず警告を出す（第12号）", () => {
+  const profile = baseProfile();
+  profile.officers = [{ name: "鈴木 花子", title: "取締役" }];
+  const result = evaluateEligibility(profile);
+  const check = result.checks.find((c) => c.key === "kekkaku");
+  assert.equal(check.passed, true);
+  assert.ok(check.warnings.some((w) => w.includes("役員") && w.includes("第十二号")));
+});
+
+test("欠格要件: 政令で定める使用人（法人）が欠格事由に該当する場合は不合格（建設業法第8条第12号）", () => {
+  const profile = baseProfile();
+  profile.applicantType = "法人";
+  profile.regulatoryEmployees = [
+    { name: "田中 次郎", title: "大阪支店長", kekkaku: { isBoryokudanMemberOrWithin5Years: true } },
+  ];
+  const result = evaluateEligibility(profile);
+  const check = result.checks.find((c) => c.key === "kekkaku");
+  assert.equal(check.passed, false);
+  assert.ok(check.reasons.some((r) => r.includes("政令で定める使用人（田中 次郎）") && r.includes("第十二号")));
+});
+
+test("欠格要件: 政令で定める使用人（個人事業主）が欠格事由に該当する場合は不合格（建設業法第8条第13号）", () => {
+  const profile = baseProfile();
+  profile.applicantType = "個人";
+  profile.regulatoryEmployees = [
+    { name: "田中 次郎", kekkaku: { hasMentalImpairmentAffectingDuties: true } },
+  ];
+  const result = evaluateEligibility(profile);
+  const check = result.checks.find((c) => c.key === "kekkaku");
+  assert.equal(check.passed, false);
+  assert.ok(check.reasons.some((r) => r.includes("政令で定める使用人（田中 次郎）") && r.includes("第十三号")));
+});
+
+test("欠格要件: 政令で定める使用人がいるが欠格事由が未入力の場合は合格扱いにせず警告を出す（第12号・第13号）", () => {
+  const profile = baseProfile();
+  profile.regulatoryEmployees = [{ name: "田中 次郎" }];
+  const result = evaluateEligibility(profile);
+  const check = result.checks.find((c) => c.key === "kekkaku");
+  assert.equal(check.passed, true);
+  assert.ok(check.warnings.some((w) => w.includes("政令で定める使用人")));
+});
+
 test("formatEligibilityReport: 全要件充足なら総合判定が○になる", () => {
   const profile = baseProfile();
   const result = evaluateEligibility(profile);

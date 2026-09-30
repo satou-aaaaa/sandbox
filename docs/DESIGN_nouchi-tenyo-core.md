@@ -548,7 +548,7 @@ M1→M2→M4の順序を踏襲する。
 - 農地転用許可のWebフォーム対応（`src/web/`の拡張）: **2026年9月実装済み**
   （`GET /nouchi-tenyo`・`POST /nouchi-tenyo/submit`。`src/web/nouchiTenyoFormPage.js`。
   古物商許可の`kobutsuFormPage.js`と同じ設計を踏襲）。下書き保存
-  （`/drafts`相当）は古物商許可と同じ理由で対象外のまま
+  （`/drafts`）も**2026年9月・#73で対応済み**
 - 市街化区域内の届出案件への対応拡大（1.3節でスコープ外とした届出フロー。
   対応する場合、許可とは別の`licenseCategory`（例: `"nouchi-todokede"`）を
   新設するか、`nouchiTenyoDetail`に届出フラグを追加するかは、実際の

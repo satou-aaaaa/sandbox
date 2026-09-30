@@ -4,13 +4,14 @@
  * 要件4「欠格要件に該当しないこと」（src/licenses/construction/eligibility/rules/kekkaku.js）の
  * 判定結果をもとに、誓約書の記載内容サマリーを docx で出力する。
  *
- * 【重要】本モジュールが確認するのは、本ツールが要件判定に用いている
- * 欠格要件10項目（2026年9月に6→10項目へ拡充。第1・2・3・5・6・7・8・9・
- * 10・14号相当）のみである。建設業法第8条の欠格要件は全14号あり、未対応の
- * 第4・11〜13号（役員・使用人・法定代理人等、申請者本人以外の複数人物の
- * 欠格状況の確認が必要な号）を含め、正式な様式第二十号の二はその全項目を
- * 確認して作成する必要がある。本サマリーはあくまで一次的な確認であり、
- * 正式な誓約書の作成・内容確認・押印は必ず行政書士本人が行うこと。
+ * 【重要】本モジュールは建設業法第8条の全14号を判定対象とする（2026年9月・
+ * Issue #72で全14号対応）が、役員（`profile.officers[].kekkaku`）・政令で
+ * 定める使用人（`profile.regulatoryEmployees[].kekkaku`）・法定代理人
+ * （`profile.kekkaku.legalRepresentativeKekkaku`）の欠格事由が未入力の場合、
+ * 該当する号は「未確認」のまま合格扱いにせず、判定結果の`warnings`に
+ * その旨を含める（`checkKekkaku`側の仕様。`rules/kekkaku.js`参照）。
+ * 本サマリーはあくまで一次的な確認であり、正式な誓約書の作成・内容確認・
+ * 押印は必ず行政書士本人が行うこと。
  *
  * 実際の提出書類として使う前に、必ず行政書士本人が内容を確認し、
  * 国交省・都道府県が指定する正式様式に転記・整形すること。
@@ -35,7 +36,7 @@ import {
  * @returns {{ rows: [string, string][], check: import('../licenses/construction/eligibility/types.js').RequirementCheckResult }}
  */
 export function resolveYoushiki20_2Fields(profile) {
-  const check = checkKekkaku(profile.kekkaku);
+  const check = checkKekkaku(profile.kekkaku, profile.officers, profile.regulatoryEmployees, profile.applicantType);
   /** @type {[string, string][]} */
   const rows = [
     ["申請者名（商号又は名称）", orNotEntered(profile.applicantName)],
@@ -66,7 +67,8 @@ export function buildYoushiki20_2Document(profile) {
           ...buildBulletList(
             "確認事項（警告）",
             [
-              "本サマリーが確認しているのは本ツールが判定に用いる欠格要件10項目のみです。建設業法第8条の全14号については、行政書士本人が別途確認してください。",
+              "本サマリーは建設業法第8条の全14号を判定対象としますが、機械判定はあくまで一次確認であり、正式な誓約書の作成前に行政書士本人が原本・証明書等で改めて確認してください。",
+              ...check.warnings,
             ],
             { warning: true }
           ),

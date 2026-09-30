@@ -292,9 +292,9 @@ BtoB下請けポータル・会社設立サポートとも異なり、判定す�
 
 ### Web・共通
 
-- `src/web/server.js` — インテイク用の簡易Webフォーム（M3。建設業許可用の`/`・`/submit`に加え、古物商許可用の`/kobutsu`・`/kobutsu/submit`、農地転用許可用の`/nouchi-tenyo`・`/nouchi-tenyo/submit`を2026年9月追加。古物商許可は個人申請のみ対応〈`shinseisho.js`等の書類生成モジュールが法人の記載項目に対応していないため〉）＋リマインド表示・残日数フィルタ（`/reminders`、M7）＋下書き保存（`/drafts`。建設業許可のみ）＋CSVダウンロード（`/clients.csv`）。node:http のみで実装し、127.0.0.1のみで待受
+- `src/web/server.js` — インテイク用の簡易Webフォーム（M3。建設業許可用の`/`・`/submit`に加え、古物商許可用の`/kobutsu`・`/kobutsu/submit`、農地転用許可用の`/nouchi-tenyo`・`/nouchi-tenyo/submit`を2026年9月追加。古物商許可は個人申請のみ対応〈`shinseisho.js`等の書類生成モジュールが法人の記載項目に対応していないため〉）＋リマインド表示・残日数フィルタ（`/reminders`、M7）＋下書き保存（`/drafts`。3許可種別共通。2026年9月・#73）＋CSVダウンロード（`/clients.csv`）。node:http のみで実装し、127.0.0.1のみで待受
 - `src/web/formPage.js`（建設業許可）・`kobutsuFormPage.js`（古物商許可。2026年9月追加）・`nouchiTenyoFormPage.js`（農地転用許可。2026年9月追加） — 各許可種別のインテイクフォーム画面。`resultPage.js`（判定結果画面）は`judgmentLabels`・`formPath`オプションで許可種別ごとの文言・戻り先リンクを差し替えられる設計とし、3つの許可種別すべてで共用する
-- `src/web/draftStore.js` — インテイクフォームの入力途中データを `data/drafts.json` へ読み書きするローカル永続化層（DB不使用）。建設業許可専用の`ApplicantProfile`前提のデータ構造のため、古物商許可・農地転用許可の下書き保存はスコープ外とした（`docs/DESIGN_kobutsu-core.md` 9章参照。同じ一覧に混在させると「続きから入力」が誤った種別のフォームを開いてしまうため、安易に共有しない設計判断とした）
+- `src/web/draftStore.js` — インテイクフォームの入力途中データを `data/drafts.json` へ読み書きするローカル永続化層（DB不使用）。`DraftRecord.licenseCategory`（"construction"/"kobutsu"/"nouchi-tenyo"。省略時は"construction"扱い）で3許可種別を判別する（2026年9月・#73。同じ一覧に混在させても「続きから入力」が誤った種別のフォームを開くことはない）
 - `test/` — `node --test` で実行するユニットテスト（外部テストランナー不要）
 - `scripts/` — 動作確認用のサンプル実行スクリプト（`sampleProfile.js`・`sampleKobutsuProfile.js`が各許可種別共通のダミーデータ）
 
@@ -302,13 +302,13 @@ BtoB下請けポータル・会社設立サポートとも異なり、判定す�
 
 - 正式な様式（国交省・都道府県指定のレイアウト）への完全準拠したPDF/docx出力
   （現状は内容確認用のサマリー表のみ）
-- 様式第二十号の二（誓約書）は本ツールが判定に用いる欠格要件10項目
-  （2026年9月に6→10項目へ拡充。第1・2・3・5・6・7・8・9・10・14号相当）を
-  確認しているが、建設業法第8条の全14号への完全対応はしていない。
-  未対応の第4・11・12・13号は、申請者本人以外の複数人物（役員・使用人・
-  法定代理人）ごとの欠格状況の保持が必要で、個人の申請者1名を前提とする
-  現行の`ApplicantProfile`型では表現できないため対象外
-  （`src/licenses/construction/eligibility/types.js`のKekkakuInput定義コメント参照）
+- 様式第二十号の二（誓約書）・欠格要件判定（`checkKekkaku`）は建設業法第8条の
+  全14号に対応済み（2026年9月・Issue #72）。役員（`OfficerInput.kekkaku`）・
+  政令で定める使用人（`ApplicantProfile.regulatoryEmployees[].kekkaku`）・
+  未成年者の法定代理人（`KekkakuInput.legalRepresentativeKekkaku`）ごとの
+  欠格事由を任意項目として保持し、未入力の場合は合格に固定せず`warnings`で
+  未確認である旨を出す（`src/licenses/construction/eligibility/types.js`の
+  KekkakuInput定義コメント参照）
 - JCIP外部インターフェイス仕様書に沿ったデータ連携（電子申請の自動化）。
   仕様書の存在・概要（XML形式、2026年9月時点でv1.3が公開）は調査済みだが、
   行政書士登録・対象都道府県の確定・仕様書本文の精査が完了するまでは
@@ -323,14 +323,13 @@ BtoB下請けポータル・会社設立サポートとも異なり、判定す�
   （外部サービス連携の要否を含め要検討）
 - 古物商許可のWebフォーム対応: **2026年9月実装済み**（`/kobutsu`・
   `/kobutsu/submit`。個人申請のみ。整合性チェックも2026年9月に実装済み）。
-  下書き保存（`/drafts`相当）は対象外のまま（`docs/DESIGN_kobutsu-core.md`
-  9章参照）。法人申請対応は欠格事由の判定（古物営業法第4条11号。役員一覧の
-  `officers`・第4条1号〜8号の役員ごとのチェック）のみ2026年9月に対応済みだが、
-  法人向けの許可申請書・略歴書（役員ごとに1通必要）等の書類生成フル対応
-  （Webフォームを含む）は引き続き対象外
+  下書き保存（`/drafts`）も**2026年9月・#73で対応済み**。法人申請対応は
+  欠格事由の判定（古物営業法第4条11号。役員一覧の`officers`・第4条1号〜8号の
+  役員ごとのチェック）のみ2026年9月に対応済みだが、法人向けの許可申請書・
+  略歴書（役員ごとに1通必要）等の書類生成フル対応（Webフォームを含む）は
+  引き続き対象外
 - 農地転用許可のWebフォーム対応: **2026年9月実装済み**（`/nouchi-tenyo`・
-  `/nouchi-tenyo/submit`）。下書き保存（`/drafts`相当）は古物商許可と
-  同じ理由で対象外のまま
+  `/nouchi-tenyo/submit`）。下書き保存（`/drafts`）も**2026年9月・#73で対応済み**
 - `src/core/reminders/clientCsv.js`は各種`<種別>Detail`をCSV列としては
   意図的に持たせていない（`docs/DESIGN_kobutsu-core.md` 5.5節参照）。CSV
   エクスポートには`<種別>Detail`が含まれない（エクスポート→インポートの往復

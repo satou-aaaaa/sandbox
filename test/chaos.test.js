@@ -94,8 +94,8 @@ test("カオス: 下書きの同時保存でも、両方の下書きが失われ
   const { filePath, dir } = await tempPath("race-draft");
   try {
     await Promise.all([
-      upsertDraft({ applicantName: "下書きA" }, undefined, filePath),
-      upsertDraft({ applicantName: "下書きB" }, undefined, filePath),
+      upsertDraft({ applicantName: "下書きA" }, undefined, undefined, filePath),
+      upsertDraft({ applicantName: "下書きB" }, undefined, undefined, filePath),
     ]);
     const drafts = await loadDrafts(filePath);
     assert.equal(drafts.length, 2);
