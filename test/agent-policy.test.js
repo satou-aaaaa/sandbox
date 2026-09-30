@@ -7,6 +7,10 @@ import {
   DOCKER_IMAGE,
   buildDockerArgs,
   buildReport,
+  isMajorBump,
+  pickMajorUpdates,
+  pickStalePrs,
+  STALE_PR_DAYS,
   hasActivity,
   reportSeverity,
   shouldPostReport,
@@ -990,4 +994,53 @@ test("evaluateMutation: 変更行にミュータントが無ければ通す。�
 test("buildDockerArgs: 通信が不要なフェーズ（verify・mutation）はネットワークを遮断し、API・npmが要るフェーズは遮断しない（#115）", () => {
   for (const phase of ["verify", "mutation"]) assert.ok(dockerArgs(phase).join(" ").includes("--network none"), phase);
   for (const phase of ["install", "agent", "triage", "review"]) assert.ok(!dockerArgs(phase).includes("--network"), phase);
+
+// ---- 運用レポートの拡張（滞留PR・メジャー更新。ADR-0018）----
+
+test("isMajorBump: メジャーが上がるときだけ true。読み取れない件名は false", () => {
+  assert.equal(isMajorBump("Bump eslint from 9.5.0 to 10.0.0"), true);
+  assert.equal(isMajorBump("chore(deps-dev): bump x from v1.2.3 to v2.0.0"), true);
+  assert.equal(isMajorBump("Bump x from 1.2.3 to 1.9.0"), false);
+  assert.equal(isMajorBump("Bump x from 0.4.1 to 0.5.0"), false);
+  assert.equal(isMajorBump("依存を更新する"), false);
+});
+
+test("pickStalePrs: しきい値以上の日数で、下書きでないPRだけを古い順に選ぶ", () => {
+  const now = Date.parse("2026-09-30T00:00:00Z");
+  const day = 24 * 60 * 60 * 1000;
+  const iso = (daysAgo) => new Date(now - daysAgo * day).toISOString();
+  const prs = [
+    { number: 1, title: "a", createdAt: iso(2) },
+    { number: 2, title: "b", createdAt: iso(STALE_PR_DAYS) },
+    { number: 3, title: "c", createdAt: iso(10) },
+    { number: 4, title: "d", createdAt: iso(30), isDraft: true },
+    { number: 5, title: "e", createdAt: "不正な日付" },
+  ];
+  assert.deepEqual(pickStalePrs(prs, now).map((p) => [p.number, p.days]), [[3, 10], [2, STALE_PR_DAYS]]);
+});
+
+test("pickMajorUpdates: DependabotのメジャーPRだけを、CI結果つきで選ぶ", () => {
+  const green = [{ status: "COMPLETED", conclusion: "SUCCESS" }];
+  const red = [{ status: "COMPLETED", conclusion: "FAILURE" }];
+  const prs = [
+    { number: 1, title: "Bump a from 1.0.0 to 2.0.0", headRefName: "dependabot/npm_and_yarn/a-2.0.0", statusCheckRollup: green },
+    { number: 2, title: "Bump b from 1.0.0 to 2.0.0", headRefName: "dependabot/npm_and_yarn/b-2.0.0", statusCheckRollup: red },
+    { number: 3, title: "Bump c from 1.0.0 to 1.1.0", headRefName: "dependabot/npm_and_yarn/c-1.1.0", statusCheckRollup: green },
+    { number: 4, title: "Bump d from 1.0.0 to 2.0.0", headRefName: "feature/not-dependabot", statusCheckRollup: green },
+    { number: 5, title: "Bump e from 1.0.0 to 2.0.0", headRefName: "dependabot/npm_and_yarn/e-2.0.0" },
+  ];
+  assert.deepEqual(pickMajorUpdates(prs).map((p) => [p.number, p.checks]), [[1, "green"], [2, "failed"], [5, "pending"]]);
+});
+
+test("reportSeverity / buildReport: 滞留PRは要確認になり、メジャー更新は要対応と別の節で示す", () => {
+  const d = { ...baseReport(), stalePrs: [{ number: 7, title: "古いPR", days: 9 }], majorUpdates: [{ number: 8, title: "Bump x from 1.0.0 to 2.0.0", checks: "green" }] };
+  assert.equal(reportSeverity(d), "attention");
+  const r = buildReport(d);
+  assert.match(r, /5日以上たっても承認・マージされていないPR 1件/);
+  assert.match(r, /#7 古いPR（9日）/);
+  assert.match(r, /### 判断待ちのメジャー更新/);
+  assert.match(r, /#8 Bump x from 1\.0\.0 to 2\.0\.0 — CI成功/);
+  // 追加項目が無い（従来の）データでは、新しい節を出さない
+  assert.doesNotMatch(buildReport(baseReport()), /メジャー更新|承認・マージされていない/);
+  assert.equal(reportSeverity(baseReport()), "ok");
 });

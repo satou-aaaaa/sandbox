@@ -24,6 +24,8 @@ import {
   LABEL_REPORT,
   LABEL_REVERT_PR,
   buildReport,
+  pickMajorUpdates,
+  pickStalePrs,
   isSelftestDue,
   shouldPostReport,
   shouldTripBreaker,
@@ -93,7 +95,7 @@ function collect() {
   const reverts = merged.filter((p) => p.headRefName.startsWith("revert/pr-") && !isSelftest(p));
   const dependabot = merged.filter((p) => p.headRefName.startsWith("dependabot/"));
   const human = merged.filter((p) => !p.headRefName.startsWith("agent/issue-") && !p.headRefName.startsWith("revert/pr-") && !p.headRefName.startsWith("dependabot/"));
-  const openPrs = JSON.parse(gh("pr", "list", "--repo", REPO, "--state", "open", "--json", "number,title,headRefName,labels,statusCheckRollup", "--limit", "50"));
+  const openPrs = JSON.parse(gh("pr", "list", "--repo", REPO, "--state", "open", "--json", "number,title,headRefName,labels,statusCheckRollup,createdAt,isDraft", "--limit", "50"));
   const labelNames = (p) => p.labels.map((l) => l.name);
   const issues = (label) => JSON.parse(gh("issue", "list", "--repo", REPO, "--state", "open", "--label", label, "--json", "number,title", "--limit", "30"));
   const revertPrs = JSON.parse(gh("pr", "list", "--repo", REPO, "--state", "all", "--label", LABEL_REVERT_PR, "--json", "createdAt", "--limit", "20"));
@@ -115,6 +117,8 @@ function collect() {
     costUsd: costForPeriod(DAYS),
     selftest,
     breaker: shouldTripBreaker(revertPrs.map((p) => p.createdAt), Date.now()),
+    stalePrs: pickStalePrs(openPrs, Date.now()),
+    majorUpdates: pickMajorUpdates(openPrs),
   };
 }
 

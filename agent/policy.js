@@ -1312,6 +1312,8 @@ export const LABEL_REPORT = "agent-report";
 
 /**
  * @typedef {{number: number, title: string}} ReportItem
+ * @typedef {{number: number, title: string, days: number}} StalePr 承認・マージされないまま滞留しているPR
+ * @typedef {{number: number, title: string, checks: "pending"|"failed"|"green"}} MajorUpdate 判断待ちのメジャー更新PR（CI結果つき）
  * @typedef {{
  *   periodLabel: string,
  *   agentMerged: number,
@@ -1328,6 +1330,8 @@ export const LABEL_REPORT = "agent-report";
  *   costUsd: number | null,
  *   selftest: {lastRun?: string, ok?: boolean, stage?: string} | null,
  *   breaker: boolean,
+ *   stalePrs?: StalePr[],
+ *   majorUpdates?: MajorUpdate[],
  * }} ReportData
  */
 
@@ -1338,7 +1342,7 @@ export const LABEL_REPORT = "agent-report";
  */
 export function reportSeverity(d) {
   if (d.incidents.length > 0 || d.breaker || d.selftest?.ok === false) return "incident";
-  if (d.needsHuman.length > 0 || d.needsReview.length > 0 || d.failing.length > 0 || d.reverted > 0) return "attention";
+  if (d.needsHuman.length > 0 || d.needsReview.length > 0 || d.failing.length > 0 || d.reverted > 0 || (d.stalePrs?.length ?? 0) > 0) return "attention";
   return "ok";
 }
 
@@ -1367,6 +1371,54 @@ function itemList(items) {
   return items.slice(0, 10).map((i) => `- #${i.number} ${i.title}`).join("\n") + (items.length > 10 ? `\n- …ほか${items.length - 10}件` : "");
 }
 
+/** 承認・マージされないまま何日たったら「滞留」とみなすか。 */
+export const STALE_PR_DAYS = 5;
+
+/**
+ * DependabotのPR件名（例: `Bump x from 1.2.3 to 2.0.0`）が、メジャーバージョンの更新か。
+ * バージョンが読み取れない場合は false（自動マージの対象外として人が見る想定のため、ここでは断定しない）。
+ * @param {string} title
+ * @returns {boolean}
+ */
+export function isMajorBump(title) {
+  const m = title.match(/from\s+v?(\d+)[\d.]*\s+to\s+v?(\d+)/i);
+  return m !== null && Number(m[1]) !== Number(m[2]);
+}
+
+/**
+ * 開いているPRから、滞留しているもの（作成から STALE_PR_DAYS 日以上・下書きでない）を選ぶ。
+ * @param {{number: number, title: string, createdAt: string, isDraft?: boolean}[]} prs
+ * @param {number} nowMs
+ * @param {number} [thresholdDays]
+ * @returns {StalePr[]} 古い順
+ */
+export function pickStalePrs(prs, nowMs, thresholdDays = STALE_PR_DAYS) {
+  return prs
+    .filter((p) => !p.isDraft)
+    .map((p) => ({ number: p.number, title: p.title, days: Math.floor((nowMs - Date.parse(p.createdAt)) / (24 * 60 * 60 * 1000)) }))
+    .filter((p) => Number.isFinite(p.days) && p.days >= thresholdDays)
+    .sort((a, b) => b.days - a.days);
+}
+
+/**
+ * 開いているDependabotのPRから、メジャー更新（人が判断するもの）を、CI結果つきで選ぶ。
+ * CIはそのPRのブランチで全テストを走らせているため、CIが green なら「上げても壊れない」ことの検証になる。
+ * @param {{number: number, title: string, headRefName: string, statusCheckRollup?: any[]}[]} prs
+ * @returns {MajorUpdate[]}
+ */
+export function pickMajorUpdates(prs) {
+  return prs
+    .filter((p) => p.headRefName.startsWith("dependabot/") && isMajorBump(p.title))
+    .map((p) => ({ number: p.number, title: p.title, checks: summarizeChecks(p.statusCheckRollup ?? []) }));
+}
+
+/** @param {StalePr[]} prs */
+function stalePrList(prs) {
+  const rows = prs.slice(0, 10).map((p) => `- #${p.number} ${p.title}（${p.days}日）`);
+  if (prs.length > 10) rows.push(`- …ほか${prs.length - 10}件`);
+  return rows.join("\n");
+}
+
 /**
  * 運用レポート（Markdown）。問題がある日は、冒頭で目立たせる。
  * @param {ReportData} d
@@ -1385,7 +1437,12 @@ export function buildReport(d) {
     if (d.needsReview.length) lines.push(`- 承認待ちのPR ${d.needsReview.length}件:`, itemList(d.needsReview));
     if (d.failing.length) lines.push(`- CIが失敗しているエージェントのPR ${d.failing.length}件（自己修復の対象）:`, itemList(d.failing));
     if (d.reverted > 0) lines.push(`- 期間内に ${d.reverted} 件が取り消されました（理由は各リバートPRを参照）`);
+    if (d.stalePrs?.length) lines.push(`- ${STALE_PR_DAYS}日以上たっても承認・マージされていないPR ${d.stalePrs.length}件:`, stalePrList(d.stalePrs));
     lines.push("");
+  }
+  if (d.majorUpdates?.length) {
+    const label = { green: "CI成功", failed: "CI失敗", pending: "CI実行中" };
+    lines.push("### 判断待ちのメジャー更新（Dependabot）", "", "CIはそのPRのブランチで全テストを実行しています。CI成功なら、上げても既存のテストは壊れないことの確認になります。", "", ...d.majorUpdates.slice(0, 10).map((p) => `- #${p.number} ${p.title} — ${label[p.checks]}`), "");
   }
   lines.push("### 集計", "| 項目 | 件数 |", "|---|---|");
   lines.push(`| エージェントのPRのマージ | ${d.agentMerged}（うち自動マージ ${d.autoMerged}） |`);
