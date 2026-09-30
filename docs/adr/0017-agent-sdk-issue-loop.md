@@ -392,3 +392,11 @@ PRのコードやテストを実行するフェーズ（`verify`・`mutation`）
 これにより、テスト・ミューテーション検査の実行中に、コードが外部へデータを送る経路が無くなる。
 **未対応（#115 は開いたまま）**: `install`（npmレジストリ）・`agent`／`triage`／`review`（Anthropic API）は通信が要るため、宛先を許可リストで絞るプロキシ経由への移行が必要。
 これはDockerネットワーク（内部ネットワーク＋許可リストのプロキシ）の実機検証が要るため、Docker起動環境で別途行う。クラウド実行（`AGENT_SANDBOX=none`）では対象外。
+
+## Amendment 24（2026-09-30）: コメントでの操作（`/agent ...`。#125）
+
+ラベル操作はスマホでは手数が多いため、所有者のコメントで操作できるようにした（`.github/workflows/agent-command.yml`）。
+`/agent retry`（再挑戦）・`/agent revert`（取消）・`/agent skip`（対象外）・`/agent status`（状態表示）。結果は必ずコメントで返す。
+- **所有者のコメントだけが有効**（`comment.user.login == repository_owner`）。第三者のコメントでは workflow 自体が動かない。コメント本文はシェルに展開せず環境変数で受け取る。
+- ラベルは `AGENT_GH_TOKEN`（所有者のPAT）で付ける。これにより、`agent-ready`（即時実行）・`agent-revert`（リバート）の後続workflowが起動する。未設定なら `GITHUB_TOKEN` で付け、後続は定期実行が拾う。
+- 新しい権限は増えない（既存のラベル操作を、コメントから行えるようにしただけ）。
