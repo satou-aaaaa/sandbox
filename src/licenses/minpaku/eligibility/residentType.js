@@ -9,6 +9,9 @@
  * @param {"家主居住型" | "家主不在型"} residentType
  * @param {string} [managementCompanyName]
  * @returns {import('../../../core/eligibility/types.js').RequirementCheckResult}
+ *
+ * 法令根拠（2026-09-30に e-Gov法令API v2 で条文との対応を再確認）:
+ * - 住宅宿泊事業法 第11条（住宅宿泊管理業務の委託）: https://laws.e-gov.go.jp/law/429AC0000000065
  */
 export function checkResidentType(residentType, managementCompanyName) {
   const needsManagementCompany = residentType === "家主不在型";

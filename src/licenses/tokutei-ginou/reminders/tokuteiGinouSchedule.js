@@ -25,6 +25,9 @@
  * 対象外分野（介護・リネンサプライ・自動車運送業・鉄道・物流倉庫・
  * 林業・木材産業・資源循環）であれば、5年上限到達後は在留資格の見直し
  * （帰国、または他の在留資格への変更検討）が必要になる旨を明記する。
+ *
+ * 法令根拠（2026-09-30に e-Gov法令API v2 で条文との対応を再確認）:
+ * - 出入国管理及び難民認定法 第2条の3（特定技能の基本方針）: https://laws.e-gov.go.jp/law/326CO0000000319
  */
 import { getField } from "../eligibility/fieldRegistry.js";
 import { addDaysIso } from "../../../core/reminders/dateUtils.js";

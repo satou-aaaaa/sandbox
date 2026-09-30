@@ -5,6 +5,9 @@
  *
  * @param {"未申請" | "申請中" | "結果受領済み"} yBunsekiStatus
  * @returns {import('../../../core/eligibility/types.js').RequirementCheckResult}
+ *
+ * 法令根拠（2026-09-30に e-Gov法令API v2 で条文との対応を再確認）:
+ * - 建設業法 第27条の24（経営状況分析。登録経営状況分析機関が行う）: https://laws.e-gov.go.jp/law/324AC0000000100
  */
 export function checkYBunsekiStatus(yBunsekiStatus) {
   const passed = yBunsekiStatus === "結果受領済み";

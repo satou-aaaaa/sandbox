@@ -8,6 +8,10 @@
  *
  * @param {import('./types.js').RequiredDocumentItem[]} documents
  * @returns {import('../../../core/eligibility/types.js').RequirementCheckResult}
+ *
+ * 法令根拠（2026-09-30に e-Gov法令API v2 で条文との対応を再確認）:
+ * - 住宅宿泊事業法 第3条（届出）: https://laws.e-gov.go.jp/law/429AC0000000065
+ * - 住宅宿泊事業法施行規則 第4条（届出書・添付書類）: https://laws.e-gov.go.jp/law/429M60000900002
  */
 export function checkDocumentChecklist(documents) {
   const missing = documents.filter((d) => !d.obtained);

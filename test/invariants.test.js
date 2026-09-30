@@ -63,8 +63,9 @@ test("data/ 配下（実データ）がGit管理されていない（NFR-5）", 
 
 test("法令根拠: 判定・期限計算ロジックの冒頭コメントに根拠URLがある（既存の未対応分は基準線で許容）", () => {
   const baseline = JSON.parse(readFileSync(join(REPO_ROOT, "test/fixtures/legal-basis-baseline.json"), "utf8")).files;
+  const exempt = Object.keys(JSON.parse(readFileSync(join(REPO_ROOT, "test/fixtures/legal-basis-exempt.json"), "utf8")).files);
   const missing = [...collectLegalBasis()].filter(([, urls]) => urls.length === 0).map(([p]) => p);
-  const fresh = missing.filter((p) => !baseline.includes(p));
+  const fresh = missing.filter((p) => !baseline.includes(p) && !exempt.includes(p));
   assert.deepEqual(fresh, [], "新規・変更したロジックには、根拠となる法令・公式情報源のURLをファイル冒頭コメントに記載する（DESIGN.md 1章）。基準線への追加で逃げない");
 });
 
@@ -72,6 +73,16 @@ test("法令根拠の基準線に、存在しないファイルが残ってい�
   const known = new Set([...collectLegalBasis()].map(([p]) => p));
   const baseline = JSON.parse(readFileSync(join(REPO_ROOT, "test/fixtures/legal-basis-baseline.json"), "utf8")).files;
   assert.deepEqual(baseline.filter((p) => !known.has(p)), [], "削除・改名したファイルは基準線からも消す");
+});
+
+test("法令根拠の免除リスト: 理由が書かれ、存在するファイルで、根拠URLを持たない", () => {
+  const exempt = JSON.parse(readFileSync(join(REPO_ROOT, "test/fixtures/legal-basis-exempt.json"), "utf8")).files;
+  const basis = collectLegalBasis();
+  for (const [file, reason] of Object.entries(exempt)) {
+    assert.ok(basis.has(file), `${file} は判定・期限計算ロジックの対象として存在しない（削除・改名したなら免除リストからも消す）`);
+    assert.ok(typeof reason === "string" && reason.length >= 10, `${file} の免除理由を書く`);
+    assert.deepEqual(basis.get(file), [], `${file} に根拠URLが付いたので、免除リストから外す`);
+  }
 });
 
 test("雛形（scripts/scaffold-module.mjs）の TODO(法令根拠) が src/ と docs/ に残っていない", () => {

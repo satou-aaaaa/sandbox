@@ -281,7 +281,7 @@ M2の範囲では通知の自動送信（メール等）は対象外。日付計
   - [建設業法施行規則 様式第二号（工事経歴書） - e-Gov法令検索](https://laws.e-gov.go.jp/data/MinisterialOrdinance/324M50004000014/621062_1/pict/2FH00000061301.pdf)
   - [記載例｜工事経歴書（様式第二号） | 建設業許可がよくわかる](https://kensetsu-wakaru.com/example-007/)
 - M9（FR-2.9・FR-7.2）の経営規模等評価申請書・総合評定値請求書調査で参照した資料（2026年9月実施）:
-  - [経営規模等評価申請書と総合評定値請求書の書き方（項番01〜20の記載要領。東京都都市整備局公開情報の引用）](https://www.kensetu.office-kamiyama-tokyo.com/blog-keishin-documents2/)
+  - [東京都都市整備局「経営事項審査 説明書、申請書類及び記載要領」（項番01〜20の作成要領。当初参照していた民間事務所ブログの引用元の公的情報に差し替え。2026-09-30）](https://www.toshiseibi.metro.tokyo.lg.jp/kenchiku_kaihatsu/kenchiku_shidou/gyosya_shido/sinsa/keiei_sinsei)
   - [経営規模等評価申請・総合評定値請求 ｜ 経審（経営事項審査）の解説 - CIIC](https://www.ciac.jp/keisin/sinsei/kibo)
   - [申請のお手続き - 経営状況分析のご案内 - CIIC（経営状況分析は財務諸表の提出が前提であることを確認）](https://www.ciic.or.jp/analysis/application/)
 - M10（FR-2.10・FR-7.3）の財務諸表調査で参照した資料（2026年9月実施）:

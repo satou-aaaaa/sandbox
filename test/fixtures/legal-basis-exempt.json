@@ -1,0 +1,9 @@
+{
+  "_comment": "法令に基づく判定・期限計算ではないため、根拠URLを要求しないファイルと、その理由。新規に足す場合は理由を必ず書く。",
+  "files": {
+    "src/incorporation/reminders/incorporationSchedule.js": "案件ごとの期日（定款認証予約日・払込期限）を並べるだけの表示ロジック。法令から期限を計算していない（設計判断のみ）",
+    "src/licenses/construction/eligibility/prefectureRules.js": "都道府県固有ルールを登録する仕組み（レジストリ）だけで、特定の法的要件を含まない。各ルールの根拠は登録側のファイルに書く（ADR-0005）",
+    "src/portal/reminders/caseDeadlines.js": "BtoB下請け案件の納期（当事者間の契約上の期日）で、法令に基づく期限ではない",
+    "src/succession/heirs/fraction.js": "分数の四則演算だけの純粋な算術ヘルパー。法令の内容は含まない（法定相続分は calcLegalHeirs.js が根拠を持つ）"
+  }
+}
