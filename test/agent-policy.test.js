@@ -985,6 +985,7 @@ test("evaluateMutation: 変更行にミュータントが無ければ通す。�
   assert.equal(evaluateMutation({ files: { "src/a.js": { mutants: [] } } }, { "src/a.js": [1] }).ok, true);
   assert.equal(evaluateMutation(null, {}).ok, false);
   assert.equal(evaluateMutation({}, {}).ok, false);
+});
 
 test("buildDockerArgs: 通信が不要なフェーズ（verify・mutation）はネットワークを遮断し、API・npmが要るフェーズは遮断しない（#115）", () => {
   for (const phase of ["verify", "mutation"]) assert.ok(dockerArgs(phase).join(" ").includes("--network none"), phase);
