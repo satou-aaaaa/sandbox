@@ -5,6 +5,7 @@ import {
   compareWithBaseline,
   describeChange,
   egovLawId,
+  impactedDocs,
   needsAttention,
   normalizeHtml,
   snapshotEgov,
@@ -87,4 +88,25 @@ test("extractHeaderUrls: 末尾の句読点・括弧を除き、重複をまと�
 
 test("normalizeHtml: &amp;lt; を二重にアンエスケープしない（&lt; という文字列のまま残る）", () => {
   assert.equal(normalizeHtml("<p>&amp;lt; と &lt;b&gt; と &amp;</p>").text, "&lt; と <b> と &");
+});
+
+test("impactedDocs: 根拠を挙げるファイルから設計書を割り出し、実在しない候補は除く", () => {
+  const all = new Set(["docs/DESIGN.md", "docs/REQUIREMENTS.md", "docs/DESIGN_kobutsu-core.md", "docs/REQUIREMENTS_kobutsu-core.md", "docs/DESIGN_souzoku-support.md"]);
+  const exists = (p) => all.has(p);
+  assert.deepEqual(impactedDocs(["src/licenses/kobutsu/eligibility/rules/a.js"], exists), ["docs/DESIGN_kobutsu-core.md", "docs/REQUIREMENTS_kobutsu-core.md"]);
+  assert.deepEqual(impactedDocs(["src/licenses/construction/eligibility/a.js", "src/core/reminders/deadlines.js"], exists), ["docs/DESIGN.md", "docs/REQUIREMENTS.md"]);
+  assert.deepEqual(impactedDocs(["src/succession/heirs/x.js"], exists), ["docs/DESIGN_souzoku-support.md"]);
+  assert.deepEqual(impactedDocs(["src/web/x.js", "scripts/y.mjs"], exists), []);
+});
+
+test("compareWithBaseline / buildReportMarkdown: 存在確認を渡すと、変化のあったURLに設計書が付く", () => {
+  const url = "https://laws.e-gov.go.jp/law/1";
+  const before = snapshotEgov(egovJson("r1", "2026-01-01", "旧"));
+  const now = snapshotEgov(egovJson("r2", "2026-06-01", "新"));
+  const sources = new Map([[url, ["src/licenses/kobutsu/eligibility/a.js"]]]);
+  const report = compareWithBaseline({ [url]: before }, sources, new Map([[url, { ok: true, snapshot: now }]]), () => true);
+  assert.deepEqual(report.changed[0].docs, ["docs/DESIGN_kobutsu-core.md", "docs/REQUIREMENTS_kobutsu-core.md"]);
+  assert.match(buildReportMarkdown(report, "2026-09-30"), /見直し対象の設計書: `docs\/DESIGN_kobutsu-core\.md`/);
+  const plain = compareWithBaseline({ [url]: before }, sources, new Map([[url, { ok: true, snapshot: now }]]));
+  assert.equal(plain.changed[0].docs, undefined);
 });

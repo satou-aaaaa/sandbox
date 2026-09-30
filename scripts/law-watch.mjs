@@ -89,7 +89,7 @@ if (update) {
 }
 
 if (!existsSync(BASELINE_PATH)) console.error("基準線がありません。内容を確認したうえで --update で作成してください。");
-const report = compareWithBaseline(baseline, sources, results);
+const report = compareWithBaseline(baseline, sources, results, (rel) => existsSync(join(REPO_ROOT, rel)));
 const attention = needsAttention(report);
 const markdown = buildReportMarkdown(report, new Date().toISOString().slice(0, 10));
 console.log(markdown);
