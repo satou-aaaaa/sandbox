@@ -1,0 +1,192 @@
+{
+  "https://laws.e-gov.go.jp/data/MinisterialOrdinance/324M50004000014/621062_1/pict/2FH00000061301.pdf": {
+    "kind": "html",
+    "title": "",
+    "hash": "e146f876c4f48c9a2e665adcf56b4b57c8415ab62e55594da253f5b8cdb36d0c",
+    "chars": 132812
+  },
+  "https://laws.e-gov.go.jp/law/129AC0000000089": {
+    "kind": "egov",
+    "title": "民法",
+    "revisionId": "129AC0000000089_20260624_508AC0000000045",
+    "enforcementDate": "2026-06-24",
+    "scheduledDate": null,
+    "hash": "d43065dbf04a6958d4b4c23a6371368beb2ccc57552d9f6d50157adce1868fe7"
+  },
+  "https://laws.e-gov.go.jp/law/322AC0000000233": {
+    "kind": "egov",
+    "title": "食品衛生法",
+    "revisionId": "322AC0000000233_20250601_504AC0000000068",
+    "enforcementDate": "2025-06-01",
+    "scheduledDate": null,
+    "hash": "35ea62e0e929e003316035c639e8859534aa9ea231829cd7cf4f24354c74be59"
+  },
+  "https://laws.e-gov.go.jp/law/324AC0000000100": {
+    "kind": "egov",
+    "title": "建設業法",
+    "revisionId": "324AC0000000100_20251212_506AC0000000049",
+    "enforcementDate": "2025-12-12",
+    "scheduledDate": null,
+    "hash": "c2f189ab51a82b67e825ed3c83744383c4998cac37d7a17eec493e232a7c043b"
+  },
+  "https://laws.e-gov.go.jp/law/324AC0000000108": {
+    "kind": "egov",
+    "title": "古物営業法",
+    "revisionId": "324AC0000000108_20250601_504AC0000000068",
+    "enforcementDate": "2025-06-01",
+    "scheduledDate": null,
+    "hash": "a50097e77ff70d1f415acbc7d057c2c8fdcafd6aeb41e6822be38861e47f1974"
+  },
+  "https://laws.e-gov.go.jp/law/324M50004000014": {
+    "kind": "egov",
+    "title": "建設業法施行規則",
+    "revisionId": "324M50004000014_20260701_508M60000800006",
+    "enforcementDate": "2026-07-01",
+    "scheduledDate": null,
+    "hash": "ee3e4c147f4ac283ed3cba7bfaca300bfd04d81427b12f5432e042bfa83737ee"
+  },
+  "https://laws.e-gov.go.jp/law/325AC0000000073": {
+    "kind": "egov",
+    "title": "相続税法",
+    "revisionId": "325AC0000000073_20260401_506AC0000000008",
+    "enforcementDate": "2026-04-01",
+    "scheduledDate": null,
+    "hash": "1857b714cbdc15132b7440273c780d371efdcbfbbc5c0791e52e5bb24ce01925"
+  },
+  "https://laws.e-gov.go.jp/law/326CO0000000319": {
+    "kind": "egov",
+    "title": "出入国管理及び難民認定法",
+    "revisionId": "326CO0000000319_20260614_507AC0000000039",
+    "enforcementDate": "2026-06-14",
+    "scheduledDate": null,
+    "hash": "036bd644b4fc03275dc6095463f0953a0ab28e150c5963125b4ba3a07251885d"
+  },
+  "https://laws.e-gov.go.jp/law/327AC0000000229": {
+    "kind": "egov",
+    "title": "農地法",
+    "revisionId": "327AC0000000229_20250601_504AC0000000068",
+    "enforcementDate": "2025-06-01",
+    "scheduledDate": null,
+    "hash": "7a7c8190ee583f2113db9ddfd5f3aed72f87570a5ad931fab5711c40702e747a"
+  },
+  "https://laws.e-gov.go.jp/law/345AC0000000137": {
+    "kind": "egov",
+    "title": "廃棄物の処理及び清掃に関する法律",
+    "revisionId": "345AC0000000137_20260916_508AC0000000043",
+    "enforcementDate": "2026-09-16",
+    "scheduledDate": null,
+    "hash": "66036834c81bf2c2ca84bcb6d63d880bcb444e6533eeeb4e8e41780125e58ce3"
+  },
+  "https://laws.e-gov.go.jp/law/346CO0000000300": {
+    "kind": "egov",
+    "title": "廃棄物の処理及び清掃に関する法律施行令",
+    "revisionId": "346CO0000000300_20260401_508CO0000000066",
+    "enforcementDate": "2026-04-01",
+    "scheduledDate": null,
+    "hash": "518991a82e2a41cb7a67eaca581c8262f117955371d6e3015d56a04e23b1f5ac"
+  },
+  "https://laws.e-gov.go.jp/law/346M50000100035": {
+    "kind": "egov",
+    "title": "廃棄物の処理及び清掃に関する法律施行規則",
+    "revisionId": "346M50000100035_20260701_508M60001000019",
+    "enforcementDate": "2026-07-01",
+    "scheduledDate": null,
+    "hash": "79396906cc085efc18ad00f2d2f3203a81b9209226b963040906c58cf927179c"
+  },
+  "https://laws.e-gov.go.jp/law/402M50000010016": {
+    "kind": "egov",
+    "title": "出入国管理及び難民認定法第七条第一項第二号の基準を定める省令",
+    "revisionId": "402M50000010016_20260401_508M60000010012",
+    "enforcementDate": "2026-04-01",
+    "scheduledDate": null,
+    "hash": "a17add39e806236b6fbff874e51b3d715b041c273ad760fc6952ee7b8c46ecd4"
+  },
+  "https://laws.e-gov.go.jp/law/407M50400000010": {
+    "kind": "egov",
+    "title": "古物営業法施行規則",
+    "revisionId": "407M50400000010_20260812_508M60400000017",
+    "enforcementDate": "2026-08-12",
+    "scheduledDate": null,
+    "hash": "5ad267f228b1c367a92787618c3148774055c47113cd09cdfa3aadcef22e128f"
+  },
+  "https://laws.e-gov.go.jp/law/429AC0000000065": {
+    "kind": "egov",
+    "title": "住宅宿泊事業法",
+    "revisionId": "429AC0000000065_20250601_504AC0000000068",
+    "enforcementDate": "2025-06-01",
+    "scheduledDate": null,
+    "hash": "66d008bf3876b8e81dfe83caac2cb1463889823330c5ec64d8785e239dbcd9f5"
+  },
+  "https://laws.e-gov.go.jp/law/429M60000900002": {
+    "kind": "egov",
+    "title": "住宅宿泊事業法施行規則",
+    "revisionId": "429M60000900002_20250401_507M60000900002",
+    "enforcementDate": "2025-04-01",
+    "scheduledDate": null,
+    "hash": "250792cfd15feb6194ca891692c7fa7238117999f4b929892c7fe81501433494"
+  },
+  "https://laws.e-gov.go.jp/law/431M60000010005": {
+    "kind": "egov",
+    "title": "特定技能雇用契約及び一号特定技能外国人支援計画の基準等を定める省令",
+    "revisionId": "431M60000010005_20260513_508M60000010035",
+    "enforcementDate": "2026-05-13",
+    "scheduledDate": null,
+    "hash": "1a9b6e5c6ecf522861066ad68d7219d63da304aeda713a229e7a3adfdba9e6a7"
+  },
+  "https://laws.e-gov.go.jp/law/431M60000010006": {
+    "kind": "egov",
+    "title": "出入国管理及び難民認定法別表第一の二の表の特定技能の項の下欄に規定する産業上の分野等を定める省令",
+    "revisionId": "431M60000010006_20260401_508M60000010022",
+    "enforcementDate": "2026-04-01",
+    "scheduledDate": null,
+    "hash": "2432f54069a93c6750d3d3cd2fc91b6f3bb6de1284df5afcb3b5d4e4daf2be8a"
+  },
+  "https://www.ciac.jp/kensetuzaimu/hojin/kansei": {
+    "kind": "html",
+    "title": "完成工事原価報告書 ｜ 法人用 ｜ 建設業財務諸表の解説",
+    "hash": "284959f385017fd7e3c86fc0e092d36fb2b79696bf2e3df9a6d0bb6c1c184ffa",
+    "chars": 3076
+  },
+  "https://www.mlit.go.jp/notice/noticedata/sgml/1982/26220000/26220000.html": {
+    "kind": "html",
+    "title": "���݋Ɩ@�{�s�K���ʋL�l����\\�܍��y�ё�\\�Z���̍��y��ʑ�b�̒�߂銨��Ȗڂ̕���",
+    "hash": "c09c489aa519630c53a0652d692398439c65d27f67f35e4c357ea5887b1243d2",
+    "chars": 14989
+  },
+  "https://www.mlit.go.jp/totikensangyo/const/1_6_bt_000082.html": {
+    "kind": "html",
+    "title": "建設産業・不動産業：許可の要件 - 国土交通省",
+    "hash": "1b2b1dfe4cee4f7c9a5e83378c1ee3a2fd4cf09fcd21c6ce82b2b71106a7ecea",
+    "chars": 7026
+  },
+  "https://www.mlit.go.jp/totikensangyo/const/1_6_bt_000153.html": {
+    "kind": "html",
+    "title": "建設産業・不動産業：経営事項審査及び総合評定値の請求について - 国土交通省",
+    "hash": "16367cfe6171f16059f29dece2cc47849181302a98a873185d15c6bd0fbaecc2",
+    "chars": 1477
+  },
+  "https://www.moj.go.jp/isa/applications/procedures/tokureikikan_00001.html": {
+    "kind": "html",
+    "title": "特例期間とは？ | 出入国在留管理庁",
+    "hash": "4d4d2414399b67437ea867f46977b21180e818c75880a3947b4f5ea835c7c0ad",
+    "chars": 2164
+  },
+  "https://www.moj.go.jp/isa/applications/status/gijinkoku.html": {
+    "kind": "html",
+    "title": "在留資格「技術・人文知識・国際業務」 | 出入国在留管理庁",
+    "hash": "475d740cc710a772aaa6ba9381a5844d236540ea6491061fbdaa5e374a00be0e",
+    "chars": 17376
+  },
+  "https://www.pref.aichi.jp/soshiki/junkan/0000059102.html": {
+    "kind": "html",
+    "title": "産業廃棄物処理業許可申請に添付する修了証の取扱いについて - 愛知県",
+    "hash": "8bebb6331ffe4dd0173e73e31f4dfd4ee895d3a79f46f2806a6cbaeab4278ac1",
+    "chars": 1457
+  },
+  "https://www.toshiseibi.metro.tokyo.lg.jp/kenchiku_kaihatsu/kenchiku_shidou/gyosya_shido/sinsa/keiei_sinsei": {
+    "kind": "html",
+    "title": "経営事項審査 説明書、申請書類及び記載要領|経営事項審査|東京都都市整備局",
+    "hash": "17017211af3ab99da3dd6985b0e6732b604e28c642deaedcc03f2b3aeded7cb6",
+    "chars": 7374
+  }
+}

@@ -89,7 +89,9 @@
     "changelog:draft": "node scripts/changelog-draft.mjs",
     "scaffold:module": "node scripts/scaffold-module.mjs",
     "reminders:daily": "node scripts/reminders-daily.js",
-    "gen:review-pack": "node scripts/generate-review-pack-sample.js"
+    "gen:review-pack": "node scripts/generate-review-pack-sample.js",
+    "law-watch": "node scripts/law-watch.mjs",
+    "mutation:summary": "node scripts/mutation-summary.mjs"
   },
   "dependencies": {
     "docx": "^9.7.2"

@@ -78,3 +78,23 @@ export function collectLegalBasis() {
   }
   return result;
 }
+
+/**
+ * src/ 全体の冒頭コメントにある根拠URLを、URLごとに集める（法令改正ウォッチャー用）。
+ * フラグメント（`#...`）は取り除いて同じページとして扱う。
+ * @returns {Map<string, string[]>} URL → そのURLを挙げているファイル（相対パス）
+ */
+export function collectAllHeaderUrls() {
+  /** @type {Map<string, string[]>} */
+  const byUrl = new Map();
+  for (const abs of walkFiles(join(REPO_ROOT, "src")).filter((f) => f.endsWith(".js"))) {
+    const rel = toRepoPath(abs);
+    for (const raw of extractHeaderUrls(readFileSync(abs, "utf8"))) {
+      const url = raw.replace(/#.*$/, "");
+      const files = byUrl.get(url) ?? [];
+      if (!files.includes(rel)) files.push(rel);
+      byUrl.set(url, files);
+    }
+  }
+  return byUrl;
+}
