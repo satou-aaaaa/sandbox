@@ -4,6 +4,9 @@ on:
   push:
     branches: [main]
   pull_request:
+  # 手動起動。GITHUB_TOKEN で作ったPR（他のworkflowを起動しない）に、必須チェックを付けるために使う
+  # （workflow_dispatch だけは、GITHUB_TOKEN の操作でも起動できる。ADR-0017 Amendment 17）
+  workflow_dispatch:
 
 # GITHUB_TOKENの権限を必要最小限に絞る（サプライチェーン攻撃対策の基本）。
 # 本ワークフローはチェックアウトしてテストを実行するのみで、コンテンツの
