@@ -30,6 +30,7 @@ import {
   shouldPostReport,
   shouldTripBreaker,
   summarizeChecks,
+  tokenDaysLeft,
 } from "./policy.js";
 import { LOG_DIR, REPO, gh, log } from "./run.mjs";
 
@@ -119,6 +120,8 @@ function collect() {
     breaker: shouldTripBreaker(revertPrs.map((p) => p.createdAt), Date.now()),
     stalePrs: pickStalePrs(openPrs, Date.now()),
     majorUpdates: pickMajorUpdates(openPrs),
+    // 発行日は setup-auth.ps1 が AGENT_TOKEN_ISSUED_AT（YYYY-MM-DD）に記録する。未設定なら警告しない
+    tokenDaysLeft: tokenDaysLeft(process.env.AGENT_TOKEN_ISSUED_AT, Date.now()),
   };
 }
 

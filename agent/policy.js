@@ -667,9 +667,10 @@ export function summarizeOutput(text) {
  * @param {ReturnType<typeof summarizeOutput>} s
  * @param {number} recovered 異常終了から回復したIssue数
  * @param {boolean} [throttled] 利用枠の逼迫で、重い処理を見送ったか
+ * @param {boolean} [authFailed] 認証エラーが検出されたか
  * @returns {string}
  */
-export function formatSummary(s, recovered, throttled = false) {
+export function formatSummary(s, recovered, throttled = false, authFailed = false) {
   const parts = [
     `スカウト起票: ${s.scouted}件`,
     `トリアージ: 実行可 ${s.ready}件 / 人手 ${s.needsHuman}件`,
@@ -681,6 +682,7 @@ export function formatSummary(s, recovered, throttled = false) {
   if (s.reverted > 0) parts.push(`取り消し（リバート）: ${s.reverted}件`);
   if (recovered > 0) parts.push(`異常終了から回復: ${recovered}件`);
   if (throttled) parts.push("利用枠の逼迫のため、重い処理を見送り（次回以降に自動で再開）");
+  if (authFailed) parts.push("⚠ 認証エラー（トークンの期限切れの可能性）: 「claude setup-token」で再発行し、「agent\\setup-auth.ps1」で保存してください");
   return parts.join(" / ");
 }
 
@@ -1678,8 +1680,47 @@ export const LABEL_REPORT = "agent-report";
  *   breaker: boolean,
  *   stalePrs?: StalePr[],
  *   majorUpdates?: MajorUpdate[],
+ *   tokenDaysLeft?: number | null,
  * }} ReportData
  */
+
+/** 認証トークン（claude setup-token）の有効日数。1年。 */
+export const TOKEN_VALID_DAYS = 365;
+/** 期限のこの日数前から警告する。 */
+export const TOKEN_WARN_DAYS = 30;
+
+/**
+ * 発行日（YYYY-MM-DD）から、トークンの残り日数を求める。発行日が不明・不正なら null（警告しない）。
+ * @param {string | undefined} issuedAt
+ * @param {number} nowMs
+ * @returns {number | null} 負の値は期限切れ
+ */
+export function tokenDaysLeft(issuedAt, nowMs) {
+  if (!issuedAt || !/^\d{4}-\d{2}-\d{2}$/.test(issuedAt)) return null;
+  const t = Date.parse(`${issuedAt}T00:00:00Z`);
+  if (!Number.isFinite(t)) return null;
+  return Math.floor((t + TOKEN_VALID_DAYS * 86400000 - nowMs) / 86400000);
+}
+
+/** @param {number | null | undefined} daysLeft */
+export function tokenNeedsAction(daysLeft) {
+  return typeof daysLeft === "number" && daysLeft <= TOKEN_WARN_DAYS;
+}
+
+/** @param {number} daysLeft */
+export function tokenWarning(daysLeft) {
+  const state = daysLeft < 0 ? `認証トークンは ${-daysLeft} 日前に期限切れです` : `認証トークンの期限まであと ${daysLeft} 日です`;
+  return `${state}。「claude setup-token」で再発行し、「agent\\setup-auth.ps1」で保存してください（Actionsを使う場合はシークレット CLAUDE_CODE_OAUTH_TOKEN も更新）`;
+}
+
+/**
+ * 出力に、認証エラー（トークンの期限切れ・無効）の兆候があるか。
+ * @param {string} text
+ * @returns {boolean}
+ */
+export function detectAuthFailure(text) {
+  return /authentication_error|invalid bearer token|oauth token has (expired|been revoked)|invalid api key|401 unauthorized|please run \/login/i.test(String(text));
+}
 
 /**
  * レポートの深刻度。incident=障害あり、attention=人手の確認が必要、ok=問題なし。
@@ -1688,7 +1729,7 @@ export const LABEL_REPORT = "agent-report";
  */
 export function reportSeverity(d) {
   if (d.incidents.length > 0 || d.breaker || d.selftest?.ok === false) return "incident";
-  if (d.needsHuman.length > 0 || d.needsReview.length > 0 || d.failing.length > 0 || d.reverted > 0 || (d.stalePrs?.length ?? 0) > 0) return "attention";
+  if (d.needsHuman.length > 0 || d.needsReview.length > 0 || d.failing.length > 0 || d.reverted > 0 || (d.stalePrs?.length ?? 0) > 0 || tokenNeedsAction(d.tokenDaysLeft)) return "attention";
   return "ok";
 }
 
@@ -1784,6 +1825,7 @@ export function buildReport(d) {
     if (d.failing.length) lines.push(`- CIが失敗しているエージェントのPR ${d.failing.length}件（自己修復の対象）:`, itemList(d.failing));
     if (d.reverted > 0) lines.push(`- 期間内に ${d.reverted} 件が取り消されました（理由は各リバートPRを参照）`);
     if (d.stalePrs?.length) lines.push(`- ${STALE_PR_DAYS}日以上たっても承認・マージされていないPR ${d.stalePrs.length}件:`, stalePrList(d.stalePrs));
+    if (tokenNeedsAction(d.tokenDaysLeft)) lines.push(`- ${tokenWarning(/** @type {number} */ (d.tokenDaysLeft))}`);
     lines.push("");
   }
   if (d.majorUpdates?.length) {
