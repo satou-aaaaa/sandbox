@@ -327,3 +327,10 @@ Amendment 10 の方針（原則は人が介入せず、問題があれば事後�
 外部要因として、再実行も取り消しもしない（`decideMainFailure` が `external` を返す）。代わりに障害記録のIssue
 （`agent-incident` + `agent-needs-human`、未解決のものがあれば追加しない）を立て、人手（または依存更新）に回す。
 テスト・型・lint・E2E等が1つでも失敗していれば従来どおり。ステップ名を取得できない場合も外部要因とは決めつけない。
+
+## Amendment 18（2026-09-30）: agent-ready 付与を契機とした即時実行
+
+定期実行（1日1回）だと、`agent-ready` が付いてから処理まで最大1日待つ。`agent-on-ready.yml` を追加し、所有者が `agent-ready` を付けた
+Issueだけを、その場で `run.mjs --issue N` で処理する。有効化・停止スイッチは `agent-cycle.yml` と同じ（`AGENT_CYCLE_ENABLED`、シークレット2つ）で、
+未設定の間は何もしない。`concurrency: agent-cycle` を共有し、サイクル・他Issueと同時に走らせない。取りこぼしは定期実行が拾う。
+トリアージ（自動付与）が付けた `agent-ready`（senderがbot）はこの経路の対象外で、従来どおりcycleが処理する。
