@@ -317,10 +317,18 @@ BtoB下請けポータル・会社設立サポートとも異なり、判定す�
   着手する想定）。「共通要件＋都道府県固有要件」を合成する仕組み自体は
   実装済み（`src/licenses/construction/eligibility/prefectureRules.js`、`docs/adr/0005-*.md`）だが、
   対象都道府県が未確定のため、具体的な追加要件は1件も登録されていない
-- 更新リマインドの通知チャネル（メール等）との連携。`src/core/reminders/digest.js` で
-  「今どのリマインドが必要か」の計算・整形、`clientStore.js` によるローカル
-  永続化までは実装済みだが、実際の自動送信機能は未実装
-  （外部サービス連携の要否を含め要検討）
+- 更新リマインドの通知チャネル。`src/core/reminders/digest.js` で「今どの
+  リマインドが必要か」の計算・整形、`clientStore.js` によるローカル永続化、
+  メール下書きURL生成（`buildReminderMailtoUrl`）までは実装済み。メール
+  自動送信（SMTP等の外部サービス連携）は、NFR-2/NFR-4・人手レビュー必須の
+  方針と抵触するため実装しない方針を確定している
+  （`docs/adr/0004-mailto-draft-over-auto-send.md`）。ローカル完結の運用
+  改善として、`npm run reminders`（`scripts/reminder-digest.js`）に
+  `--out <path>` オプションを追加し、標準出力に加えてダイジェストを
+  UTF-8（BOM無し）のファイルへ書き出せるようにした（外部送信なし。
+  OSのタスクスケジューラ/cron等と組み合わせたファイル監視・確認運用を
+  想定）。デスクトップ通知・`.ics`カレンダー出力・自動送信は、必要になった
+  時点で別途Issueを起票し検討する
 - 古物商許可のWebフォーム対応: **2026年9月実装済み**（`/kobutsu`・
   `/kobutsu/submit`。個人申請のみ。整合性チェックも2026年9月に実装済み）。
   下書き保存（`/drafts`）も**2026年9月・#73で対応済み**。法人申請対応は
