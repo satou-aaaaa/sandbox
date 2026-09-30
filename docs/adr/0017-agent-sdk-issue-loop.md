@@ -371,3 +371,8 @@ Dockerが使えない前提のため、コンテナ隔離（Amendment 2）は行
 - スカウトの起票は従来どおり `agent/` 配下を一切提案しない（`findProtectedPaths(..., {strict: true})`）。
 
 **限界・残リスク**: 例外のファイルは通知・起票・点検を担うため、誤った変更は運用の可視性を下げうる（事後の取消と週次の自動点検で検知する）。AIレビュアーは実装側と盲点が近い。運用実績を見て、例外の範囲を広げる・戻す判断をする。
+
+## Amendment 20（2026-09-30）: 依存の固定（#117）
+
+供給網の改ざん対策として、`agent/Dockerfile` のベースイメージをダイジェストで、`actions/checkout`・`actions/setup-node` をコミットSHAで固定した（タグはコメントで併記）。
+更新はDependabot（`github-actions`・`docker`〈`/agent`〉）が週次でPRを出す。イメージのダイジェストは、Docker CLIとレジストリAPIの両方で一致を確認した。
