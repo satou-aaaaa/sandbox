@@ -6,6 +6,10 @@ import {
   DAILY_LIMITS,
   DOCKER_IMAGE,
   buildDockerArgs,
+  buildReport,
+  hasActivity,
+  reportSeverity,
+  shouldPostReport,
   buildSelftestIssue,
   hasSelftestLine,
   isSelftestDue,
@@ -16,6 +20,7 @@ import {
   summarizeChecks,
   buildLessons,
   decideMainFailure,
+  isExternalFailure,
   decideRetry,
   issueNumberFromBranch,
   retryCount,
@@ -644,6 +649,22 @@ test("decideMainFailure: 成功・実行中・後続のコミットがある・�
   assert.equal(decideMainFailure({ ...base, prHeadRef: null }), "skip");
 });
 
+test("isExternalFailure: npm audit・署名検証だけの失敗は外部要因。テスト等が混ざる・不明は外部要因としない", () => {
+  assert.equal(isExternalFailure(["npm audit（高深刻度以上）"]), true);
+  assert.equal(isExternalFailure(["npm audit（高深刻度以上）", "npmパッケージ署名の検証"]), true);
+  assert.equal(isExternalFailure(["npm audit（高深刻度以上）", "npm test"]), false);
+  assert.equal(isExternalFailure(["E2Eテスト"]), false);
+  assert.equal(isExternalFailure([]), false);
+});
+
+test("decideMainFailure: 外部要因のみの失敗は、再実行も取り消しもせず external。人のPRは skip", () => {
+  const base = { status: "completed", conclusion: "failure", attempt: 2, isHead: true, prHeadRef: "agent/issue-5", alreadyReverted: false };
+  assert.equal(decideMainFailure({ ...base, isExternal: true }), "external");
+  assert.equal(decideMainFailure({ ...base, attempt: 1, isExternal: true }), "external");
+  assert.equal(decideMainFailure({ ...base, isExternal: false }), "revert");
+  assert.equal(decideMainFailure({ ...base, isExternal: true, prHeadRef: "feat/human-work" }), "skip");
+});
+
 test("buildLessons: 目印付きで所有者が書いたコメントだけを、直近3件まで含める", () => {
   const mk = (body, login = "satou-aaaaa") => ({ body, author: { login } });
   const comments = [
@@ -798,4 +819,89 @@ test("hasSelftestLine: 目印の行がそのままの形で含まれる場合だ
 test("点検が触る専用ファイル（docs/SELFTEST.md）は、自動マージの対象（低リスク）で、保護パスではない", () => {
   assert.equal(classifyPrRisk([{ path: "docs/SELFTEST.md", additions: 1, deletions: 0 }]).level, "low");
   assert.equal(findProtectedPaths(["docs/SELFTEST.md"]).length, 0);
+});
+
+const baseReport = () => ({
+  periodLabel: "直近24時間",
+  agentMerged: 0,
+  autoMerged: 0,
+  reverted: 0,
+  humanMerged: 0,
+  dependabotMerged: 0,
+  aiApproved: 0,
+  aiRejected: 0,
+  needsHuman: [],
+  incidents: [],
+  needsReview: [],
+  failing: [],
+  costUsd: null,
+  selftest: null,
+  breaker: false,
+});
+
+test("reportSeverity: 何もなければ ok。人手の確認・取消は attention。障害・ブレーカー・点検失敗は incident", () => {
+  assert.equal(reportSeverity(baseReport()), "ok");
+  assert.equal(reportSeverity({ ...baseReport(), needsHuman: [{ number: 1, title: "t" }] }), "attention");
+  assert.equal(reportSeverity({ ...baseReport(), needsReview: [{ number: 2, title: "t" }] }), "attention");
+  assert.equal(reportSeverity({ ...baseReport(), failing: [{ number: 3, title: "t" }] }), "attention");
+  assert.equal(reportSeverity({ ...baseReport(), reverted: 1 }), "attention");
+  assert.equal(reportSeverity({ ...baseReport(), incidents: [{ number: 4, title: "t" }] }), "incident");
+  assert.equal(reportSeverity({ ...baseReport(), breaker: true }), "incident");
+  assert.equal(reportSeverity({ ...baseReport(), selftest: { ok: false, stage: "取消" } }), "incident");
+  assert.equal(reportSeverity({ ...baseReport(), selftest: { ok: true } }), "ok");
+});
+
+test("reportSeverity: 障害は、人手の確認より優先する", () => {
+  const d = { ...baseReport(), needsHuman: [{ number: 1, title: "t" }], incidents: [{ number: 2, title: "t" }] };
+  assert.equal(reportSeverity(d), "incident");
+});
+
+test("hasActivity: マージ・取消・AIレビューのいずれかがあれば true", () => {
+  assert.equal(hasActivity(baseReport()), false);
+  for (const k of ["agentMerged", "reverted", "humanMerged", "dependabotMerged", "aiApproved", "aiRejected"]) {
+    assert.equal(hasActivity({ ...baseReport(), [k]: 1 }), true, k);
+  }
+});
+
+test("shouldPostReport: 週次は常に投稿。日次は、動きがある・問題がある日だけ（静かな日は投稿しない）", () => {
+  assert.equal(shouldPostReport("weekly", baseReport()), true);
+  assert.equal(shouldPostReport("daily", baseReport()), false);
+  assert.equal(shouldPostReport("daily", { ...baseReport(), agentMerged: 1 }), true);
+  assert.equal(shouldPostReport("daily", { ...baseReport(), needsHuman: [{ number: 1, title: "t" }] }), true);
+});
+
+test("buildReport: 問題なしの日は、要対応の節を出さず、集計を表示する", () => {
+  const r = buildReport({ ...baseReport(), agentMerged: 2, autoMerged: 2, costUsd: 0.5 });
+  assert.match(r, /🟢 問題なし/);
+  assert.doesNotMatch(r, /### 要対応/);
+  assert.match(r, /エージェントのPRのマージ \| 2（うち自動マージ 2）/);
+  assert.match(r, /\$0\.50/);
+  assert.match(r, /LLM不使用/);
+});
+
+test("buildReport: 障害の日は冒頭で目立たせ、要対応の節に件名を列挙する", () => {
+  const r = buildReport({
+    ...baseReport(),
+    incidents: [{ number: 136, title: "incident: 自動点検が失敗しました" }],
+    needsHuman: [{ number: 129, title: "human: 初回設定" }],
+    breaker: true,
+    selftest: { ok: false, stage: "再挑戦", lastRun: "2026-09-29T00:00:00Z" },
+    reverted: 1,
+  });
+  assert.match(r, /🔴 障害あり/);
+  assert.match(r, /### 要対応/);
+  assert.match(r, /サーキットブレーカーが作動/);
+  assert.match(r, /自動点検が失敗しました（再挑戦）/);
+  assert.match(r, /- #136 incident: 自動点検が失敗しました/);
+  assert.match(r, /- #129 human: 初回設定/);
+  assert.match(r, /1 件が取り消されました/);
+});
+
+test("buildReport: 一覧は10件までに切り詰め、残りは件数で示す。費用の記録が無ければ『記録なし』", () => {
+  const many = Array.from({ length: 13 }, (_, i) => ({ number: i + 1, title: `課題${i + 1}` }));
+  const r = buildReport({ ...baseReport(), needsHuman: many });
+  assert.match(r, /- #10 課題10/);
+  assert.doesNotMatch(r, /- #11 課題11/);
+  assert.match(r, /ほか3件/);
+  assert.match(r, /推定費用[^\n]*記録なし/);
 });

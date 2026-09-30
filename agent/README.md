@@ -145,6 +145,20 @@ node selftest.mjs             # 実施する（CIとマージを待つため、2
 - 触るのは `docs/SELFTEST.md` だけ。成功のたびに1行残る（この行が増えている間は、パイプラインが正常）
 - 失敗したら、障害Issue（`agent-incident`）を1件だけ立てる。トリアージのLLM判定は対象外（非決定的なため）
 
+### 運用レポート（日次・週次の報告）
+
+自律運用の結果を、GitHubの状態から決定的に集計して届ける（LLM不使用。ADR-0017 Amendment 16）。
+
+```bash
+node report.mjs                         # 日次（直近24時間）を表示するのみ
+node report.mjs --period weekly         # 週次（直近7日）を表示するのみ
+node report.mjs --post                  # 常設のレポート用Issue（agent-report）へ投稿（日次は、動き・問題がある日だけ）
+```
+
+- 内容: エージェントのPRのマージ（自動マージ）、取り消し、AIレビューの承認率、人・Dependabotのマージ、推定費用、自動点検の結果。問題がある日は冒頭で目立たせ、要対応（障害・人手に回したIssue・承認待ちPR・CI失敗）を列挙する
+- **通知を受け取るには**、レポート用Issue（`agent: 運用レポート（自動投稿）`）を **Watch（購読）** する。GitHubの通知（メール・モバイル）で届く。最新のレポートは `agent/logs/report-latest.md` にも残る
+- `cycle.mjs` の末尾で、日次と週次（前回から7日以上）を自動で呼ぶ
+
 ### Issueのクローズ
 
 - PRがマージされると、PR本文の `Closes #N` によりGitHubがIssueを**自動でクローズ**する。

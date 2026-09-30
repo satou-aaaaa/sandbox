@@ -23,6 +23,7 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   LABEL_DONE,
+  LABEL_INCIDENT,
   LABEL_NEEDS_HUMAN,
   LABEL_READY,
   LABEL_REVERT,
@@ -32,6 +33,7 @@ import {
   LESSON_MARKER,
   decideMainFailure,
   decideRetry,
+  isExternalFailure,
   issueNumberFromBranch,
 } from "./policy.js";
 import { BASE, REPO, gh, log, run } from "./run.mjs";
@@ -175,6 +177,24 @@ function sweepLabeled() {
   }
 }
 
+/**
+ * 外部要因によるmainのCI失敗を、障害の記録用Issueとして1件だけ残す（未解決のものがあれば追加しない）。
+ * @param {number} runId
+ * @param {string[]} failedSteps
+ */
+function recordExternalFailure(runId, failedSteps) {
+  const open = JSON.parse(gh("issue", "list", "--repo", REPO, "--state", "open", "--label", LABEL_INCIDENT, "--search", "外部要因", "--json", "number", "--limit", "1"));
+  if (open.length > 0) return;
+  gh("label", "create", LABEL_INCIDENT, "--repo", REPO, "--color", "b60205", "--description", "エージェントの自動運用の障害記録", "--force");
+  const body = [
+    `失敗したステップ: ${failedSteps.join(", ")}（run ${runId}）`,
+    "",
+    "コードの変更と無関係な失敗（新規公開の脆弱性勧告・レジストリの応答不良など）と判定したため、直前のPRは取り消していません。",
+    "依存を更新して解消し、解消したらこのIssueをクローズしてください。",
+  ].join("\n");
+  gh("issue", "create", "--repo", REPO, "--title", "incident: mainのCIが外部要因（依存の勧告など）で失敗しています", "--label", LABEL_INCIDENT, "--label", LABEL_NEEDS_HUMAN, "--body", body);
+}
+
 /** mainのCIが、エージェントのPRのマージ直後に失敗していれば、再実行または取り消しをする。 */
 function sweepMainFailure() {
   const runs = JSON.parse(gh("run", "list", "--repo", REPO, "--workflow", "test.yml", "--branch", BASE, "--event", "push", "--limit", "1", "--json", "databaseId,status,conclusion,headSha,attempt"));
@@ -195,8 +215,22 @@ function sweepMainFailure() {
   } catch {
     /* PRを特定できなければ、取り消さない */
   }
-  const action = decideMainFailure({ status: latest.status, conclusion: latest.conclusion, attempt: latest.attempt ?? 1, isHead, prHeadRef, alreadyReverted });
+  // 失敗したステップを取得し、外部要因（npm audit等）のみの失敗かを判定する。取得できなければ外部要因とは扱わない
+  /** @type {string[]} */
+  let failedSteps = [];
+  try {
+    const detail = JSON.parse(gh("run", "view", String(latest.databaseId), "--repo", REPO, "--json", "jobs"));
+    failedSteps = detail.jobs.flatMap((/** @type {{steps?: {name: string, conclusion: string}[]}} */ j) => (j.steps ?? []).filter((s) => s.conclusion === "failure").map((s) => s.name));
+  } catch {
+    /* 取得できなければ従来どおりの扱い */
+  }
+  const action = decideMainFailure({ status: latest.status, conclusion: latest.conclusion, attempt: latest.attempt ?? 1, isHead, prHeadRef, alreadyReverted, isExternal: isExternalFailure(failedSteps) });
   if (action === "skip" || prNumber === null) return;
+  if (action === "external") {
+    log(`mainのCIが外部要因（${failedSteps.join(", ")}）で失敗しました。PR #${prNumber} は取り消さず、障害の記録を残します`);
+    if (!DRY_RUN) recordExternalFailure(latest.databaseId, failedSteps);
+    return;
+  }
   if (action === "rerun") {
     log(`mainのCIが失敗しました（PR #${prNumber} の直後）。一時的な失敗の可能性があるため、まず1回再実行します`);
     if (!DRY_RUN) gh("run", "rerun", String(latest.databaseId), "--repo", REPO, "--failed");

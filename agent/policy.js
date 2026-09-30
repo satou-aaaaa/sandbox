@@ -1032,15 +1032,34 @@ export function shouldTripBreaker(revertCreatedAts, now) {
 }
 
 /**
- * mainのCIが失敗したとき、どう対応するか（一時的な失敗の誤検知で取り消さないため、まず1回再実行する）。
- * @param {{status: string, conclusion: string, attempt: number, isHead: boolean, prHeadRef: string | null, alreadyReverted: boolean}} p
- * @returns {"skip"|"rerun"|"revert"}
+ * 外部要因（コードの変更と無関係）で失敗するCIのステップ名。新規公開の脆弱性勧告・レジストリの応答不良など。
+ * 失敗したステップがこれだけなら、直前のPRを取り消しても直らないため、取り消さない。
  */
-export function decideMainFailure({ status, conclusion, attempt, isHead, prHeadRef, alreadyReverted }) {
+export const EXTERNAL_FAILURE_STEP_PATTERNS = [/npm audit/i, /パッケージ署名/];
+
+/**
+ * 失敗したステップ名が、すべて外部要因のものか。ステップ名を取得できなかった（空）場合は、
+ * 外部要因と決めつけず false とする（従来どおりの扱い）。
+ * @param {string[]} failedSteps
+ * @returns {boolean}
+ */
+export function isExternalFailure(failedSteps) {
+  if (failedSteps.length === 0) return false;
+  return failedSteps.every((name) => EXTERNAL_FAILURE_STEP_PATTERNS.some((re) => re.test(name)));
+}
+
+/**
+ * mainのCIが失敗したとき、どう対応するか（一時的な失敗の誤検知で取り消さないため、まず1回再実行する）。
+ * 失敗が外部要因のみ（isExternal）なら、再実行も取り消しもせず "external"（障害の記録に回す）とする。
+ * @param {{status: string, conclusion: string, attempt: number, isHead: boolean, prHeadRef: string | null, alreadyReverted: boolean, isExternal?: boolean}} p
+ * @returns {"skip"|"rerun"|"revert"|"external"}
+ */
+export function decideMainFailure({ status, conclusion, attempt, isHead, prHeadRef, alreadyReverted, isExternal = false }) {
   if (status !== "completed" || conclusion !== "failure") return "skip";
   if (!isHead) return "skip"; // 既に後続のコミットで状況が変わっている
   if (alreadyReverted) return "skip";
   if (issueNumberFromBranch(prHeadRef ?? "") === null) return "skip"; // 人が作ったPRは自動で取り消さない
+  if (isExternal) return "external";
   return attempt <= 1 ? "rerun" : "revert";
 }
 
@@ -1249,4 +1268,103 @@ export function buildSelftestIssue(marker) {
  */
 export function hasSelftestLine(content, marker) {
   return String(content).split("\n").some((l) => l.trim() === `- 点検: ${marker}`);
+}
+
+// ---------------------------------------------------------------------------
+// 運用レポート（日次・週次の報告）
+//
+// 自律運用の結果を、あなたが見に行かなくても分かるようにする。集計はGitHubの状態（PR・Issue・ラベル）から
+// 決定的に作り、LLMは使わない（費用がかからず、誤りも混入しない）。問題がある日は目立たせ、何も起きなかった日は静かにする。
+// ---------------------------------------------------------------------------
+
+/** 運用レポートを載せる、常設のIssueのラベル。 */
+export const LABEL_REPORT = "agent-report";
+
+/**
+ * @typedef {{number: number, title: string}} ReportItem
+ * @typedef {{
+ *   periodLabel: string,
+ *   agentMerged: number,
+ *   autoMerged: number,
+ *   reverted: number,
+ *   humanMerged: number,
+ *   dependabotMerged: number,
+ *   aiApproved: number,
+ *   aiRejected: number,
+ *   needsHuman: ReportItem[],
+ *   incidents: ReportItem[],
+ *   needsReview: ReportItem[],
+ *   failing: ReportItem[],
+ *   costUsd: number | null,
+ *   selftest: {lastRun?: string, ok?: boolean, stage?: string} | null,
+ *   breaker: boolean,
+ * }} ReportData
+ */
+
+/**
+ * レポートの深刻度。incident=障害あり、attention=人手の確認が必要、ok=問題なし。
+ * @param {ReportData} d
+ * @returns {"ok"|"attention"|"incident"}
+ */
+export function reportSeverity(d) {
+  if (d.incidents.length > 0 || d.breaker || d.selftest?.ok === false) return "incident";
+  if (d.needsHuman.length > 0 || d.needsReview.length > 0 || d.failing.length > 0 || d.reverted > 0) return "attention";
+  return "ok";
+}
+
+/**
+ * 期間内に、何か動きがあったか（何も無い日はレポートを投稿しない、の判断に使う）。
+ * @param {ReportData} d
+ * @returns {boolean}
+ */
+export function hasActivity(d) {
+  return d.agentMerged + d.reverted + d.humanMerged + d.dependabotMerged + d.aiApproved + d.aiRejected > 0;
+}
+
+/**
+ * レポートを投稿すべきか。週次は常に投稿する。日次は、動きがある、または問題がある場合だけ。
+ * @param {"daily"|"weekly"} period
+ * @param {ReportData} d
+ * @returns {boolean}
+ */
+export function shouldPostReport(period, d) {
+  if (period === "weekly") return true;
+  return reportSeverity(d) !== "ok" || hasActivity(d);
+}
+
+/** @param {ReportItem[]} items */
+function itemList(items) {
+  return items.slice(0, 10).map((i) => `- #${i.number} ${i.title}`).join("\n") + (items.length > 10 ? `\n- …ほか${items.length - 10}件` : "");
+}
+
+/**
+ * 運用レポート（Markdown）。問題がある日は、冒頭で目立たせる。
+ * @param {ReportData} d
+ * @returns {string}
+ */
+export function buildReport(d) {
+  const sev = reportSeverity(d);
+  const head = sev === "incident" ? "🔴 障害あり" : sev === "attention" ? "🟡 要確認あり" : "🟢 問題なし";
+  const lines = [`## 運用レポート（${d.periodLabel}）${head}`, ""];
+  if (sev !== "ok") {
+    lines.push("### 要対応");
+    if (d.breaker) lines.push("- サーキットブレーカーが作動し、自動運用を停止しています（障害Issueを確認してください）");
+    if (d.selftest?.ok === false) lines.push(`- 自動点検が失敗しました（${d.selftest.stage ?? "段階不明"}）`);
+    if (d.incidents.length) lines.push(`- 障害Issue ${d.incidents.length}件:`, itemList(d.incidents));
+    if (d.needsHuman.length) lines.push(`- 人手での対応が必要なIssue ${d.needsHuman.length}件:`, itemList(d.needsHuman));
+    if (d.needsReview.length) lines.push(`- 承認待ちのPR ${d.needsReview.length}件:`, itemList(d.needsReview));
+    if (d.failing.length) lines.push(`- CIが失敗しているエージェントのPR ${d.failing.length}件（自己修復の対象）:`, itemList(d.failing));
+    if (d.reverted > 0) lines.push(`- 期間内に ${d.reverted} 件が取り消されました（理由は各リバートPRを参照）`);
+    lines.push("");
+  }
+  lines.push("### 集計", "| 項目 | 件数 |", "|---|---|");
+  lines.push(`| エージェントのPRのマージ | ${d.agentMerged}（うち自動マージ ${d.autoMerged}） |`);
+  lines.push(`| 取り消し（リバート） | ${d.reverted} |`);
+  lines.push(`| AIレビュー | 承認 ${d.aiApproved} / 不承認 ${d.aiRejected} |`);
+  lines.push(`| 人が作ったPRのマージ | ${d.humanMerged} |`);
+  lines.push(`| Dependabotのマージ | ${d.dependabotMerged} |`);
+  lines.push(`| 推定費用（サブスクリプション。請求額ではない） | ${d.costUsd === null ? "記録なし" : `$${d.costUsd.toFixed(2)}`} |`);
+  lines.push(`| 自動点検 | ${d.selftest?.lastRun ? `${d.selftest.ok ? "成功" : "失敗"}（${d.selftest.lastRun.slice(0, 10)}）` : "未実施"} |`);
+  lines.push("", "_自動集計（GitHubの状態から決定的に作成。LLM不使用）_");
+  return lines.join("\n");
 }
