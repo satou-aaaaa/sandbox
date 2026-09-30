@@ -57,7 +57,16 @@ class Deferred extends Error {}
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
+/** cloud（状態が消える環境）では、直近の点検用Issueの作成日時から、前回の実施時期を復元する。 */
 function readState() {
+  if (process.env.AGENT_STATE === "github") {
+    try {
+      const latest = JSON.parse(gh("issue", "list", "--repo", REPO, "--state", "all", "--label", LABEL_SELFTEST, "--json", "createdAt", "--limit", "1"));
+      return latest.length > 0 ? { lastRun: latest[0].createdAt } : {};
+    } catch {
+      return {};
+    }
+  }
   try {
     return JSON.parse(readFileSync(STATE_FILE, "utf8"));
   } catch {
@@ -66,6 +75,7 @@ function readState() {
 }
 
 function writeState(state) {
+  if (process.env.AGENT_STATE === "github") return; // GitHubの状態（点検用Issue）から復元するため、保存しない
   mkdirSync(dirname(STATE_FILE), { recursive: true });
   writeFileSync(STATE_FILE, JSON.stringify(state));
 }

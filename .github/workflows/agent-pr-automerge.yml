@@ -1,6 +1,7 @@
 name: Agent PR auto-merge
 
-# エージェントが作ったPR（ブランチ名 agent/issue-<番号>）のマージ判断を、リスクに応じて自動化する。
+# エージェントが作ったPR（ブランチ名 agent/issue-<番号>。取消のリバートPRは revert/pr-<番号>）のマージ判断を、リスクに応じて自動化する。
+# （クラウド実行では、自動マージの予約がGraphQL専用のため行えない。この workflow が代わりに予約する）
 #  - 原則は自動マージ（人手を介さない）: 文書・テスト・法令ロジックを含まないコード（12ファイル以下）は、
 #    必須チェック成功後に自動マージする。問題があれば事後にリバートする（ADR-0017 Amendment 10）
 #  - 人手（または承認）に回す領域: 保護パス、法令判定・期限計算・様式生成（既定。変数 AGENT_AUTOMERGE_LEGAL=true で自動マージ可）、設定・設計文書など。
@@ -22,7 +23,7 @@ permissions:
 
 jobs:
   decide:
-    if: github.event.pull_request.head.repo.full_name == github.repository && startsWith(github.event.pull_request.head.ref, 'agent/issue-')
+    if: github.event.pull_request.head.repo.full_name == github.repository && (startsWith(github.event.pull_request.head.ref, 'agent/issue-') || startsWith(github.event.pull_request.head.ref, 'revert/pr-'))
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:

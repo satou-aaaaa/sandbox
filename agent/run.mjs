@@ -54,6 +54,7 @@ import {
   recordRun,
   retryCount,
 } from "./policy.js";
+import { createGhRest } from "./gh-rest.mjs";
 import { AGENT_TIMEOUT_MS, MAX_BUDGET_USD, MAX_TURNS, MODEL, installDeps, runAgent, verifyAll } from "./runner.mjs";
 
 export const REPO = "satou-aaaaa/sandbox";
@@ -92,9 +93,17 @@ export function run(cmd, cmdArgs, cwd = REPO_ROOT) {
   }).trim();
 }
 
+/**
+ * GitHub操作。既定は `gh` CLI。GraphQLが使えない環境（Claude Codeのクラウドセッション）では、
+ * AGENT_GH_MODE=rest で、同じ引数をREST APIに翻訳して実行する（gh-rest.mjs）。
+ */
+const ghRest = process.env.AGENT_GH_MODE === "rest" ? createGhRest({ repo: "satou-aaaaa/sandbox" }) : null;
 export function gh(...ghArgs) {
-  return run("gh", ghArgs);
+  return ghRest ? ghRest(ghArgs) : run("gh", ghArgs);
 }
+
+/** 状態の保存先。cloud（クラウドのセッションは毎回状態が消える）では、GitHubの状態から復元する（AGENT_STATE=github）。 */
+const STATE_IN_GITHUB = process.env.AGENT_STATE === "github";
 
 export function log(msg) {
   console.log(`[agent] ${msg}`);
@@ -105,7 +114,21 @@ function today() {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
+/** その日（実行環境の日付）に作られたエージェントのPR数 = 実装の実行回数。費用は記録できないため 0 とする。 */
+function githubDailyState() {
+  const prs = JSON.parse(gh("pr", "list", "--repo", REPO, "--state", "all", "--json", "headRefName,createdAt", "--limit", "100"));
+  const t = today();
+  const runs = prs.filter((p) => p.headRefName.startsWith("agent/issue-") && localDate(p.createdAt) === t).length;
+  return { date: t, runs, costUsd: 0 };
+}
+
+function localDate(iso) {
+  const d = new Date(iso);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
 export function loadState() {
+  if (STATE_IN_GITHUB) return githubDailyState();
   try {
     return normalizeState(JSON.parse(readFileSync(STATE_FILE, "utf8")), today());
   } catch {
@@ -114,6 +137,7 @@ export function loadState() {
 }
 
 export function saveState(state) {
+  if (STATE_IN_GITHUB) return; // GitHubの状態から復元するため、保存しない
   mkdirSync(dirname(STATE_FILE), { recursive: true });
   writeFileSync(STATE_FILE, JSON.stringify(state));
 }
