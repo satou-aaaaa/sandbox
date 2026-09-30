@@ -26,10 +26,12 @@ import {
   USAGE_BACKOFF_MS,
   detectUsageLimit,
   isBackedOff,
+  isOrphanedTriage,
   LABEL_INCIDENT,
   LABEL_NEEDS_HUMAN,
   LABEL_REVERT_PR,
   LABEL_READY,
+  LABEL_TRIAGED,
   LABEL_WORKING,
   TMP_STALE_MS,
   WORKING_STALE_MS,
@@ -70,6 +72,25 @@ function recover() {
       `エージェントの処理が ${Math.round(WORKING_STALE_MS / 60000)} 分以上更新されず、異常終了の可能性があるため、自動処理を中止して「${LABEL_NEEDS_HUMAN}」に戻しました。状況を確認し、再度任せる場合は内容を整えてラベルを付け直してください。`,
     );
     log(`回復: #${issue.number} の処理中ラベルを解除しました`);
+    recovered++;
+  }
+  // ラベルが宙に浮いた状態（agent-triaged はあるが、後続ラベルがどれも無い）を片付ける
+  const triaged = JSON.parse(
+    gh("issue", "list", "--repo", REPO, "--state", "open", "--label", LABEL_TRIAGED, "--json", "number,labels,updatedAt", "--limit", "50"),
+  );
+  for (const issue of triaged) {
+    if (!isOrphanedTriage(issue, Date.now())) continue;
+    gh("issue", "edit", String(issue.number), "--repo", REPO, "--add-label", LABEL_NEEDS_HUMAN);
+    gh(
+      "issue",
+      "comment",
+      String(issue.number),
+      "--repo",
+      REPO,
+      "--body",
+      `トリアージ後のラベルが宙に浮いた状態（\`${LABEL_TRIAGED}\` はあるが、処理状態を示すラベルがどれも無い）で見つかったため、\`${LABEL_NEEDS_HUMAN}\` を付けました。エージェントの異常終了が原因の可能性があります。状況を確認し、再度任せる場合は \`${LABEL_TRIAGED}\` と \`${LABEL_NEEDS_HUMAN}\` を外してください（再判定されます）。`,
+    );
+    log(`回復: #${issue.number} の宙に浮いたラベルを ${LABEL_NEEDS_HUMAN} に戻しました`);
     recovered++;
   }
   // 登録済みの一時worktreeで古いものを外し、登録の残骸を掃除する

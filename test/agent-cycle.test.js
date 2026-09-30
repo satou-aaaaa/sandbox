@@ -5,9 +5,11 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import {
   LOCK_STALE_MS,
+  ORPHANED_TRIAGE_STALE_MS,
   WORKING_STALE_MS,
   formatSummary,
   isLockStale,
+  isOrphanedTriage,
   isStaleWorking,
   summarizeOutput,
 } from "../agent/policy.js";
@@ -43,6 +45,34 @@ test("isStaleWorking: agent-working のまま閾値を超えて更新されな�
   assert.equal(isStaleWorking({ labels: working, updatedAt: fresh }, NOW), false);
   assert.equal(isStaleWorking({ labels: [{ name: "agent-done" }], updatedAt: old }, NOW), false);
   assert.equal(isStaleWorking({ labels: working, updatedAt: "不正な日時" }, NOW), false);
+});
+
+test("isOrphanedTriage: agent-triagedのみで後続ラベルが無く、閾値を超えて放置されたIssueだけが対象（#127）", () => {
+  const old = new Date(NOW - ORPHANED_TRIAGE_STALE_MS - 60000).toISOString();
+  const triagedOnly = [{ name: "agent-triaged" }];
+  assert.equal(isOrphanedTriage({ labels: triagedOnly, updatedAt: old }, NOW), true);
+});
+
+test("isOrphanedTriage: 直後（閾値内）はまだ対象にしない（トリアージ中の一時的な状態と区別できないため）", () => {
+  const fresh = new Date(NOW - 60000).toISOString();
+  assert.equal(isOrphanedTriage({ labels: [{ name: "agent-triaged" }], updatedAt: fresh }, NOW), false);
+});
+
+test("isOrphanedTriage: agent-triagedが無ければ対象外", () => {
+  const old = new Date(NOW - ORPHANED_TRIAGE_STALE_MS - 60000).toISOString();
+  assert.equal(isOrphanedTriage({ labels: [{ name: "agent-retry-1" }], updatedAt: old }, NOW), false);
+});
+
+test("isOrphanedTriage: agent-ready/agent-working/agent-done/agent-needs-human/agent-skipのいずれかが付いていれば対象外", () => {
+  const old = new Date(NOW - ORPHANED_TRIAGE_STALE_MS - 60000).toISOString();
+  for (const outcome of ["agent-ready", "agent-working", "agent-done", "agent-needs-human", "agent-skip"]) {
+    const labels = [{ name: "agent-triaged" }, { name: outcome }];
+    assert.equal(isOrphanedTriage({ labels, updatedAt: old }, NOW), false, `${outcome}が付いていれば対象外のはず`);
+  }
+});
+
+test("isOrphanedTriage: updatedAtが不正な日時なら対象外（フェイルクローズ）", () => {
+  assert.equal(isOrphanedTriage({ labels: [{ name: "agent-triaged" }], updatedAt: "不正な日時" }, NOW), false);
 });
 
 test("summarizeOutput: トリアージ結果・PR作成・中止を数える", () => {

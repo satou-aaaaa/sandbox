@@ -574,6 +574,29 @@ export function isStaleWorking(issue, now, thresholdMs = WORKING_STALE_MS) {
   return Number.isFinite(updated) && now - updated > thresholdMs;
 }
 
+/** トリアージ後に必ずどれか1つは付いているはずのラベル。どれも無ければ処理が宙に浮いている。 */
+export const TRIAGE_OUTCOME_LABELS = [LABEL_READY, LABEL_WORKING, LABEL_DONE, LABEL_NEEDS_HUMAN, LABEL_SKIP];
+
+/** `agent-triaged` は付いているのに後続ラベルが無い状態を、この時間を超えて放置したら異常とみなす。 */
+export const ORPHANED_TRIAGE_STALE_MS = 15 * 60 * 1000;
+
+/**
+ * トリアージ済み（`agent-triaged`）なのに、`agent-ready`・`agent-working`・`agent-done`・
+ * `agent-needs-human`・`agent-skip` のいずれも付いていない、ラベルが宙に浮いたIssueか。
+ * run.mjs・triage.mjsの異常終了（ラベル更新の失敗を含む）で起こりうる（Issue #127）。
+ * @param {{labels: {name: string}[], updatedAt: string}} issue
+ * @param {number} now
+ * @param {number} [thresholdMs]
+ * @returns {boolean}
+ */
+export function isOrphanedTriage(issue, now, thresholdMs = ORPHANED_TRIAGE_STALE_MS) {
+  const names = issue.labels.map((l) => l.name);
+  if (!names.includes(LABEL_TRIAGED)) return false;
+  if (TRIAGE_OUTCOME_LABELS.some((n) => names.includes(n))) return false;
+  const updated = Date.parse(issue.updatedAt);
+  return Number.isFinite(updated) && now - updated > thresholdMs;
+}
+
 /**
  * triage.mjs / run.mjs の出力から、実行結果の要約を作る。
  * @param {string} text 出力全体
