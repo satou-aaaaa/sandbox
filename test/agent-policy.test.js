@@ -1152,8 +1152,8 @@ test("selectAuditFindings: 重複を除き、1回あたり・未完了の上限�
 test("AUDIT_ISSUE_LABELS: 点検Issueは自動実装の対象外（agent-skip・agent-needs-human）で、agent-ready を含まない", () => {
   assert.ok(AUDIT_ISSUE_LABELS.includes("agent-skip") && AUDIT_ISSUE_LABELS.includes("agent-needs-human"));
   assert.ok(!AUDIT_ISSUE_LABELS.includes("agent-ready"));
+});
 
-  assert.ok(!AUDIT_ISSUE_LABELS.includes("agent-ready"));
 test("scoutFingerprint: 言い回しが違っても、同じファイル・同種の作業は同じ指紋になる", () => {
   const a = scoutFingerprint(goodIssue);
   assert.match(a, /^[0-9a-f]{12}$/);
