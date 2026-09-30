@@ -55,7 +55,7 @@ import {
   retryCount,
 } from "./policy.js";
 import { createGhRest } from "./gh-rest.mjs";
-import { AGENT_TIMEOUT_MS, MAX_BUDGET_USD, MAX_TURNS, MODEL, installDeps, runAgent, verifyAll } from "./runner.mjs";
+import { AGENT_TIMEOUT_MS, MAX_BUDGET_USD, MAX_TURNS, MODEL, installDeps, npmCommand, runAgent, verifyAll } from "./runner.mjs";
 
 export const REPO = "satou-aaaaa/sandbox";
 export const BASE = "main";
@@ -83,13 +83,12 @@ const MAX_ISSUES = args.includes("--max") ? Number(args[args.indexOf("--max") + 
 
 /** コマンドを実行して標準出力を返す（引数は配列で渡し、シェル展開を避ける）。 */
 export function run(cmd, cmdArgs, cwd = REPO_ROOT) {
-  return execFileSync(cmd, cmdArgs, {
+  const [bin, binArgs] = cmd === "npm" ? npmCommand(cmdArgs) : [cmd, cmdArgs];
+  return execFileSync(bin, binArgs, {
     cwd,
     encoding: "utf8",
     stdio: ["ignore", "pipe", "pipe"],
     maxBuffer: 64 * 1024 * 1024,
-    // Windowsでは npm が .cmd のためシェル経由が必要（引数は固定の安全な値のみ）
-    shell: process.platform === "win32" && cmd === "npm",
   }).trim();
 }
 

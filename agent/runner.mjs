@@ -95,6 +95,16 @@ export async function runAgent(prompt, workDir, auditFile, mode = "implement") {
 }
 
 /**
+ * npm を起動するコマンドと引数を返す。Windowsでは npm が .cmd のため cmd.exe 経由にする
+ * （`shell: true` に引数を渡すと DEP0190 の警告が出るため。引数は固定の安全な値のみ）。
+ * @param {string[]} npmArgs
+ * @returns {[string, string[]]}
+ */
+export function npmCommand(npmArgs) {
+  return process.platform === "win32" ? ["cmd.exe", ["/d", "/s", "/c", "npm", ...npmArgs]] : ["npm", npmArgs];
+}
+
+/**
  * 検証コマンドを順に実行し、最初の失敗を返す。
  * @param {string} workDir
  * @param {{secrets?: boolean}} [opts] secrets=false で check-secrets を省く
@@ -106,7 +116,7 @@ export function verifyAll(workDir, { secrets = true } = {}) {
   if (secrets) scripts.push(["run", "check-secrets"]);
   for (const script of scripts) {
     try {
-      execFileSync("npm", script, { cwd: workDir, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], shell: process.platform === "win32" });
+      execFileSync(...npmCommand(script), { cwd: workDir, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
     } catch (err) {
       const e = /** @type {any} */ (err);
       return { name: `npm ${script.join(" ")}`, output: `${e.stdout ?? ""}\n${e.stderr ?? ""}` };
@@ -120,5 +130,5 @@ export function verifyAll(workDir, { secrets = true } = {}) {
  * @param {string} workDir
  */
 export function installDeps(workDir) {
-  execFileSync("npm", ["ci", "--no-audit", "--no-fund"], { cwd: workDir, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], shell: process.platform === "win32" });
+  execFileSync(...npmCommand(["ci", "--no-audit", "--no-fund"]), { cwd: workDir, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
 }
