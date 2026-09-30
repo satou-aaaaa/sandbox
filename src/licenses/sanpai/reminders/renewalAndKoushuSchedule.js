@@ -9,6 +9,10 @@
  * （5または7）を引数として渡す（docs/DESIGN_sanpai-core.md 4.3節参照）。
  * 優良認定基準そのものの判定（環境省令の実質審査）はスコープ外のため、
  * `validityYears` は利用者が別途確認して入力する前提の参考値とする。
+ *
+ * 法令根拠（2026-09-30に e-Gov法令API v2 で条文との対応を再確認）:
+ * - 廃棄物処理法施行令 第6条の9（許可の有効期間）: https://laws.e-gov.go.jp/law/346CO0000000300
+ * - 廃棄物の処理及び清掃に関する法律 第14条: https://laws.e-gov.go.jp/law/345AC0000000137
  */
 import { calcExpirySchedule } from "../../../core/reminders/expirySchedule.js";
 import { addYearsIso } from "../../../core/reminders/dateUtils.js";

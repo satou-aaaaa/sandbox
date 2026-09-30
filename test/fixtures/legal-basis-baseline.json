@@ -1,33 +1,4 @@
 {
-  "_comment": "法令根拠URLが冒頭コメントに無い既存ファイル（2026-09-30時点）。設計前提3の未対応分で、解消したら行を削除する。新規ファイルはここに追加せずURLを記載すること。",
-  "files": [
-    "src/incorporation/reminders/incorporationSchedule.js",
-    "src/licenses/construction/eligibility/prefectureRules.js",
-    "src/licenses/gijinkoku/eligibility/kanrensei.js",
-    "src/licenses/inshokuten-eigyo/eligibility/sekininsha.js",
-    "src/licenses/inshokuten-eigyo/eligibility/shisetsuKijun.js",
-    "src/licenses/inshokuten-eigyo/reminders/koshinSchedule.js",
-    "src/licenses/keiei-jiko-shinsa/eligibility/inputCompleteness.js",
-    "src/licenses/keiei-jiko-shinsa/eligibility/yStatus.js",
-    "src/licenses/minpaku/eligibility/documentChecklist.js",
-    "src/licenses/minpaku/eligibility/residentType.js",
-    "src/licenses/minpaku/reminders/periodicReportSchedule.js",
-    "src/licenses/nouchi-tenyo/eligibility/daijinKyogi.js",
-    "src/licenses/nouchi-tenyo/eligibility/ippanKijun.js",
-    "src/licenses/sanpai/eligibility/keiriKiso.js",
-    "src/licenses/sanpai/eligibility/shisetsu.js",
-    "src/licenses/sanpai/reminders/renewalAndKoushuSchedule.js",
-    "src/licenses/tokutei-ginou/eligibility/fieldRegistry.js",
-    "src/licenses/tokutei-ginou/eligibility/fieldRegistry.seed.js",
-    "src/licenses/tokutei-ginou/eligibility/ginouSuijun.js",
-    "src/licenses/tokutei-ginou/eligibility/nihongoNouryoku.js",
-    "src/licenses/tokutei-ginou/eligibility/shienTaisei.js",
-    "src/licenses/tokutei-ginou/eligibility/shozokuKikanKijun.js",
-    "src/licenses/tokutei-ginou/reminders/tokuteiGinouSchedule.js",
-    "src/portal/reminders/caseDeadlines.js",
-    "src/succession/heirs/calcLegalHeirs.js",
-    "src/succession/heirs/fraction.js",
-    "src/succession/heirs/kisokoujogaku.js",
-    "src/succession/reminders/souzokuDeadlines.js"
-  ]
+  "_comment": "法令根拠URLが冒頭コメントに無い既存ファイルのうち、根拠の条文の特定が未了のもの（2026-09-30時点）。解消したら行を削除する。新規ファイルはここに追加せずURLを記載すること。",
+  "files": []
 }

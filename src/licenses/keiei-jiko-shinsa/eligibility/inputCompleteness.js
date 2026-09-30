@@ -9,6 +9,9 @@
  * @param {import('./types.js').ZInput} z
  * @param {import('./types.js').WInput} w
  * @returns {import('../../../core/eligibility/types.js').RequirementCheckResult}
+ *
+ * 法令根拠（2026-09-30に e-Gov法令API v2 で条文との対応を再確認）:
+ * - 建設業法 第27条の23（経営事項審査）: https://laws.e-gov.go.jp/law/324AC0000000100
  */
 export function checkInputCompleteness(x1, x2, z, w) {
   const reasons = [];

@@ -8,9 +8,15 @@
  * （様式第二十五号の八）も対象外（`docs/adr/0009-keishin-scope-documents-only.md`、
  * `docs/REQUIREMENTS.md` §4.7 FR-7.2参照）。
  *
- * 参照: 経営規模等評価申請書と総合評定値請求書の書き方（項番01〜20の記載要領。
- * 東京都都市整備局公開情報の引用）
- * https://www.kensetu.office-kamiyama-tokyo.com/blog-keishin-documents2/
+ * 参照（公的な一次情報。2026-09-30に確認。従来参照していた民間事務所のブログは、
+ * 東京都の公開情報の引用だったため、引用元の公的な情報に差し替えた）:
+ * - 建設業法施行規則 別記様式第二十五号の十四（様式そのもの）
+ *   https://laws.e-gov.go.jp/law/324M50004000014
+ * - 東京都都市整備局「経営事項審査 説明書、申請書類及び記載要領」（項番の作成要領は、
+ *   ページ上の説明書PDF内「経営規模等評価申請書 総合評定値請求書」の節にある）
+ *   https://www.toshiseibi.metro.tokyo.lg.jp/kenchiku_kaihatsu/kenchiku_shidou/gyosya_shido/sinsa/keiei_sinsei
+ * - 国土交通省「経営事項審査及び総合評定値の請求について」
+ *   https://www.mlit.go.jp/totikensangyo/const/1_6_bt_000153.html
  *
  * 【意図的に自動化していないこと】
  * - 市区町村コード（項番12）・大臣/知事コード（項番02）・業種ごとの許可区分

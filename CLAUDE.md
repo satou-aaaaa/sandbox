@@ -145,8 +145,9 @@ npm run changelog:draft     # CHANGELOG用の下書きをgit履歴から標準�
 
 - **設計前提の機械検査**: `test/invariants.test.js`（ビルドレス・外部送信なし・127.0.0.1待受・DB無し・
   `data/`未コミット・判定ロジック冒頭の法令根拠URL）と `test/docsConsistency.test.js`（モジュールと設計書の対応・
-  CLAUDE.mdの構成・ADR索引）が `npm test` で走る。法令根拠URLの未記載が既存に28ファイルあり、
-  `test/fixtures/legal-basis-baseline.json` の基準線で許容している（**増やさない**。URLを足したら行を消す。ADR-0018）。
+  CLAUDE.mdの構成・ADR索引）が `npm test` で走る。法令根拠URLは全ロジックに記載済み（2026-09-30に条文を再確認）。
+  法令に基づかないファイル（算術ヘルパー・レジストリ等）だけ `test/fixtures/legal-basis-exempt.json` に理由つきで免除し、
+  `legal-basis-baseline.json`（未了分の基準線）は空。**新規ロジックはURLを書く**（基準線・免除への逃げは不可。ADR-0018）。
   新モジュールは `npm run scaffold:module` で作ると、`docs/`・`MODULE_DOCS`・CLAUDE.md の更新漏れも検知できる。
 - テストは `test/` に1モジュール1ファイル対応で配置し、`node --test` で実行する
   （Jest/Vitest等の外部フレームワークは導入しない）。**例外**: Gherkin/BDDに
