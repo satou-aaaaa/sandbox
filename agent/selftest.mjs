@@ -94,7 +94,12 @@ function runChild(script, childArgs) {
 function prNumberFromOutput(out) {
   const key = "PRを作成しました: ";
   const line = out.split("\n").find((l) => l.includes(key));
-  if (!line) throw new Error("PRが作成されませんでした（run.mjs の出力に PR作成の記録がありません）");
+  if (!line) {
+    // 原因（giveBackの理由等）は run.mjs の出力にしか残らないため、
+    // 末尾を障害報告に含めて、ホストのログを見なくても診断できるようにする。
+    const tail = out.split("\n").filter(Boolean).slice(-15).join("\n");
+    throw new Error(`PRが作成されませんでした（run.mjs の出力に PR作成の記録がありません）\n\nrun.mjs の出力（末尾）:\n${tail}`);
+  }
   const url = line.slice(line.indexOf(key) + key.length).trim();
   const n = url.slice(url.lastIndexOf("/") + 1);
   if (!(n.length > 0 && [...n].every((c) => c >= "0" && c <= "9"))) throw new Error(`PR番号を解釈できません: ${url}`);
