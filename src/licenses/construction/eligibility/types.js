@@ -43,16 +43,19 @@
  */
 
 /**
- * @typedef {Object} KekkakuInput 欠格要件（建設業法第8条）の判定に使う入力
+ * @typedef {Object} KekkakuInput 欠格要件（建設業法第8条）の判定に使う入力（申請者本人分）
  *   フィールドの号立ては2026年9月にe-Gov法令検索の原文で確認済み。
- *   同条第11号（未成年者の法定代理人の欠格）・第12号（法人役員等の欠格）・
- *   第13号（個人の政令使用人の欠格）は、申請者本人以外の複数人物
- *   （役員・使用人・法定代理人）ごとの欠格状況を保持する必要があり、
- *   個人の申請者1名を前提とする現行の`ApplicantProfile`型では表現でき
- *   ないため対象外とする（古物商許可の`KobutsuKekkakuInput`が同種の
- *   理由で法人役員の欠格〈第11号相当〉を対象外としているのと同じ判断）。
- *   第4号（取消し処分の通知前60日以内に役員等であった者）も同様の理由に
- *   加え、期間の起点となる通知日自体を本ツールが保持しないため対象外とする。
+ *   【2026年9月・全14号対応】第11号（未成年者の法定代理人の欠格）・
+ *   第12号（法人役員等または政令で定める使用人の欠格）・第13号（個人の
+ *   政令で定める使用人の欠格）は、本ファイルの`legalRepresentativeKekkaku`
+ *   （本typedef）・`OfficerInput.kekkaku`・`RegulatoryEmployeeInput.kekkaku`
+ *   （いずれも本人以外の人物ごとの欠格状況を任意で保持する）を追加して
+ *   対応した（古物商許可の`KobutsuOfficerInput`と同じ「役員1名につき
+ *   欠格フラグを持たせる」設計を踏襲）。第4号（取消し処分の通知前60日
+ *   以内に役員等であった者）も、他の号（第2号・第3号等）と同様、期間の
+ *   起点日そのものを本ツールが計算するのではなく、行政書士が事前に
+ *   確認した結果を真偽値で自己申告する項目として追加した
+ *   （`hasRevocationNoticeWithin60DaysAsOfficer`）。
  * @property {boolean} isUndischargedBankrupt 破産者で復権を得ていないか（第1号）
  * @property {boolean} hadLicenseRevokedWithin5Years 5年以内に建設業許可を取り消された経験があるか（第2号）
  * @property {boolean} [hasWithdrawnLicenseDuringRevocationHearingWithin5Years]
@@ -60,13 +63,43 @@
  *   その届出日から5年を経過していないか（第3号。いわゆる「駆け込み廃業」対策。
  *   古物商許可の`hasSurrenderedLicenseDuringRevocationHearingWithin5Years`と
  *   同種の欠格事由）
+ * @property {boolean} [hasRevocationNoticeWithin60DaysAsOfficer]
+ *   許可取消しに係る聴聞の通知があった日前60日以内に、当該取消しを受けた法人の
+ *   役員等（またはその政令で定める使用人）であった者で、当該取消しの日から
+ *   5年を経過していないか（第4号）
  * @property {boolean} [hasBusinessSuspensionOrderInEffect] 営業の停止を命ぜられ、その停止期間が経過していないか（第5号。第28条第3項・第5項）
  * @property {boolean} [hasBusinessProhibitionOrderInEffect] 許可を受けようとする建設業について営業を禁止され、その禁止期間が経過していないか（第6号。第29条の4）
  * @property {boolean} hasCriminalRecordWithin5Years 拘禁刑以上の刑、または関連法令違反・特定の刑法上の罪による罰金の刑に処せられ、その執行を終わり又は執行を受けることがなくなった日から5年を経過していないか（第7号・第8号。「拘禁刑」は令和7年6月1日施行の現行用語であり「禁錮」ではない）
  * @property {boolean} isBoryokudanMemberOrWithin5Years 暴力団員である、または脱退から5年を経過していないか（第9号）
  * @property {boolean} hasMentalImpairmentAffectingDuties 心身の故障により建設業を適正に営むことができないと認められるか（第10号）
+ * @property {boolean} [isMinor] 申請者が未成年者であるか（第11号の適用条件。trueの場合のみ`legalRepresentativeKekkaku`を判定対象にする）
+ * @property {string} [legalRepresentativeName] 法定代理人の氏名（`isMinor`がtrueの場合・任意）
+ * @property {PersonKekkakuInput} [legalRepresentativeKekkaku] 法定代理人の欠格事由（第11号。`isMinor`がtrueの場合のみ判定対象）
  * @property {boolean} [isControlledByBoryokudanMember] 暴力団員等がその事業活動を支配する者であるか（第14号。法人・個人いずれも対象になり得る、事業活動の実質支配についての規定）
  * @property {boolean} hasFalseOrOmittedStatement 申請書・添付書類に重要な事項について虚偽の記載、または重要な事実の記載漏れがあるか（第8条本文の各号とは別の、許可拒否事由の総則的な要件）
+ */
+
+/**
+ * @typedef {Object} PersonKekkakuInput 役員等・政令で定める使用人・法定代理人1名分の欠格事由
+ *   （建設業法第8条第1号〜第4号・第6号〜第10号相当。第5号〈営業停止命令〉・
+ *   第14号〈暴力団員等による事業支配〉は法人・個人事業主本体に対する処分の
+ *   ため、人物単位のこの型には含めない）
+ * @property {boolean} [isUndischargedBankrupt] 破産者で復権を得ていないか（第1号）
+ * @property {boolean} [hadLicenseRevokedWithin5Years] 建設業許可を取り消されてから5年を経過していないか（第2号）
+ * @property {boolean} [hasWithdrawnLicenseDuringRevocationHearingWithin5Years] 許可取消しの聴聞通知後、取消しを免れるため廃業届出をしてから5年を経過していないか（第3号）
+ * @property {boolean} [hasRevocationNoticeWithin60DaysAsOfficer] 許可取消しの聴聞通知前60日以内に当該法人の役員等であったか（第4号）
+ * @property {boolean} [hasBusinessProhibitionOrderInEffect] 営業禁止処分の禁止期間が経過していないか（第6号）
+ * @property {boolean} [hasCriminalRecordWithin5Years] 拘禁刑以上の刑、または関連法令違反・特定の刑法上の罪による罰金の刑から5年を経過していないか（第7号・第8号）
+ * @property {boolean} [isBoryokudanMemberOrWithin5Years] 暴力団員である、または脱退から5年を経過していないか（第9号）
+ * @property {boolean} [hasMentalImpairmentAffectingDuties] 心身の故障により業務を適正に行うことができないと認められるか（第10号）
+ */
+
+/**
+ * @typedef {Object} RegulatoryEmployeeInput 建設業法施行令第3条に規定する使用人（通称「令3条使用人」。
+ *   支配人および支店・営業所の代表者〈支配人を除く〉）1名分の情報
+ * @property {string} name 氏名
+ * @property {string} [title] 役職・地位（例: 支店長、営業所長。任意）
+ * @property {PersonKekkakuInput} [kekkaku] 当該使用人の欠格事由（法人の場合は第12号、個人の場合は第13号の判定に使用）
  */
 
 /**
@@ -80,6 +113,7 @@
  * @property {string} name 氏名
  * @property {string} title 役名（例: 代表取締役、取締役）
  * @property {string} [birthDate] 生年月日（YYYY-MM-DD、任意）
+ * @property {PersonKekkakuInput} [kekkaku] 当該役員の欠格事由（第12号〈法人役員等の欠格〉判定用・任意）
  */
 
 /**
@@ -137,6 +171,8 @@
 /**
  * @typedef {Object} ApplicantProfile 申請者（会社・個人）の総合入力データ
  * @property {string} applicantName 申請者名（会社名 or 個人名）
+ * @property {"法人" | "個人"} [applicantType] 申請者の種別（欠格要件第12号・第13号のどちらの号として理由を表示するかの判定に使用・任意。未指定の場合は法人として扱う）
+ * @property {RegulatoryEmployeeInput[]} [regulatoryEmployees] 建設業法施行令第3条に規定する使用人（令3条使用人）の一覧（第12号〈法人〉・第13号〈個人〉判定用・任意）
  * @property {KeieiGyomuKanriInput} keieiGyomuKanri
  * @property {SenninGijutsushaInput[]} senninGijutsushaList 営業所ごとの専任技術者情報
  * @property {ZaisanKisoInput} zaisanKiso

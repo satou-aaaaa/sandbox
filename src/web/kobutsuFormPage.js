@@ -10,13 +10,9 @@
  * - 未入力項目のチェックは行わない（`formPage.js`と異なり、フォーム自体が
  *   建設業許可ほど大規模でないため、まずはシンプルな構成とする。将来
  *   必要になれば同じ「気づきパネル」パターンを追加できる）。
- * - 下書き保存機能（`/drafts`）は本フォームでは対象外（今後の拡張ポイント。
- *   `docs/DESIGN_kobutsu-core.md` 9章参照）。既存の`/drafts`は建設業許可
- *   専用のデータ構造（`DraftRecord.profile`がApplicantProfile型）を前提と
- *   しているため、古物商許可の下書きを同じ一覧に混在させると
- *   「続きから入力」リンクが誤って建設業許可フォームを開いてしまう
- *   （プロフィールの種類を区別する仕組みが無いため）。安易に共有せず、
- *   対応する場合は別の下書きストア・一覧画面を新設する方針とする。
+ * - 下書き保存機能（`/drafts`）は建設業許可と共通の`draftStore.js`を使う
+ *   （2026年9月・#73。`DraftRecord.licenseCategory`で種別を判別するため、
+ *   「続きから入力」が誤った種別のフォームを開くことはない）。
  * - 法人申請は対象外（個人申請のみ）。`eligibility/kekkaku.js`は法人の
  *   役員欠格チェック（第十一号）に2026年9月に対応済みだが、書類生成
  *   モジュール（`shinseisho.js`等）は個人申請の記載項目のみに対応して
@@ -44,13 +40,17 @@ const HANDLED_ITEM_CATEGORIES = [
 
 /**
  * 古物商許可のインテイクフォームのHTMLページを返す。
- * @param {{ error?: string }} [options]
+ * @param {{ error?: string, profile?: import('../licenses/kobutsu/eligibility/types.js').KobutsuApplicantProfile, draftId?: string, savedNotice?: boolean }} [options]
  * @returns {string}
  */
 export function renderKobutsuFormPage(options = {}) {
   const errorBlock = options.error
     ? `<div class="error">入力内容の処理中にエラーが発生しました: ${escapeHtml(options.error)}</div>`
     : "";
+  const savedNoticeBlock = options.savedNotice ? `<div class="saved-notice">下書きを保存しました。</div>` : "";
+
+  // formPage.js（建設業許可）と同じ理由で"<"をエスケープする。
+  const initialProfileJson = JSON.stringify(options.profile ?? null).replace(/</g, "\\u003c");
 
   return `<!doctype html>
 <html lang="ja">
@@ -67,12 +67,18 @@ export function renderKobutsuFormPage(options = {}) {
     最終的な適格性の判断・書類の内容確認・提出は必ず登録行政書士本人が行ってください。
     実在の顧客情報を入力する場合、このツールはローカルでのみ動作し外部へは送信しません。
   </p>
-  <p><a href="/">← 建設業許可のインテイクフォームへ戻る</a></p>
+  <p>
+    <a href="/">← 建設業許可のインテイクフォームへ戻る</a>
+    ・ <a href="/drafts">→ 保存済みの下書き一覧を見る</a>
+  </p>
 </header>
 ${errorBlock}
+${savedNoticeBlock}
 <main>
 <form id="kobutsuForm" method="POST" action="/kobutsu/submit">
   <input type="hidden" name="profileJson" id="profileJson">
+  <input type="hidden" name="licenseCategory" value="kobutsu">
+  <input type="hidden" name="draftId" id="draftId" value="${escapeHtml(options.draftId ?? "")}">
 
   <section>
     <h2>1. 基本情報（個人申請のみ対応。法人申請は非対応）</h2>
@@ -119,6 +125,7 @@ ${errorBlock}
 
   <div class="actions">
     <button type="submit" class="primary">要件判定＋書類サマリーを生成する</button>
+    <button type="submit" formaction="/drafts" formnovalidate class="secondary">下書きとして保存</button>
   </div>
 </form>
 </main>
@@ -135,6 +142,7 @@ ${errorBlock}
 </template>
 
 <script>
+  const INITIAL_PROFILE = ${initialProfileJson};
   ${CLIENT_SCRIPT}
 </script>
 </body>
@@ -147,6 +155,7 @@ const STYLE = `
   header h1 { margin-bottom: 4px; }
   .notice { background: #FFF4E5; border: 1px solid #E0A030; padding: 10px 14px; font-size: 0.9em; }
   .error { background: #FDECEC; border: 1px solid #C0392B; color: #7A1F1F; padding: 10px 14px; margin: 12px 0; }
+  .saved-notice { background: #E7F6EC; border: 1px solid #1E7A34; color: #1E7A34; padding: 10px 14px; margin: 12px 0; }
   section { border: 1px solid #ddd; border-radius: 6px; padding: 12px 16px; margin: 16px 0; }
   section h2 { margin-top: 0; font-size: 1.05em; }
   label { display: block; margin: 8px 0; }
@@ -157,24 +166,46 @@ const STYLE = `
   button { cursor: pointer; }
   .actions { display: flex; gap: 10px; align-items: center; margin-top: 8px; }
   button.primary { font-size: 1.05em; padding: 10px 20px; }
+  button.secondary { font-size: 0.95em; padding: 10px 16px; background: #fff; border: 1px solid #888; border-radius: 4px; }
   .removeRowBtn { color: #a33; margin-top: 8px; }
 `;
 
 const CLIENT_SCRIPT = `
-function addRow(containerId, templateId) {
+function addRow(containerId, templateId, values) {
   const template = document.getElementById(templateId);
   const container = document.getElementById(containerId);
   const node = template.content.cloneNode(true);
   node.querySelector(".removeRowBtn").addEventListener("click", (e) => {
     e.target.closest(".row").remove();
   });
+  if (values) {
+    for (const [className, value] of Object.entries(values)) {
+      const el = node.querySelector("." + className);
+      if (!el) continue;
+      if (el.type === "checkbox") el.checked = !!value;
+      else el.value = value ?? "";
+    }
+  }
   container.appendChild(node);
 }
 
 document.getElementById("addEigyoshoBtn").addEventListener("click", () => addRow("eigyoshoContainer", "eigyoshoRowTemplate"));
 
+// 下書きに営業所の入力があれば復元し、無ければ（新規入力・空フォーム）
 // 営業所は1件以上必須のため、最初から1行用意しておく。
-addRow("eigyoshoContainer", "eigyoshoRowTemplate");
+const initialEigyoshoList = (INITIAL_PROFILE && INITIAL_PROFILE.eigyoshoList) || [];
+if (initialEigyoshoList.length > 0) {
+  for (const e of initialEigyoshoList) {
+    addRow("eigyoshoContainer", "eigyoshoRowTemplate", {
+      "eigyosho-officeName": e.officeName,
+      "eigyosho-hasLegitimateUsageRight": e.hasLegitimateUsageRight,
+      "eigyosho-managerName": e.managerName,
+      "eigyosho-isManagerFullTime": e.isManagerFullTime,
+    });
+  }
+} else {
+  addRow("eigyoshoContainer", "eigyoshoRowTemplate");
+}
 
 function collectEigyoshoList() {
   return Array.from(document.querySelectorAll("#eigyoshoContainer .eigyosho-row")).map((row) => ({
@@ -216,6 +247,39 @@ function buildProfile() {
     url: str("url"),
     representativeHistory: str("representativeHistory"),
   };
+}
+
+// 下書きからの基本情報・欠格事由・その他項目の復元。
+if (INITIAL_PROFILE) {
+  const setVal = (id, value) => { document.getElementById(id).value = value ?? ""; };
+  const setChecked = (id, value) => { document.getElementById(id).checked = !!value; };
+  const p = INITIAL_PROFILE;
+  const kk = p.kekkaku || {};
+
+  setVal("applicantName", p.applicantName);
+  setVal("applicantNameKana", p.applicantNameKana);
+  setVal("birthDate", p.birthDate);
+  setVal("address", p.address);
+  setVal("phoneNumber", p.phoneNumber);
+  setVal("businessName", p.businessName);
+
+  setChecked("isUndischargedBankrupt", kk.isUndischargedBankrupt);
+  setChecked("hasCriminalRecordWithin5Years", kk.hasCriminalRecordWithin5Years);
+  setChecked("hasBoryokuFuhouKoiRisk", kk.hasBoryokuFuhouKoiRisk);
+  setChecked("hasBoryokudanRelatedOrderWithin3Years", kk.hasBoryokudanRelatedOrderWithin3Years);
+  setChecked("isAddressUnknown", kk.isAddressUnknown);
+  setChecked("hadLicenseRevokedWithin5Years", kk.hadLicenseRevokedWithin5Years);
+  setChecked("hasSurrenderedLicenseDuringRevocationHearingWithin5Years", kk.hasSurrenderedLicenseDuringRevocationHearingWithin5Years);
+  setChecked("hasMentalImpairmentAffectingDuties", kk.hasMentalImpairmentAffectingDuties);
+  setChecked("isMinorWithoutCapacity", kk.isMinorWithoutCapacity);
+  setChecked("isHeirWithQualifiedLegalRepresentative", kk.isHeirWithQualifiedLegalRepresentative);
+
+  for (const el of document.querySelectorAll(".handledItemCategory")) {
+    el.checked = (p.handledItemCategories || []).includes(el.value);
+  }
+  setChecked("usesInternet", p.usesInternet);
+  setVal("url", p.url);
+  setVal("representativeHistory", p.representativeHistory);
 }
 
 document.getElementById("kobutsuForm").addEventListener("submit", () => {

@@ -3,6 +3,14 @@
  * 「続きから入力」でフォームへ戻る、「削除」で不要な下書きを消す、の2操作のみ。
  */
 import { escapeHtml } from "./htmlUtils.js";
+import { getDraftLicenseCategory } from "./draftStore.js";
+
+/** @type {Record<import('./draftStore.js').DraftLicenseCategory, string>} */
+const LICENSE_CATEGORY_LABELS = {
+  construction: "建設業許可",
+  kobutsu: "古物商許可",
+  "nouchi-tenyo": "農地転用許可",
+};
 
 /**
  * @param {{ drafts: import('./draftStore.js').DraftRecord[] }} params
@@ -13,11 +21,12 @@ export function renderDraftsPage({ drafts }) {
     drafts.length === 0
       ? `<p>保存済みの下書きはありません。</p>`
       : `<table>
-    <thead><tr><th>申請者名</th><th>保存日時</th><th>入力再開</th><th>削除</th></tr></thead>
+    <thead><tr><th>許可種別</th><th>申請者名</th><th>保存日時</th><th>入力再開</th><th>削除</th></tr></thead>
     <tbody>
     ${drafts
       .map(
         (d) => `<tr>
+        <td>${escapeHtml(LICENSE_CATEGORY_LABELS[getDraftLicenseCategory(d)])}</td>
         <td>${escapeHtml(d.profile?.applicantName || "（名称未設定）")}</td>
         <td>${escapeHtml(new Date(d.savedAt).toLocaleString("ja-JP"))}</td>
         <td><a href="/drafts/${encodeURIComponent(d.id)}">続きから入力</a></td>

@@ -17,11 +17,30 @@ import { withFileLock } from "../core/reminders/fileLock.js";
 export const DEFAULT_DRAFTS_PATH = "data/drafts.json";
 
 /**
+ * @typedef {"construction" | "kobutsu" | "nouchi-tenyo"} DraftLicenseCategory 下書きの許可種別
+ *   （フォームの種類。#73で追加。既存レコードに`licenseCategory`が無い場合は
+ *   建設業許可として扱う。他の許可種別のフォームにはこの識別子で判別する
+ *   仕組みが無いと「続きから入力」が誤った種別のフォームを開いてしまうため）
+ */
+
+/**
  * @typedef {Object} DraftRecord 下書き1件分
  * @property {string} id 下書きID（crypto.randomUUID()で発行）
  * @property {string} savedAt 保存日時（ISO 8601）
- * @property {import('../licenses/construction/eligibility/types.js').ApplicantProfile} profile
+ * @property {DraftLicenseCategory} [licenseCategory] 下書きの許可種別（省略時は"construction"扱い）
+ * @property {import('../licenses/construction/eligibility/types.js').ApplicantProfile
+ *   | import('../licenses/kobutsu/eligibility/types.js').KobutsuApplicantProfile
+ *   | import('../licenses/nouchi-tenyo/eligibility/types.js').NouchiTenyoApplicantProfile} profile
  */
+
+/**
+ * 下書きの許可種別を返す（旧レコードで`licenseCategory`が無い場合は建設業許可扱い）。
+ * @param {DraftRecord} draft
+ * @returns {DraftLicenseCategory}
+ */
+export function getDraftLicenseCategory(draft) {
+  return draft.licenseCategory ?? "construction";
+}
 
 /**
  * 下書き一覧を読み込む。ファイルが存在しない場合は空配列を返す。
@@ -69,16 +88,17 @@ export async function getDraft(id, filePath = DEFAULT_DRAFTS_PATH) {
  * 下書きを保存する。id を指定すれば既存の下書きを上書き更新し、
  * 指定しなければ新規のIDを発行して追加する。
  *
- * @param {import('../licenses/construction/eligibility/types.js').ApplicantProfile} profile
+ * @param {DraftRecord["profile"]} profile
+ * @param {DraftLicenseCategory} [licenseCategory] 省略時は"construction"
  * @param {string} [id] 省略時は新規作成
  * @param {string} [filePath]
  * @returns {Promise<DraftRecord>} 保存した下書き（発行/確定したidを含む）
  */
-export async function upsertDraft(profile, id, filePath = DEFAULT_DRAFTS_PATH) {
+export async function upsertDraft(profile, licenseCategory, id, filePath = DEFAULT_DRAFTS_PATH) {
   return withFileLock(filePath, async () => {
     const drafts = await loadDrafts(filePath);
     const draftId = id || crypto.randomUUID();
-    const record = { id: draftId, savedAt: new Date().toISOString(), profile };
+    const record = { id: draftId, savedAt: new Date().toISOString(), licenseCategory: licenseCategory ?? "construction", profile };
 
     const index = drafts.findIndex((d) => d.id === draftId);
     if (index >= 0) {

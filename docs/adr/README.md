@@ -44,3 +44,4 @@ Architecture Decision Record（ADR）を管理する。
 | [0016](0016-cucumber-bdd-for-gherkin-acceptance-tests.md) | Gherkin/BDDの受け入れ基準用にCucumber.jsを例外的に導入する | Accepted |
 | [0017](0017-agent-sdk-issue-loop.md) | Agent SDKによるIssue自律処理ループ（`agent/`）を、本体と依存を分離し「PR作成まで・マージは人手」で導入する | Accepted |
 | [0018](0018-repo-guards-and-ops-routines.md) | 設計前提の機械検査と、運用ルーティン（法令改正ウォッチャー・週次ミューテーション等）を拡充する | Accepted |
+| [0019](0019-law-change-impact-analysis.md) | 法令改正の影響分析を段階的に導入する（第一段: 影響する設計書の自動特定） | Accepted |

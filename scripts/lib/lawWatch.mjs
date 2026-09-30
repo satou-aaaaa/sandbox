@@ -107,8 +107,36 @@ export function describeChange(before, now) {
 }
 
 /**
+ * 根拠URLを挙げているファイルから、見直しの対象になる設計書・要件定義書を割り出す（決定論的。LLMは使わない。ADR-0019）。
+ * 対応: src/licenses/<名前>/ → docs/DESIGN_<名前>-core.md、src/incorporation → kaisha-secchi-support、
+ * src/succession → souzoku-support、src/portal → uketsuke-portal、それ以外（src/core・建設業許可）→ docs/DESIGN.md。
+ * 実在しない候補は除く（存在確認は呼び出し側から渡す）。
+ * @param {string[]} files 根拠URLを挙げているファイル（リポジトリルートからの相対パス）
+ * @param {(relPath: string) => boolean} exists
+ * @returns {string[]} 設計書・要件定義書のパス（重複なし・昇順）
+ */
+export function impactedDocs(files, exists) {
+  /** @type {Set<string>} */
+  const docs = new Set();
+  for (const f of files) {
+    const m = /^src\/(licenses|incorporation|portal|succession|core)(?:\/([^/]+))?\//.exec(f);
+    if (!m) continue;
+    const [, area, name] = m;
+    /** @type {string | null} */
+    let stem = null;
+    if (area === "licenses" && name && name !== "construction") stem = `${name}-core`;
+    else if (area === "incorporation") stem = "kaisha-secchi-support";
+    else if (area === "succession") stem = "souzoku-support";
+    else if (area === "portal") stem = "uketsuke-portal";
+    const candidates = stem ? [`docs/DESIGN_${stem}.md`, `docs/REQUIREMENTS_${stem}.md`] : ["docs/DESIGN.md", "docs/REQUIREMENTS.md"];
+    for (const c of candidates) if (exists(c)) docs.add(c);
+  }
+  return [...docs].sort();
+}
+
+/**
  * @typedef {Object} WatchReport
- * @property {{url: string, files: string[], details: string[]}[]} changed 内容が変わったもの
+ * @property {{url: string, files: string[], details: string[], docs?: string[]}[]} changed 内容が変わったもの（docs は見直し対象の設計書。compareWithBaseline の第4引数を渡したとき）
  * @property {{url: string, files: string[], error: string, neverFetched: boolean}[]} failed 取得できなかったもの
  * @property {{url: string, files: string[]}[]} added 基準線に無い新しいURL
  * @property {string[]} removed 基準線にあるが、もうどこからも参照されていないURL
@@ -119,9 +147,10 @@ export function describeChange(before, now) {
  * @param {Record<string, Snapshot>} baseline URL → 基準線の要約
  * @param {Map<string, string[]>} sources URL → そのURLを根拠に挙げているファイル
  * @param {Map<string, FetchResult>} results URL → 取得結果
+ * @param {(relPath: string) => boolean} [exists] 渡すと、変化のあったURLごとに見直し対象の設計書（docs）を付ける
  * @returns {WatchReport}
  */
-export function compareWithBaseline(baseline, sources, results) {
+export function compareWithBaseline(baseline, sources, results, exists) {
   /** @type {WatchReport} */
   const report = { changed: [], failed: [], added: [], removed: [], unchanged: 0 };
   for (const [url, files] of sources) {
@@ -136,7 +165,7 @@ export function compareWithBaseline(baseline, sources, results) {
       continue;
     }
     const details = describeChange(before, result.snapshot);
-    if (details.length > 0) report.changed.push({ url, files, details });
+    if (details.length > 0) report.changed.push(exists ? { url, files, details, docs: impactedDocs(files, exists) } : { url, files, details });
     else report.unchanged += 1;
   }
   report.removed = Object.keys(baseline).filter((u) => !sources.has(u));
@@ -166,6 +195,7 @@ export function buildReportMarkdown(report, today) {
     lines.push("## 内容が変わった可能性のある根拠URL（要確認）", "");
     for (const c of report.changed) {
       lines.push(`- ${c.url}`, ...c.details.map((d) => `  - ${d}`), `  - 該当するファイル: ${files(c.files)}`);
+      if (c.docs && c.docs.length > 0) lines.push(`  - 見直し対象の設計書: ${files(c.docs)}`);
     }
     lines.push("");
   }
