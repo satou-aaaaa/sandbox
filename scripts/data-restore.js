@@ -20,11 +20,14 @@ const TARGET_PATHS = { clients: DEFAULT_CLIENTS_PATH, drafts: DEFAULT_DRAFTS_PAT
 
 const [, , target, generationsArg] = process.argv;
 
-if (!target || !(target in TARGET_PATHS)) {
+if (!target || !Object.hasOwn(TARGET_PATHS, target)) {
   console.error("使い方: node scripts/data-restore.js <clients|drafts> [世代番号（0=最新。省略時は一覧表示のみ）]");
   process.exit(1);
 }
 
+// target は直前の Object.hasOwn で TARGET_PATHS の固定キー（"clients"|"drafts"）であることを
+// 確認済みであり、外部入力が任意のキーとして使われることはない。
+// eslint-disable-next-line security/detect-object-injection
 const filePath = TARGET_PATHS[target];
 
 if (generationsArg === undefined) {
