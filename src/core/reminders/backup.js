@@ -180,6 +180,9 @@ function filenameToIso(filename, base, ext) {
 export async function restoreFromBackup(filePath, generationsAgo = 0, options = {}) {
   const backupDir = options.backupDir ?? defaultBackupDir(filePath);
   const backups = await listBackups(filePath, backupDir);
+  // generationsAgo の範囲外チェック（負数・非整数）は呼び出し元（data-restore.js）が行う。
+  // ここでの添字アクセスは、外部入力が直接キーになるものではない。
+  // eslint-disable-next-line security/detect-object-injection
   const target = backups[generationsAgo];
   if (!target) {
     throw new Error(

@@ -4,7 +4,7 @@
  * test/invariants.test.js（根拠URLの記載漏れ検知）と scripts/law-watch.mjs（根拠URLの変更検知）が
  * 共有する。ファイルを読み取るだけで、外部への通信は行わない。
  */
-import { readdirSync, readFileSync, statSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -27,10 +27,10 @@ const EXEMPT_BASENAMES = new Set(["types.js", "engine.js", "disclaimer.js", "con
 export function walkFiles(dir) {
   /** @type {string[]} */
   const out = [];
-  for (const name of readdirSync(dir)) {
-    if (name === "node_modules" || name === ".git") continue;
-    const full = join(dir, name);
-    if (statSync(full).isDirectory()) out.push(...walkFiles(full));
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    if (entry.name === "node_modules" || entry.name === ".git") continue;
+    const full = join(dir, entry.name);
+    if (entry.isDirectory()) out.push(...walkFiles(full));
     else out.push(full);
   }
   return out;

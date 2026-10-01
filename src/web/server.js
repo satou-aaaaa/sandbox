@@ -372,8 +372,7 @@ export function createServer({
 
       if (req.method === "POST" && url.startsWith("/drafts/") && url.endsWith("/delete")) {
         const id = decodeURIComponent(url.slice("/drafts/".length, url.length - "/delete".length));
-        await removeDraft(id, draftsPath);
-        const drafts = await loadDrafts(draftsPath);
+        const drafts = await removeDraft(id, draftsPath);
         respondHtml(res, 200, renderDraftsPage({ drafts }));
         return;
       }
