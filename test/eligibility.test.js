@@ -2,6 +2,22 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { evaluateEligibility, formatEligibilityReport } from "../src/licenses/construction/eligibility/engine.js";
 
+/**
+ * 【ミューテーションテストで判明した等価ミュータント・対応見送り（2026年10月・#79）】
+ * - `kekkaku.js`の`for (const officer of officers ?? [])`・
+ *   `for (const employee of regulatoryEmployees ?? [])`で、デフォルト値の
+ *   `[]`を`["Stryker was here"]`に置き換えるミュータントが生存する。
+ *   `officers`/`regulatoryEmployees`が`undefined`のときのみこのデフォルト値が
+ *   使われるが、配列の要素が文字列（`.kekkaku`プロパティを持たない）であっても
+ *   `buildPersonFlags`は`person`を欠格情報オブジェクトとして扱えず早期リターン
+ *   するため、挙動は変わらない等価ミュータントである（古物商`kekkaku.js`の
+ *   同種の対応と同じ判断）。
+ * - `seijitsusei.js`の`label: "誠実性"`と、合格時に必ず表示される警告文
+ *   （行政書士本人による個別確認を促す固定文言）は、埋め込み値を含まない
+ *   静的な文字列であり、判定結果（合否）には影響しない。ADR-0011の既定方針
+ *   （判定結果に影響しない文言の変化は対応を見送る）に従い、対応していない。
+ */
+
 /** @returns {import('../src/licenses/construction/eligibility/types.js').ApplicantProfile} */
 function baseProfile() {
   return {
