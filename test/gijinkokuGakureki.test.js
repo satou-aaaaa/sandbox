@@ -5,7 +5,11 @@ import { checkGakureki } from "../src/licenses/gijinkoku/eligibility/gakureki.js
 // 項目一（自然科学・人文科学分野の技術・知識を要する業務）
 test("checkGakureki: 項目一・大学卒業以上なら実務経験に関わらず合格する", () => {
   const result = checkGakureki({ educationLevel: "大学卒業以上", isInternationalServiceCategory: false });
+  assert.equal(result.key, "gakureki");
+  assert.equal(result.label, "学歴・実務経験要件");
   assert.equal(result.passed, true);
+  assert.equal(result.reasons[0], "学歴要件（大学卒業以上）を満たしています");
+  assert.deepEqual(result.warnings, []);
 });
 
 test("checkGakureki: 項目一・専修学校専門課程修了でも合格する", () => {
@@ -16,6 +20,7 @@ test("checkGakureki: 項目一・専修学校専門課程修了でも合格す�
 test("checkGakureki: 項目一・学歴要件なしで実務経験10年以上なら合格する", () => {
   const result = checkGakureki({ educationLevel: "それ以外", isInternationalServiceCategory: false, yearsOfRelevantExperience: 10 });
   assert.equal(result.passed, true);
+  assert.equal(result.reasons[0], "実務経験 10年（10年以上）で要件を満たしています");
 });
 
 test("checkGakureki: 項目一・学歴要件なしで実務経験10年未満なら不合格（境界値）", () => {
@@ -26,6 +31,7 @@ test("checkGakureki: 項目一・学歴要件なしで実務経験10年未満な
 test("checkGakureki: 項目一・学歴も実務経験も無ければ不合格", () => {
   const result = checkGakureki({ educationLevel: "それ以外", isInternationalServiceCategory: false });
   assert.equal(result.passed, false);
+  assert.equal(result.reasons[0], "学歴要件を満たさず、実務経験も10年に達していません");
 });
 
 // 項目二（国際業務区分）
@@ -57,6 +63,7 @@ test("checkGakureki: 項目二・実務経験3年以上なら合格する（境�
     yearsOfRelevantExperience: 3,
   });
   assert.equal(result.passed, true);
+  assert.equal(result.reasons[0], "実務経験 3年（3年以上）で要件を満たしています");
 });
 
 test("checkGakureki: 項目二・実務経験3年未満なら不合格（境界値）", () => {
