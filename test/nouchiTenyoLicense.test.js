@@ -31,6 +31,7 @@ test("registerNouchiTenyoLicense: 工事着手期限のみ設定されていれ�
   assert.equal(items.length, 1);
   assert.equal(items[0].type, "construction-start-deadline");
   assert.equal(items[0].dueDateIso, "2026-12-01");
+  assert.ok(items[0].label.includes("工事着手期限"));
   assert.ok(items[0].label.includes("許可取消し"));
 });
 
@@ -41,6 +42,7 @@ test("registerNouchiTenyoLicense: 完了報告期限のみ設定されていれ�
   const items = scheduleFn({ licenseId: "既定", nouchiTenyoDetail: { completionReportDeadlineIso: "2027-03-01" } });
   assert.equal(items.length, 1);
   assert.equal(items[0].type, "completion-report-deadline");
+  assert.ok(items[0].label.includes("転用完了・完了報告の期限"));
 });
 
 test("registerNouchiTenyoLicense: 両方設定されていれば2件返す", () => {

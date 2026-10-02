@@ -3,6 +3,14 @@ import assert from "node:assert/strict";
 import { registerInshokutenEigyoLicense } from "../src/licenses/inshokuten-eigyo/index.js";
 import { getScheduleFn, clearScheduleFns } from "../src/core/reminders/scheduleTypes.js";
 
+/**
+ * 【ミューテーションテストで判明した等価ミュータント（2026年10月・#79）】
+ * `koshinSchedule.js`の`if (!detail?.grantDateIso || !detail?.validityYears)`で、
+ * 2つ目の`?.`を`.`に置き換えるミュータントが生存する。`||`の短絡評価により、
+ * 2つ目の条件に到達する時点で1つ目が false（＝detailが真値）であることが
+ * 保証されるため、どのような入力でも出力が変わらない等価ミュータントである。
+ */
+
 test("registerInshokutenEigyoLicense: 'inshokuten-eigyo'キーでスケジュール計算関数を登録する", () => {
   clearScheduleFns();
   registerInshokutenEigyoLicense();
@@ -42,8 +50,10 @@ test("registerInshokutenEigyoLicense: 有効期間6年で満了180/60/30日前�
   assert.equal(items[0].dueDateIso, "2025-10-02");
   assert.equal(items[1].type, "inshokuten-koshin-prepare");
   assert.equal(items[1].dueDateIso, "2026-01-30");
+  assert.equal(items[1].label, "更新準備開始の推奨日（満了60日前）");
   assert.equal(items[2].type, "inshokuten-koshin-deadline");
   assert.equal(items[2].dueDateIso, "2026-03-01");
+  assert.equal(items[2].label, "更新申請の目安締切（満了30日前。運用は自治体により異なるため保健所へ要確認）");
 });
 
 for (const validityYears of [5, 6, 7, 8]) {
