@@ -4,6 +4,8 @@ import { checkKanrensei } from "../src/licenses/gijinkoku/eligibility/kanrensei.
 
 test("checkKanrensei: 常にpassed=trueを返す（機械判定しない設計）", () => {
   const result = checkKanrensei({ majorOrExperienceField: "情報工学", jobDescription: "システム開発" });
+  assert.equal(result.key, "kanrensei");
+  assert.equal(result.label, "専攻・職務内容の関連性");
   assert.equal(result.passed, true);
 });
 

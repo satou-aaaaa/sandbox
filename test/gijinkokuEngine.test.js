@@ -62,6 +62,11 @@ test("formatGijinkokuEligibilityReport: 全要件充足なら総合判定が○�
   const result = evaluateGijinkokuEligibility(profile);
   const report = formatGijinkokuEligibilityReport(profile, result);
   assert.match(report, /総合判定: ○/);
+  // 見出し行・強調文言・総合判定行・各要件セクションが、余計な文言を挟まず
+  // それぞれ空行で区切られて並ぶこと（行の追加・削除を検知するため）
+  assert.ok(report.includes(`要件判定結果 — ${profile.applicantName}\n\n` + GIJINKOKU_SCREENING_NOTICE));
+  assert.ok(report.includes(GIJINKOKU_SCREENING_NOTICE + "\n\n総合判定: ○"));
+  assert.ok(report.includes("総合判定: ○ 要件を充足（申請準備を進められます）\n\n## ○ 学歴・実務経験要件"));
 });
 
 test("formatGijinkokuEligibilityReport: 不合格の要件があれば総合判定が×になり、未充足の要因まとめが出力される", () => {
@@ -71,4 +76,32 @@ test("formatGijinkokuEligibilityReport: 不合格の要件があれば総合判�
   const report = formatGijinkokuEligibilityReport(profile, result);
   assert.match(report, /総合判定: ×/);
   assert.match(report, /未充足の要因まとめ/);
+  // 要因まとめの中身（ラベル＋理由）が実際に出力されることを検証する
+  assert.ok(report.includes("- [報酬要件（日本人と同等額以上）] 提示年収が比較水準を下回っています。給与条件の見直しが必要です"));
+  // 要因まとめの直後は空行を挟んで強調文言が続く（余計な行が挟まらないこと）
+  assert.ok(report.includes("給与条件の見直しが必要です\n\n" + GIJINKOKU_SCREENING_NOTICE));
 });
+
+test("formatGijinkokuEligibilityReport: 全要件充足なら「未充足の要因まとめ」セクションは出力されない", () => {
+  const profile = buildSampleGijinkokuProfile();
+  const result = evaluateGijinkokuEligibility(profile);
+  const report = formatGijinkokuEligibilityReport(profile, result);
+  assert.doesNotMatch(report, /未充足の要因まとめ/);
+});
+
+test("formatGijinkokuEligibilityReport: 行ごとに改行で区切られている（1行の文字列に結合されていない）", () => {
+  const profile = buildSampleGijinkokuProfile();
+  const result = evaluateGijinkokuEligibility(profile);
+  const report = formatGijinkokuEligibilityReport(profile, result);
+  assert.ok(report.includes(`要件判定結果 — ${profile.applicantName}\n`));
+  assert.ok(report.split("\n").length > 5);
+});
+
+/**
+ * 【ミューテーションテストで判明した等価ミュータント（2026年10月・#79）】
+ * `engine.js`の`return lines.join("\n").trimEnd();`で`trimEnd`を`trimStart`に
+ * 置き換えるミュータントが生存する。`lines`の先頭要素は常にタイトル行、末尾要素は
+ * 常に強調文言（`GIJINKOKU_SCREENING_NOTICE`）で、いずれも空白文字で始まる／
+ * 終わることが無いため、`trimEnd`・`trimStart`のどちらでも出力は変わらない
+ * 等価ミュータントである。
+ */
