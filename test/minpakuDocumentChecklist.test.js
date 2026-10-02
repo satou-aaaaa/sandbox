@@ -2,11 +2,13 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { checkDocumentChecklist } from "../src/licenses/minpaku/eligibility/documentChecklist.js";
 
-test("checkDocumentChecklist: 全書類取得済みなら合格し理由は1件のみ", () => {
+test("checkDocumentChecklist: 全書類取得済みなら合格し、key/label/理由が厳密に一致する", () => {
   const result = checkDocumentChecklist([
     { key: "a", label: "登記事項証明書", obtained: true },
     { key: "b", label: "図面", obtained: true },
   ]);
+  assert.equal(result.key, "documentChecklist");
+  assert.equal(result.label, "必要書類の充足確認");
   assert.equal(result.passed, true);
   assert.deepEqual(result.reasons, ["必要書類はすべて取得済みです"]);
   assert.equal(result.warnings.length, 0);

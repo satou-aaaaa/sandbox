@@ -2,9 +2,12 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { checkResidentType } from "../src/licenses/minpaku/eligibility/residentType.js";
 
-test("checkResidentType: 家主居住型なら常に合格し警告なし", () => {
+test("checkResidentType: 家主居住型なら常に合格し、key/label/reasons/警告なしが厳密に一致する", () => {
   const result = checkResidentType("家主居住型", undefined);
+  assert.equal(result.key, "residentType");
+  assert.equal(result.label, "家主居住型／家主不在型の確認");
   assert.equal(result.passed, true);
+  assert.deepEqual(result.reasons, ["家主居住型として届出予定です"]);
   assert.equal(result.warnings.length, 0);
 });
 

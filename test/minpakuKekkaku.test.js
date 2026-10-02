@@ -13,10 +13,13 @@ function cleanInput() {
   };
 }
 
-test("checkMinpakuKekkaku: 全項目該当なしなら合格する", () => {
+test("checkMinpakuKekkaku: 全項目該当なしなら合格し、key/label/reasons/warningsが厳密に一致する", () => {
   const result = checkMinpakuKekkaku(cleanInput());
+  assert.equal(result.key, "minpakuKekkaku");
+  assert.equal(result.label, "欠格事由に該当しないこと");
   assert.equal(result.passed, true);
-  assert.ok(result.reasons.some((r) => r.includes("該当する項目はありません")));
+  assert.deepEqual(result.reasons, ["欠格事由に該当する項目はありません"]);
+  assert.deepEqual(result.warnings, []);
 });
 
 test("checkMinpakuKekkaku: 心身の故障（第1号）に該当すれば不合格", () => {
