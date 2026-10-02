@@ -1004,6 +1004,57 @@ Webの `GET /clients.csv`（読み取り専用のダウンロードのみ。登�
   24ファイル・1030ミュータント）で約80.78%（生き残ったミュータントを
   分析してテストを追加した後の値。詳細な内訳と、対応を見送った理由は
   ADR-0011参照）。`.stryker-tmp/`・`reports/`は生成物のため`.gitignore`で除外。
+- **対象拡大（2026年10月・#79）**: 対象範囲全体を「間違えると実害が大きい順」に
+  優先度A（法定5要件・欠格事由判定の本体ロジック）／B（各許可種別の
+  `reminders/*.js`。期限計算）／C（残りの`eligibility/*.js`）に分け、
+  ファイル単位・許可種別単位でStrykerを実行し、生存ミュータントを
+  「テストの抜け」と「等価ミュータント」に分類して前者にテストを追加した
+  （`npx stryker run --mutate "<path>"`でファイルを絞れる。1ファイル
+  〜数ファイル規模で数分〜10分程度）。実測値:
+
+  | 優先度 | 対象 | 対応前 | 対応後 | PR |
+  |---|---|---|---|---|
+  | A | kobutsu/eligibility/kekkaku.js | 81.36% | 98.31%（残り1件は等価ミュータント） | #83 |
+  | A | construction/eligibility/rules/*.js（5法定要件） | 75.47% | 99.19%（残り3件は`??[]`等の等価ミュータント） | #216 |
+  | B | gijinkoku/reminders/zairyuKikanSchedule.js | 89.47% | 100% | #209 |
+  | B | construction/reminders/renewalSchedule.js | 100% | 100%（変更なし） | #210 |
+  | B | kobutsu/reminders/changeSchedule.js | 100% | 100%（変更なし） | #210 |
+  | B | sanpai/reminders/renewalAndKoushuSchedule.js | 85.00% | 100% | #210 |
+  | B | minpaku/reminders/periodicReportSchedule.js | 96.97% | 100% | #210 |
+  | B | nouchi-tenyo/reminders/conditionDeadlineSchedule.js | 93.33% | 100% | #210 |
+  | B | keiei-jiko-shinsa/reminders/annualCycleSchedule.js | 90.63% | 100% | #210 |
+  | B | tokutei-ginou/reminders/tokuteiGinouSchedule.js | 90.00% | 100% | #210 |
+  | B | inshokuten-eigyo/reminders/koshinSchedule.js | 84.21% | 94.74%（残り1件は等価ミュータントと判断し記録） | #210 |
+  | C | construction/eligibility/{engine,consistencyChecks,prefectureRules}.js | 60.00%〜89.90% | prefectureRules・consistencyChecks 100%、engine.jsは対応見送り（判定ロジック本体は100%キル済み。生存10件はCLI表示用`formatEligibilityReport`の文言のみでADR-0011の既存方針により対象外） | #212 |
+  | C | gijinkoku/eligibility/*.js | 76.84% | 95.79%（残り1件は等価ミュータント） | #211 |
+  | C | inshokuten-eigyo/eligibility/*.js | 64.71% | ほぼ100%（engine.jsのみ95.65%、残り1件は等価ミュータント） | #213 |
+  | C | kobutsu/eligibility/{eigyosho,engine,consistencyChecks}.js | 79.73% | 97.97%（残り3件は等価/実務上テスト不可能と判断し記録） | #214 |
+  | C | minpaku/eligibility/*.js | 83.72% | 100% | #215 |
+
+  **未着手（2026年10月時点）**: 優先度Cのうち sanpai・nouchi-tenyo・
+  keiei-jiko-shinsa・tokutei-ginou の各`eligibility/*.js`。許可種別単位で
+  今後反復する。
+- **`--incremental`オプションの検証（2026年10月・#79）**: Stryker 9系の
+  `--incremental`（`reports/stryker-incremental.json`に前回の結果を保存し、
+  ソースに変更が無ければミュータントの再実行を省略する機能）は、本プロジェクトの
+  commandランナー構成でも問題なく利用できることを確認した。
+  `src/succession/heirs/fraction.js`（47ミュータント）で実測:
+  1回目（`reports/stryker-incremental.json`が無い状態）は通常どおり
+  5分0秒かかったが、ソースを変更せずに2回目を実行したところ
+  `Incremental report: Mutants: 0 files changed (+0 -0) / Result: 47 of 47
+  mutant result(s) are reused.`と表示され、**9秒**で完了した（スコアは
+  両回とも91.49%で一致）。したがって、同じファイルに対してテスト追加→
+  再実行を繰り返す運用（本Issueで実際に行った進め方）では、
+  `npx stryker run --mutate "<path>" --incremental`を使うことで、
+  変更していない箇所の再実行コストを避けられる。ただし
+  `reports/stryker-incremental.json`は`.gitignore`対象のローカルファイルで、
+  セッションやマシンをまたいでは共有されない点に注意。
+- **`thresholds.break`の導入（2026年10月・#79）**: 優先度A〜Cの実測が
+  出揃い、対象範囲の大半が90%台後半〜100%に達し著しく低いファイルが
+  無いことを確認できたため、`break: 70`（`low`と同値）を設定した
+  （発注者の判断: 導入する）。CIには組み込まない（ADR-0011の既存方針）ため、
+  `npm run test:mutation`を手動実行した際に、大規模な検証漏れ
+  （役員チェック項目の判定が空でも気づけない、等）を検知する目安として使う。
 
 ### 7.2 Property-based testing（fast-check。2026年9月導入）
 
