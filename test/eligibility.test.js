@@ -848,3 +848,507 @@ test("formatEligibilityReport: 入力内容の整合性チェックで警告が�
   assert.match(report, /入力内容の確認事項/);
   assert.match(report, /山田 太郎/);
 });
+
+// 【ミューテーションテストカバレッジ強化（2026年10月・#79優先度A: 建設業5要件）】
+// 以下は、reasons/warnings/labelの内容を`.some(includes)`による部分一致ではなく
+// `deepEqual`で厳密に検証するテスト。既存テストは「合否(passed)」の検証が中心で、
+// 理由・警告の文言そのもの（空文字化・余計な要素の混入・他ルートの文言の漏れ込み等の
+// ミュータント）までは検知できていなかった。
+
+test("経営業務管理体制: ルートAのみ該当する場合、label・理由・警告が厳密にルートAのものだけになる", () => {
+  const result = evaluateEligibility(baseProfile());
+  const check = result.checks.find((c) => c.key === "keieiGyomuKanri");
+  assert.equal(check.label, "経営業務の管理を適正に行う体制");
+  assert.deepEqual(check.reasons, ["経営業務管理責任者としての経験 5年（5年以上）でルートA該当"]);
+  assert.deepEqual(check.warnings, []);
+});
+
+test("経営業務管理体制: ルートB（準ずる地位5年）のみ該当する場合、理由が厳密にルートBのものだけになる", () => {
+  const profile = baseProfile();
+  profile.keieiGyomuKanri = {
+    yearsAsResponsibleOfficer: 0,
+    yearsAsQuasiResponsibleOfficer: 5,
+    yearsAsAssistant: 0,
+    isOfficerFor2Years: false,
+    assistantSupportYears: { finance: 0, labor: 0, operations: 0 },
+    hasSocialInsurance: true,
+  };
+  const result = evaluateEligibility(profile);
+  const check = result.checks.find((c) => c.key === "keieiGyomuKanri");
+  assert.deepEqual(check.reasons, ["準ずる地位での経験 5年（5年以上）でルートB該当"]);
+  assert.deepEqual(check.warnings, []);
+});
+
+test("経営業務管理体制: ルートC（補佐業務6年）のみ該当する場合、理由が厳密にルートCのものだけになる", () => {
+  const profile = baseProfile();
+  profile.keieiGyomuKanri = {
+    yearsAsResponsibleOfficer: 0,
+    yearsAsQuasiResponsibleOfficer: 0,
+    yearsAsAssistant: 6,
+    isOfficerFor2Years: false,
+    assistantSupportYears: { finance: 0, labor: 0, operations: 0 },
+    hasSocialInsurance: true,
+  };
+  const result = evaluateEligibility(profile);
+  const check = result.checks.find((c) => c.key === "keieiGyomuKanri");
+  assert.deepEqual(check.reasons, ["補佐業務での経験 6年（6年以上）でルートC該当"]);
+  assert.deepEqual(check.warnings, []);
+});
+
+test("経営業務管理体制: ルートD合格時は理由・警告の文言が厳密にルートDのものだけになる", () => {
+  const profile = baseProfile();
+  profile.keieiGyomuKanri = {
+    yearsAsResponsibleOfficer: 0,
+    yearsAsQuasiResponsibleOfficer: 0,
+    yearsAsAssistant: 0,
+    isOfficerFor2Years: true,
+    assistantSupportYears: { finance: 5, labor: 5, operations: 5 },
+    hasSocialInsurance: true,
+  };
+  const result = evaluateEligibility(profile);
+  const check = result.checks.find((c) => c.key === "keieiGyomuKanri");
+  assert.deepEqual(check.reasons, ["役員等2年以上 + 財務・労務・運営の補佐者を各5年以上配置でルートD該当"]);
+  assert.deepEqual(check.warnings, [
+    "ルートDは複合要件のため、財務・労務・運営それぞれの補佐者の在籍を証明する書類（組織図・辞令等）を別途準備してください",
+  ]);
+});
+
+test("経営業務管理体制: ルートA〜Dすべて不成立かつ社会保険未加入の場合、理由が厳密に2件（経験不足・保険未加入）だけになる", () => {
+  const profile = baseProfile();
+  profile.keieiGyomuKanri = {
+    yearsAsResponsibleOfficer: 0,
+    yearsAsQuasiResponsibleOfficer: 0,
+    yearsAsAssistant: 0,
+    isOfficerFor2Years: false,
+    assistantSupportYears: { finance: 0, labor: 0, operations: 0 },
+    hasSocialInsurance: false,
+  };
+  const result = evaluateEligibility(profile);
+  const check = result.checks.find((c) => c.key === "keieiGyomuKanri");
+  assert.deepEqual(check.reasons, [
+    "経営業務管理責任者としての経験・準ずる地位・補佐業務・複合要件（ルートA〜D）のいずれも基準年数に達していません",
+    "健康保険・厚生年金保険・雇用保険への適切な加入が確認できていません（本要件も必須）",
+  ]);
+  assert.deepEqual(check.warnings, []);
+});
+
+test("専任技術者: 国家資格保有のみの場合、理由・警告が厳密に単一ずつの文言になる", () => {
+  const profile = baseProfile();
+  profile.senninGijutsushaList = [
+    {
+      officeName: "本店",
+      licenseType: "一般",
+      hasNationalLicense: true,
+      isDesignatedCourseGraduate: false,
+      educationLevel: null,
+      yearsOfPracticalExperience: 0,
+      yearsOfGeneralExperience: 0,
+      yearsOfSupervisoryExperience: 0,
+    },
+  ];
+  const result = evaluateEligibility(profile);
+  const check = result.checks.find((c) => c.key === "senninGijutsusha");
+  assert.equal(check.label, "営業所ごとの専任技術者の配置");
+  assert.deepEqual(check.reasons, ["[本店] 該当する国家資格等の保有により要件を満たします"]);
+  assert.deepEqual(check.warnings, ["本店: 資格者証・卒業証明書・実務経験証明書など裏付け書類の準備を忘れずに"]);
+});
+
+test("専任技術者: 指定学科卒業（高卒）+実務経験5年の場合、理由が厳密にそのルートのものだけになる", () => {
+  const profile = baseProfile();
+  profile.senninGijutsushaList = [
+    {
+      officeName: "本店",
+      licenseType: "一般",
+      hasNationalLicense: false,
+      isDesignatedCourseGraduate: true,
+      educationLevel: "高卒",
+      yearsOfPracticalExperience: 5,
+      yearsOfGeneralExperience: 0,
+      yearsOfSupervisoryExperience: 0,
+    },
+  ];
+  const result = evaluateEligibility(profile);
+  const check = result.checks.find((c) => c.key === "senninGijutsusha");
+  assert.deepEqual(check.reasons, ["[本店] 指定学科卒業（高卒）+ 実務経験 5年で要件を満たします"]);
+});
+
+test("専任技術者: 指定学科卒業（大卒）+実務経験3年の場合、理由が厳密にそのルートのものだけになる", () => {
+  const profile = baseProfile();
+  profile.senninGijutsushaList = [
+    {
+      officeName: "本店",
+      licenseType: "一般",
+      hasNationalLicense: false,
+      isDesignatedCourseGraduate: true,
+      educationLevel: "大卒",
+      yearsOfPracticalExperience: 3,
+      yearsOfGeneralExperience: 0,
+      yearsOfSupervisoryExperience: 0,
+    },
+  ];
+  const result = evaluateEligibility(profile);
+  const check = result.checks.find((c) => c.key === "senninGijutsusha");
+  assert.deepEqual(check.reasons, ["[本店] 指定学科卒業（大卒）+ 実務経験 3年で要件を満たします"]);
+});
+
+test("専任技術者: 実務経験10年ルートの場合、理由・警告が厳密に単一ずつの文言になる", () => {
+  const profile = baseProfile();
+  profile.senninGijutsushaList = [
+    {
+      officeName: "本店",
+      licenseType: "一般",
+      hasNationalLicense: false,
+      isDesignatedCourseGraduate: false,
+      educationLevel: null,
+      yearsOfPracticalExperience: 0,
+      yearsOfGeneralExperience: 10,
+      yearsOfSupervisoryExperience: 0,
+    },
+  ];
+  const result = evaluateEligibility(profile);
+  const check = result.checks.find((c) => c.key === "senninGijutsusha");
+  assert.deepEqual(check.reasons, ["[本店] 実務経験 10年（10年以上）で要件を満たします"]);
+  assert.deepEqual(check.warnings, ["本店: 資格者証・卒業証明書・実務経験証明書など裏付け書類の準備を忘れずに"]);
+});
+
+test("専任技術者: いずれの基準も満たさない場合、理由が厳密に単一の不合格文言だけになり、警告は出ない", () => {
+  const profile = baseProfile();
+  profile.senninGijutsushaList = [
+    {
+      officeName: "本店",
+      licenseType: "一般",
+      hasNationalLicense: false,
+      isDesignatedCourseGraduate: false,
+      educationLevel: null,
+      yearsOfPracticalExperience: 0,
+      yearsOfGeneralExperience: 9,
+      yearsOfSupervisoryExperience: 0,
+    },
+  ];
+  const result = evaluateEligibility(profile);
+  const check = result.checks.find((c) => c.key === "senninGijutsusha");
+  assert.deepEqual(check.reasons, [
+    "[本店] 国家資格・指定学科卒業+実務経験・実務経験10年のいずれの基準も満たしていません",
+  ]);
+  assert.deepEqual(check.warnings, []);
+});
+
+test("専任技術者: 特定建設業で指導監督的実務経験が不足する場合、理由が厳密に2件（実務経験10年・指導監督的実務経験不足）になる", () => {
+  const profile = baseProfile();
+  profile.senninGijutsushaList = [
+    {
+      officeName: "本店",
+      licenseType: "特定",
+      hasNationalLicense: false,
+      isDesignatedCourseGraduate: false,
+      educationLevel: null,
+      yearsOfPracticalExperience: 0,
+      yearsOfGeneralExperience: 10,
+      yearsOfSupervisoryExperience: 1,
+    },
+  ];
+  const result = evaluateEligibility(profile);
+  const check = result.checks.find((c) => c.key === "senninGijutsusha");
+  assert.deepEqual(check.reasons, [
+    "[本店] 実務経験 10年（10年以上）で要件を満たします",
+    "[本店] 特定建設業は上記に加えて、4,500万円以上の工事における指導監督的実務経験2年以上（または該当する国家資格）が必要ですが、確認できていません",
+  ]);
+});
+
+test("専任技術者: 特定建設業で指導監督的実務経験2年以上を満たす場合、理由が厳密に2件（実務経験10年・指導監督的実務経験充足）になる", () => {
+  const profile = baseProfile();
+  profile.senninGijutsushaList = [
+    {
+      officeName: "本店",
+      licenseType: "特定",
+      hasNationalLicense: false,
+      isDesignatedCourseGraduate: false,
+      educationLevel: null,
+      yearsOfPracticalExperience: 0,
+      yearsOfGeneralExperience: 10,
+      yearsOfSupervisoryExperience: 2,
+    },
+  ];
+  const result = evaluateEligibility(profile);
+  const check = result.checks.find((c) => c.key === "senninGijutsusha");
+  assert.deepEqual(check.reasons, [
+    "[本店] 実務経験 10年（10年以上）で要件を満たします",
+    "[本店] 指導監督的実務経験 2年（2年以上）で特定建設業の追加要件も満たします",
+  ]);
+});
+
+test("専任技術者: 複数営業所のうち不合格の営業所からは警告が出ない（flatMapで各営業所の警告だけが集約されることの確認）", () => {
+  const profile = baseProfile();
+  profile.senninGijutsushaList = [
+    {
+      officeName: "本店",
+      licenseType: "一般",
+      hasNationalLicense: true,
+      isDesignatedCourseGraduate: false,
+      educationLevel: null,
+      yearsOfPracticalExperience: 0,
+      yearsOfGeneralExperience: 0,
+      yearsOfSupervisoryExperience: 0,
+    },
+    {
+      officeName: "支店",
+      licenseType: "一般",
+      hasNationalLicense: false,
+      isDesignatedCourseGraduate: false,
+      educationLevel: null,
+      yearsOfPracticalExperience: 0,
+      yearsOfGeneralExperience: 0,
+      yearsOfSupervisoryExperience: 0,
+    },
+  ];
+  const result = evaluateEligibility(profile);
+  const check = result.checks.find((c) => c.key === "senninGijutsusha");
+  assert.deepEqual(check.warnings, ["本店: 資格者証・卒業証明書・実務経験証明書など裏付け書類の準備を忘れずに"]);
+});
+
+test("専任技術者: 営業所が1つも登録されていない場合、label・警告が厳密に早期returnの値になる", () => {
+  const profile = baseProfile();
+  profile.senninGijutsushaList = [];
+  const result = evaluateEligibility(profile);
+  const check = result.checks.find((c) => c.key === "senninGijutsusha");
+  assert.equal(check.label, "営業所ごとの専任技術者の配置");
+  assert.deepEqual(check.warnings, []);
+});
+
+test("財産的基礎: 一般建設業でルート1（自己資本）のみ該当する場合、label・理由・警告が厳密にルート1の文言だけになる", () => {
+  const profile = baseProfile();
+  profile.zaisanKiso = {
+    licenseType: "一般",
+    netAssets: 5_000_000,
+    fundingCapacity: 0,
+    hasFiveYearsContinuousOperation: false,
+    capitalAmount: 0,
+    deficitRatio: 0,
+    currentRatio: 0,
+  };
+  const result = evaluateEligibility(profile);
+  const check = result.checks.find((c) => c.key === "zaisanKiso");
+  assert.equal(check.label, "財産的基礎（金銭的信用）");
+  assert.deepEqual(check.reasons, ["自己資本 5,000,000円 が500万円以上で要件を満たします"]);
+  assert.deepEqual(check.warnings, []);
+});
+
+test("財産的基礎: 一般建設業でルート2（資金調達能力）のみ該当する場合、理由が厳密にルート2の文言だけになる", () => {
+  const profile = baseProfile();
+  profile.zaisanKiso = {
+    licenseType: "一般",
+    netAssets: 0,
+    fundingCapacity: 5_000_000,
+    hasFiveYearsContinuousOperation: false,
+    capitalAmount: 0,
+    deficitRatio: 0,
+    currentRatio: 0,
+  };
+  const result = evaluateEligibility(profile);
+  const check = result.checks.find((c) => c.key === "zaisanKiso");
+  assert.deepEqual(check.reasons, ["資金調達能力 5,000,000円 が500万円以上で要件を満たします"]);
+});
+
+test("財産的基礎: 一般建設業でルート3（継続営業実績）のみ該当する場合、理由が厳密にルート3の文言だけになる", () => {
+  const profile = baseProfile();
+  profile.zaisanKiso = {
+    licenseType: "一般",
+    netAssets: 0,
+    fundingCapacity: 0,
+    hasFiveYearsContinuousOperation: true,
+    capitalAmount: 0,
+    deficitRatio: 0,
+    currentRatio: 0,
+  };
+  const result = evaluateEligibility(profile);
+  const check = result.checks.find((c) => c.key === "zaisanKiso");
+  assert.deepEqual(check.reasons, ["直近5年間、許可を受けて継続して営業した実績があり要件を満たします"]);
+});
+
+test("財産的基礎: 一般建設業で3ルートいずれも満たさない場合、理由が厳密に単一の不合格文言だけになる", () => {
+  const profile = baseProfile();
+  profile.zaisanKiso = {
+    licenseType: "一般",
+    netAssets: 0,
+    fundingCapacity: 0,
+    hasFiveYearsContinuousOperation: false,
+    capitalAmount: 0,
+    deficitRatio: 0,
+    currentRatio: 0,
+  };
+  const result = evaluateEligibility(profile);
+  const check = result.checks.find((c) => c.key === "zaisanKiso");
+  assert.deepEqual(check.reasons, [
+    "自己資本500万円以上・資金調達能力500万円以上・5年間の継続営業実績のいずれも確認できません",
+  ]);
+});
+
+test("財産的基礎: 特定建設業が3条件すべて満たす場合、理由・警告が厳密に実額込みの文言になる（yen()整形の検証込み）", () => {
+  const profile = baseProfile();
+  profile.zaisanKiso = {
+    licenseType: "特定",
+    netAssets: 40_000_000,
+    fundingCapacity: 0,
+    hasFiveYearsContinuousOperation: false,
+    capitalAmount: 20_000_000,
+    deficitRatio: 20,
+    currentRatio: 75,
+  };
+  const result = evaluateEligibility(profile);
+  const check = result.checks.find((c) => c.key === "zaisanKiso");
+  assert.deepEqual(check.reasons, [
+    "欠損比率 20% が資本金の20%以下で条件クリア",
+    "流動比率 75% が75%以上で条件クリア",
+    "資本金 20,000,000円（2,000万円以上）・自己資本 40,000,000円（4,000万円以上）で条件クリア",
+  ]);
+  assert.deepEqual(check.warnings, [
+    "特定建設業は上記3条件を「すべて」満たす必要があります（一般建設業のような選択制ではありません）",
+  ]);
+});
+
+test("財産的基礎: 特定建設業で資本金のみ基準未満の場合、理由が厳密に資本金/自己資本の未達文言になる", () => {
+  const profile = baseProfile();
+  profile.zaisanKiso = {
+    licenseType: "特定",
+    netAssets: 100_000_000,
+    fundingCapacity: 0,
+    hasFiveYearsContinuousOperation: false,
+    capitalAmount: 19_999_999,
+    deficitRatio: 0,
+    currentRatio: 100,
+  };
+  const result = evaluateEligibility(profile);
+  const check = result.checks.find((c) => c.key === "zaisanKiso");
+  assert.deepEqual(check.reasons, [
+    "欠損比率 0% が資本金の20%以下で条件クリア",
+    "流動比率 100% が75%以上で条件クリア",
+    "資本金または自己資本が基準（資本金2,000万円以上かつ自己資本4,000万円以上）に達していません",
+  ]);
+});
+
+test("誠実性: 合格時の理由・警告が厳密に単一の文言だけになる（申告メモなし）", () => {
+  const result = evaluateEligibility(baseProfile());
+  const check = result.checks.find((c) => c.key === "seijitsusei");
+  assert.equal(check.label, "誠実性");
+  assert.deepEqual(check.reasons, ["自己申告上、不正・不誠実な行為をするおそれがある事実は確認されていません"]);
+  assert.deepEqual(check.warnings, [
+    "誠実性は定量判定できない要件のため、本ツールの結果を鵜呑みにせず、行政書士本人が過去の営業実態・関連資格の処分歴等を個別に確認してください",
+  ]);
+});
+
+test("誠実性: 不合格時の理由が厳密に単一の文言だけになる（申告メモなし）", () => {
+  const profile = baseProfile();
+  profile.seijitsusei = { hasNoDishonestActRisk: false };
+  const result = evaluateEligibility(profile);
+  const check = result.checks.find((c) => c.key === "seijitsusei");
+  assert.deepEqual(check.reasons, ["自己申告で、不正・不誠実な行為のおそれに関する懸念が申告されています"]);
+});
+
+test("欠格要件: 役員が5年以内の許可取消し経験に該当する場合は不合格（建設業法第8条第12号）", () => {
+  const profile = baseProfile();
+  profile.officers = [{ name: "佐藤 一郎", title: "取締役", kekkaku: { hadLicenseRevokedWithin5Years: true } }];
+  const result = evaluateEligibility(profile);
+  const check = result.checks.find((c) => c.key === "kekkaku");
+  assert.equal(check.passed, false);
+  assert.ok(
+    check.reasons.some(
+      (r) => r.includes("役員（佐藤 一郎）") && r.includes("5年以内に建設業許可を取り消された経験があります") && r.includes("第十二号")
+    )
+  );
+});
+
+test("欠格要件: 役員が許可取消しの聴聞通知後の駆け込み廃業に該当する場合は不合格（建設業法第8条第12号）", () => {
+  const profile = baseProfile();
+  profile.officers = [
+    { name: "佐藤 一郎", title: "取締役", kekkaku: { hasWithdrawnLicenseDuringRevocationHearingWithin5Years: true } },
+  ];
+  const result = evaluateEligibility(profile);
+  const check = result.checks.find((c) => c.key === "kekkaku");
+  assert.equal(check.passed, false);
+  assert.ok(
+    check.reasons.some(
+      (r) => r.includes("役員（佐藤 一郎）") && r.includes("廃業届出をしてから5年を経過していません") && r.includes("第十二号")
+    )
+  );
+});
+
+test("欠格要件: 役員が許可取消しの聴聞通知前60日以内の役員等に該当する場合は不合格（建設業法第8条第12号）", () => {
+  const profile = baseProfile();
+  profile.officers = [{ name: "佐藤 一郎", title: "取締役", kekkaku: { hasRevocationNoticeWithin60DaysAsOfficer: true } }];
+  const result = evaluateEligibility(profile);
+  const check = result.checks.find((c) => c.key === "kekkaku");
+  assert.equal(check.passed, false);
+  assert.ok(
+    check.reasons.some(
+      (r) => r.includes("役員（佐藤 一郎）") && r.includes("聴聞通知前60日以内に当該法人の役員等でした") && r.includes("第十二号")
+    )
+  );
+});
+
+test("欠格要件: 役員が営業禁止処分の禁止期間中に該当する場合は不合格（建設業法第8条第12号）", () => {
+  const profile = baseProfile();
+  profile.officers = [{ name: "佐藤 一郎", title: "取締役", kekkaku: { hasBusinessProhibitionOrderInEffect: true } }];
+  const result = evaluateEligibility(profile);
+  const check = result.checks.find((c) => c.key === "kekkaku");
+  assert.equal(check.passed, false);
+  assert.ok(
+    check.reasons.some((r) => r.includes("役員（佐藤 一郎）") && r.includes("営業禁止処分の禁止期間中です") && r.includes("第十二号"))
+  );
+});
+
+test("欠格要件: 未成年者の法定代理人の氏名が未入力でも、欠格事由があれば「法定代理人」とだけ表示して不合格にする", () => {
+  const profile = baseProfile();
+  profile.kekkaku.isMinor = true;
+  profile.kekkaku.legalRepresentativeKekkaku = { isUndischargedBankrupt: true };
+  const result = evaluateEligibility(profile);
+  const check = result.checks.find((c) => c.key === "kekkaku");
+  assert.equal(check.passed, false);
+  assert.ok(check.reasons.some((r) => r.includes("法定代理人が破産者で復権を得ていません（第十一号）")));
+});
+
+test("欠格要件: 全項目が該当なしの標準ケースでは、label・理由・警告が厳密に単一の合格文言だけになる", () => {
+  const result = evaluateEligibility(baseProfile());
+  const check = result.checks.find((c) => c.key === "kekkaku");
+  assert.equal(check.label, "欠格要件に該当しないこと");
+  assert.deepEqual(check.reasons, [
+    "欠格要件（建設業法第8条各号: 破産・許可取消歴・駆け込み廃業・営業停止/禁止処分中・刑罰・" +
+      "暴力団関係・心身の故障・虚偽記載、および役員等・政令使用人・法定代理人の欠格〈入力がある範囲〉）" +
+      "のいずれにも該当しません",
+  ]);
+  assert.deepEqual(check.warnings, []);
+});
+
+test("欠格要件: 役員が複数いて一部だけ欠格事由を入力済みの場合、未入力警告は出さない（everyがsomeに壊れていないことの確認）", () => {
+  const profile = baseProfile();
+  profile.officers = [
+    { name: "佐藤 一郎", title: "取締役", kekkaku: { isUndischargedBankrupt: false } },
+    { name: "鈴木 花子", title: "監査役" },
+  ];
+  const result = evaluateEligibility(profile);
+  const check = result.checks.find((c) => c.key === "kekkaku");
+  assert.ok(!check.warnings.some((w) => w.includes("役員の欠格事由（第十二号）が未入力です")));
+});
+
+test("欠格要件: 政令で定める使用人が複数いて一部だけ欠格事由を入力済みの場合、未入力警告は出さない（everyがsomeに壊れていないことの確認）", () => {
+  const profile = baseProfile();
+  profile.regulatoryEmployees = [
+    { name: "田中 次郎", kekkaku: { isUndischargedBankrupt: false } },
+    { name: "高橋 三郎" },
+  ];
+  const result = evaluateEligibility(profile);
+  const check = result.checks.find((c) => c.key === "kekkaku");
+  assert.ok(!check.warnings.some((w) => w.includes("政令で定める使用人の欠格事由")));
+});
+
+/**
+ * 【ミューテーションテストで判明した等価ミュータント（2026年10月・#79優先度A）】
+ * - `keieiGyomuKanri.js`の`input.assistantSupportYears || { finance: 0, labor: 0, operations: 0 }`を
+ *   `|| {}`に置き換えるミュータント: `assistantSupportYears`が未入力の場合、フォールバック後の
+ *   `support.finance`等は、デフォルト値が`0`でも`{}`由来の`undefined`でも、直後の`>= 5`比較の結果は
+ *   いずれも`false`になり、ルートDの判定は変化しない。等価ミュータント。
+ * - `kekkaku.js`の`officers ?? []`・`regulatoryEmployees ?? []`を`?? ["Stryker was here"]`に
+ *   置き換えるミュータント: 未入力時のフォールバックが配列の代わりに文字列1件になっても、
+ *   `for...of`でその要素（文字列）を`buildPersonFlags(officer.kekkaku, ...)`に渡すと
+ *   `officer.kekkaku`は`undefined`になり、`buildPersonFlags`は`if (!person) return [];`で
+ *   即座に空配列を返すため、挙動は変わらない（kobutsuの`eigyosho.js`の同型ミュータントと同じ理由）。
+ */
