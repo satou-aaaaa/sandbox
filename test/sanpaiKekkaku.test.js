@@ -18,7 +18,10 @@ function cleanInput() {
 
 test("checkSanpaiKekkaku: 全項目該当なしなら合格する", () => {
   const result = checkSanpaiKekkaku(cleanInput());
+  assert.equal(result.key, "sanpaiKekkaku");
+  assert.equal(result.label, "欠格事由に該当しないこと");
   assert.equal(result.passed, true);
+  assert.equal(result.warnings.length, 0);
   assert.ok(result.reasons.some((r) => r.includes("該当する項目はありません")));
 });
 

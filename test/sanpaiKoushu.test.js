@@ -4,7 +4,10 @@ import { checkKoushu } from "../src/licenses/sanpai/eligibility/koushu.js";
 
 test("checkKoushu: 発行日から5年以内の申請予定日なら合格する", () => {
   const result = checkKoushu({ completionDateIso: "2024-04-01", plannedApplicationDateIso: "2026-09-16" });
+  assert.equal(result.key, "koushu");
+  assert.equal(result.label, "講習修了要件");
   assert.equal(result.passed, true);
+  assert.equal(result.warnings.length, 0);
   assert.ok(result.reasons[0].includes("2029-04-01"));
 });
 
