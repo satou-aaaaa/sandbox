@@ -13,6 +13,7 @@ import { renderReminderPage } from "../src/web/reminderPage.js";
 import { renderDraftsPage } from "../src/web/draftsPage.js";
 import { renderKobutsuFormPage } from "../src/web/kobutsuFormPage.js";
 import { renderNouchiTenyoFormPage } from "../src/web/nouchiTenyoFormPage.js";
+import { REMINDER_RANGES } from "../src/core/reminders/digest.js";
 
 test("renderFormPage: errorを指定するとエラーメッセージ用のブロックを表示する", () => {
   const html = renderFormPage({ error: "テストエラー内容" });
@@ -129,4 +130,137 @@ test("renderNouchiTenyoFormPage: errorに含まれるHTMLタグをエスケー�
   const html = renderNouchiTenyoFormPage({ error: "<b>x</b>" });
   assert.doesNotMatch(html, /<b>x<\/b>/);
   assert.match(html, /&lt;b&gt;x&lt;\/b&gt;/);
+});
+
+// #206: renderResultPage のラベル差替え・エスケープ・リンク生成
+test("renderResultPage: result.eligibleに応じて既定の総合判定文言とバッジのクラスが切り替わる", () => {
+  const base = {
+    profile: { applicantName: "テスト建設" },
+    report: "",
+    files: [],
+    sessionId: "test-session",
+  };
+
+  const okHtml = renderResultPage({ ...base, result: { eligible: true } });
+  assert.match(okHtml, /class="badge ok"/);
+  assert.match(okHtml, /○ 5要件すべて充足（申請準備を進められます）/);
+
+  const ngHtml = renderResultPage({ ...base, result: { eligible: false } });
+  assert.match(ngHtml, /class="badge ng"/);
+  assert.match(ngHtml, /× 未充足の要件があります/);
+});
+
+test("renderResultPage: judgmentLabelsを渡すと既定文言ではなくその文言が表示される（片方のみ指定時はもう片方は既定文言のまま）", () => {
+  const html = renderResultPage({
+    profile: { applicantName: "テスト商会" },
+    result: { eligible: true },
+    report: "",
+    files: [],
+    sessionId: "test-session",
+    judgmentLabels: { ok: "○ 独自の合格文言" },
+  });
+  assert.match(html, /○ 独自の合格文言/);
+  assert.doesNotMatch(html, /○ 5要件すべて充足（申請準備を進められます）/);
+
+  const ngHtml = renderResultPage({
+    profile: { applicantName: "テスト商会" },
+    result: { eligible: false },
+    report: "",
+    files: [],
+    sessionId: "test-session",
+    judgmentLabels: { ok: "○ 独自の合格文言" },
+  });
+  assert.match(ngHtml, /× 未充足の要件があります/);
+});
+
+test("renderResultPage: formPathを渡すと戻りリンクがそのパスになる。未指定時は / になる", () => {
+  const base = {
+    profile: { applicantName: "テスト商会" },
+    result: { eligible: true },
+    report: "",
+    files: [],
+    sessionId: "test-session",
+  };
+
+  const withFormPath = renderResultPage({ ...base, formPath: "/kobutsu" });
+  assert.match(withFormPath, /href="\/kobutsu"/);
+
+  const withoutFormPath = renderResultPage(base);
+  assert.match(withoutFormPath, /href="\/"/);
+});
+
+test("renderResultPage: sessionIdやfilenameの特殊文字をダウンロードリンクでURLエンコードする", () => {
+  const html = renderResultPage({
+    profile: { applicantName: "テスト商会" },
+    result: { eligible: true },
+    report: "",
+    files: [{ label: "申請書", filename: "a b/c" }],
+    sessionId: "a b/c",
+  });
+  assert.match(html, /\/download\/a%20b%2Fc\/a%20b%2Fc/);
+});
+
+test("renderResultPage: applicantName・report・files[].labelに含まれるHTMLタグをエスケープする", () => {
+  const html = renderResultPage({
+    profile: { applicantName: "<script>alert(1)</script>" },
+    result: { eligible: true },
+    report: "<script>alert(2)</script>",
+    files: [{ label: "<script>alert(3)</script>", filename: "f.docx" }],
+    sessionId: "test-session",
+  });
+  assert.doesNotMatch(html, /<script>alert\(1\)<\/script>/);
+  assert.doesNotMatch(html, /<script>alert\(2\)<\/script>/);
+  assert.doesNotMatch(html, /<script>alert\(3\)<\/script>/);
+  assert.match(html, /&lt;script&gt;alert\(1\)&lt;\/script&gt;/);
+  assert.match(html, /&lt;script&gt;alert\(2\)&lt;\/script&gt;/);
+  assert.match(html, /&lt;script&gt;alert\(3\)&lt;\/script&gt;/);
+});
+
+// #207: renderReminderPage の絞り込みナビとエスケープ
+test("renderReminderPage: activeRange未指定(null)のとき「すべて」がstrongで、他の区分はリンクになる", () => {
+  const html = renderReminderPage({ report: "", clientCount: 0 });
+  assert.match(html, /<strong>すべて<\/strong>/);
+  for (const { key, label } of REMINDER_RANGES) {
+    assert.match(html, new RegExp(`<a href="/reminders\\?range=${key}">${label}</a>`));
+  }
+});
+
+test("renderReminderPage: activeRangeに先頭区分を渡すと、その区分だけstrongになり「すべて」はリンクになる", () => {
+  const [{ key: activeKey, label: activeLabel }] = REMINDER_RANGES;
+  const html = renderReminderPage({ report: "", clientCount: 0, activeRange: activeKey });
+  assert.match(html, new RegExp(`<strong>${activeLabel}</strong>`));
+  assert.match(html, /<a href="\/reminders">すべて<\/a>/);
+  for (const { key, label } of REMINDER_RANGES) {
+    if (key === activeKey) continue;
+    assert.match(html, new RegExp(`<a href="/reminders\\?range=${key}">${label}</a>`));
+  }
+});
+
+test("renderReminderPage: reportに含まれるHTMLタグをエスケープする", () => {
+  const html = renderReminderPage({ report: "<script>alert(1)</script>", clientCount: 0 });
+  assert.doesNotMatch(html, /<script>alert\(1\)<\/script>/);
+  assert.match(html, /&lt;script&gt;alert\(1\)&lt;\/script&gt;/);
+});
+
+test("renderReminderPage: メール下書きリンクの対象アラートのclientName・labelに含まれるHTMLタグをエスケープする", () => {
+  const html = renderReminderPage({
+    report: "",
+    clientCount: 1,
+    actionableAlerts: [
+      {
+        clientName: "<script>alert(1)</script>",
+        type: "license-expiry",
+        label: "<script>alert(2)</script>",
+        dueDateIso: "2026-09-01",
+        daysUntil: 0,
+        isOverdue: false,
+        contactEmail: "info@example.com",
+        licenseId: "construction-1",
+      },
+    ],
+  });
+  assert.doesNotMatch(html, /<script>alert\(1\)<\/script>/);
+  assert.doesNotMatch(html, /<script>alert\(2\)<\/script>/);
+  assert.match(html, /&lt;script&gt;alert\(1\)&lt;\/script&gt;/);
+  assert.match(html, /&lt;script&gt;alert\(2\)&lt;\/script&gt;/);
 });
