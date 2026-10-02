@@ -24,8 +24,10 @@ test("registerGijinkokuModule: 満了日3件、期限90/60/30日前のリマイ�
   assert.equal(items.length, 3);
   assert.equal(items[0].type, "zairyu-early-notice");
   assert.equal(items[0].dueDateIso, "2026-10-02");
+  assert.ok(items[0].label.includes("早期検討"));
   assert.equal(items[1].type, "zairyu-prepare");
   assert.equal(items[1].dueDateIso, "2026-11-01");
+  assert.ok(items[1].label.includes("推奨開始日"));
   assert.equal(items[2].type, "zairyu-deadline");
   assert.equal(items[2].dueDateIso, "2026-12-01");
 });
