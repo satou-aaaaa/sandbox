@@ -2,6 +2,22 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { evaluateEligibility, formatEligibilityReport } from "../src/licenses/construction/eligibility/engine.js";
 
+/**
+ * 【ミューテーションテストで判明した等価ミュータント・対応見送り（2026年10月・#79）】
+ * - `kekkaku.js`の`for (const officer of officers ?? [])`・
+ *   `for (const employee of regulatoryEmployees ?? [])`で、デフォルト値の
+ *   `[]`を`["Stryker was here"]`に置き換えるミュータントが生存する。
+ *   `officers`/`regulatoryEmployees`が`undefined`のときのみこのデフォルト値が
+ *   使われるが、配列の要素が文字列（`.kekkaku`プロパティを持たない）であっても
+ *   `buildPersonFlags`は`person`を欠格情報オブジェクトとして扱えず早期リターン
+ *   するため、挙動は変わらない等価ミュータントである（古物商`kekkaku.js`の
+ *   同種の対応と同じ判断）。
+ * - `seijitsusei.js`の`label: "誠実性"`と、合格時に必ず表示される警告文
+ *   （行政書士本人による個別確認を促す固定文言）は、埋め込み値を含まない
+ *   静的な文字列であり、判定結果（合否）には影響しない。ADR-0011の既定方針
+ *   （判定結果に影響しない文言の変化は対応を見送る）に従い、対応していない。
+ */
+
 /** @returns {import('../src/licenses/construction/eligibility/types.js').ApplicantProfile} */
 function baseProfile() {
   return {
@@ -52,6 +68,20 @@ test("全要件を満たす標準ケースは eligible = true", () => {
   assert.equal(result.eligible, true);
   assert.equal(result.blockingIssues.length, 0);
   assert.equal(result.checks.length, 5);
+
+  const keiei = result.checks.find((c) => c.key === "keieiGyomuKanri");
+  assert.equal(keiei.label, "経営業務の管理を適正に行う体制");
+  assert.deepEqual(keiei.reasons, ["経営業務管理責任者としての経験 5年（5年以上）でルートA該当"]);
+  assert.deepEqual(keiei.warnings, []);
+
+  const kekkaku = result.checks.find((c) => c.key === "kekkaku");
+  assert.equal(kekkaku.label, "欠格要件に該当しないこと");
+  assert.deepEqual(kekkaku.reasons, [
+    "欠格要件（建設業法第8条各号: 破産・許可取消歴・駆け込み廃業・営業停止/禁止処分中・刑罰・" +
+      "暴力団関係・心身の故障・虚偽記載、および役員等・政令使用人・法定代理人の欠格〈入力がある範囲〉）" +
+      "のいずれにも該当しません",
+  ]);
+  assert.deepEqual(kekkaku.warnings, []);
 });
 
 test("経営業務管理体制: 社会保険未加入なら不合格", () => {
@@ -76,6 +106,25 @@ test("経営業務管理体制: ルートD（複合要件）でも合格でき�
   const result = evaluateEligibility(profile);
   const check = result.checks.find((c) => c.key === "keieiGyomuKanri");
   assert.equal(check.passed, true);
+  assert.deepEqual(check.reasons, ["役員等2年以上 + 財務・労務・運営の補佐者を各5年以上配置でルートD該当"]);
+  assert.deepEqual(check.warnings, [
+    "ルートDは複合要件のため、財務・労務・運営それぞれの補佐者の在籍を証明する書類（組織図・辞令等）を別途準備してください",
+  ]);
+});
+
+test("経営業務管理体制: ルートD判定でisOfficerFor2YearsがtrueでもassistantSupportYearsが未入力(undefined)なら、既定値0として扱われルートD不成立になる", () => {
+  const profile = baseProfile();
+  profile.keieiGyomuKanri = {
+    yearsAsResponsibleOfficer: 0,
+    yearsAsQuasiResponsibleOfficer: 0,
+    yearsAsAssistant: 0,
+    isOfficerFor2Years: true,
+    hasSocialInsurance: true,
+    // assistantSupportYears を意図的に省略
+  };
+  const result = evaluateEligibility(profile);
+  const check = result.checks.find((c) => c.key === "keieiGyomuKanri");
+  assert.equal(check.passed, false);
 });
 
 test("経営業務管理体制: assistantSupportYearsが未入力(undefined)でもルートAの判定はエラーにならない（||の分岐網羅）", () => {
@@ -148,6 +197,8 @@ test("専任技術者: 実務経験10年ルートで合格できる", () => {
   const result = evaluateEligibility(profile);
   const check = result.checks.find((c) => c.key === "senninGijutsusha");
   assert.equal(check.passed, true);
+  assert.deepEqual(check.reasons, ["[本店] 実務経験 10年（10年以上）で要件を満たします"]);
+  assert.deepEqual(check.warnings, ["本店: 資格者証・卒業証明書・実務経験証明書など裏付け書類の準備を忘れずに"]);
 });
 
 test("専任技術者: 実務経験は9年（10年未満）では合格できない（境界値）", () => {
@@ -167,6 +218,10 @@ test("専任技術者: 実務経験は9年（10年未満）では合格できな
   const result = evaluateEligibility(profile);
   const check = result.checks.find((c) => c.key === "senninGijutsusha");
   assert.equal(check.passed, false);
+  assert.deepEqual(check.reasons, [
+    "[本店] 国家資格・指定学科卒業+実務経験・実務経験10年のいずれの基準も満たしていません",
+  ]);
+  assert.deepEqual(check.warnings, []);
 });
 
 test("専任技術者: 指定学科卒業者でも学歴区分が「高卒」「大卒」いずれにも一致しなければ、実務経験年数に関わらず不合格（学歴区分の判定が実質チェックされていることの確認）", () => {
@@ -243,6 +298,10 @@ test("専任技術者: 特定建設業でも指導監督的実務経験2年以�
   const result = evaluateEligibility(profile);
   const check = result.checks.find((c) => c.key === "senninGijutsusha");
   assert.equal(check.passed, true);
+  assert.deepEqual(check.reasons, [
+    "[本店] 実務経験 10年（10年以上）で要件を満たします",
+    "[本店] 指導監督的実務経験 2年（2年以上）で特定建設業の追加要件も満たします",
+  ]);
 });
 
 test("専任技術者: 特定建設業は指導監督的実務経験2年も必要", () => {
@@ -262,6 +321,11 @@ test("専任技術者: 特定建設業は指導監督的実務経験2年も必�
   const result = evaluateEligibility(profile);
   const check = result.checks.find((c) => c.key === "senninGijutsusha");
   assert.equal(check.passed, false);
+  assert.deepEqual(check.reasons, [
+    "[本店] 実務経験 10年（10年以上）で要件を満たします",
+    "[本店] 特定建設業は上記に加えて、4,500万円以上の工事における指導監督的実務経験2年以上（または該当する国家資格）が必要ですが、確認できていません",
+  ]);
+  assert.deepEqual(check.warnings, []);
 });
 
 test("財産的基礎: 特定建設業は3条件すべて必要", () => {
@@ -296,6 +360,7 @@ test("誠実性: 自己申告で懸念ありなら不合格", () => {
   const result = evaluateEligibility(profile);
   const check = result.checks.find((c) => c.key === "seijitsusei");
   assert.equal(check.passed, false);
+  assert.equal(check.reasons[0], "自己申告で、不正・不誠実な行為のおそれに関する懸念が申告されています");
 });
 
 test("誠実性: 申告メモがあれば判定理由に含まれる", () => {
@@ -312,6 +377,8 @@ test("誠実性: 合格時も行政書士本人による個別確認を促す警
   const check = result.checks.find((c) => c.key === "seijitsusei");
   assert.equal(check.passed, true);
   assert.ok(check.warnings.length > 0);
+  // notesが未入力(baseProfile)なら、申告メモの理由は追加されず1件のみになる
+  assert.deepEqual(check.reasons, ["自己申告上、不正・不誠実な行為をするおそれがある事実は確認されていません"]);
 });
 
 test("財産的基礎: 一般建設業は自己資本500万円ちょうどで要件を満たす（境界値）", () => {
@@ -328,6 +395,8 @@ test("財産的基礎: 一般建設業は自己資本500万円ちょうどで要
   const result = evaluateEligibility(profile);
   const check = result.checks.find((c) => c.key === "zaisanKiso");
   assert.equal(check.passed, true);
+  assert.deepEqual(check.reasons, ["自己資本 5,000,000円 が500万円以上で要件を満たします"]);
+  assert.deepEqual(check.warnings, []);
 });
 
 test("財産的基礎: 一般建設業は自己資本499万9999円では単独では要件を満たさない（境界値）", () => {
@@ -360,6 +429,8 @@ test("財産的基礎: 一般建設業は資金調達能力500万円以上のみ
   const result = evaluateEligibility(profile);
   const check = result.checks.find((c) => c.key === "zaisanKiso");
   assert.equal(check.passed, true);
+  assert.deepEqual(check.reasons, ["資金調達能力 5,000,000円 が500万円以上で要件を満たします"]);
+  assert.deepEqual(check.warnings, []);
 });
 
 test("財産的基礎: 一般建設業は直近5年間の継続営業実績のみでも要件を満たす", () => {
@@ -376,6 +447,8 @@ test("財産的基礎: 一般建設業は直近5年間の継続営業実績の�
   const result = evaluateEligibility(profile);
   const check = result.checks.find((c) => c.key === "zaisanKiso");
   assert.equal(check.passed, true);
+  assert.deepEqual(check.reasons, ["直近5年間、許可を受けて継続して営業した実績があり要件を満たします"]);
+  assert.deepEqual(check.warnings, []);
 });
 
 test("財産的基礎: 一般建設業は3ルートいずれも満たさなければ不合格", () => {
@@ -392,7 +465,10 @@ test("財産的基礎: 一般建設業は3ルートいずれも満たさなけ�
   const result = evaluateEligibility(profile);
   const check = result.checks.find((c) => c.key === "zaisanKiso");
   assert.equal(check.passed, false);
-  assert.ok(check.reasons.some((r) => r.includes("いずれも確認できません")));
+  assert.deepEqual(check.reasons, [
+    "自己資本500万円以上・資金調達能力500万円以上・5年間の継続営業実績のいずれも確認できません",
+  ]);
+  assert.deepEqual(check.warnings, []);
 });
 
 test("財産的基礎: 一般建設業は資金調達能力500万円ちょうどで要件を満たし、499万9999円では満たさない（境界値）", () => {
@@ -428,7 +504,11 @@ test("財産的基礎: 特定建設業は欠損比率・流動比率・資本金
   const result = evaluateEligibility(profile);
   const check = result.checks.find((c) => c.key === "zaisanKiso");
   assert.equal(check.passed, true);
+  assert.equal(check.label, "財産的基礎（金銭的信用）");
   assert.ok(check.reasons.every((r) => r.includes("条件クリア")));
+  assert.deepEqual(check.warnings, [
+    "特定建設業は上記3条件を「すべて」満たす必要があります（一般建設業のような選択制ではありません）",
+  ]);
 });
 
 test("財産的基礎: 特定建設業の欠損比率は20%ちょうどで条件クリア、21%では未達（境界値）", () => {
@@ -487,13 +567,25 @@ test("財産的基礎: 特定建設業は資本金2000万円以上『かつ』�
     currentRatio: 100,
   };
   let result = evaluateEligibility(profile);
-  assert.equal(result.checks.find((c) => c.key === "zaisanKiso").passed, false);
+  let check = result.checks.find((c) => c.key === "zaisanKiso");
+  assert.equal(check.passed, false);
+  assert.ok(
+    check.reasons.some((r) =>
+      r.includes("資本金または自己資本が基準（資本金2,000万円以上かつ自己資本4,000万円以上）に達していません")
+    )
+  );
 
   // 逆に資本金は基準を大きく超えるが、自己資本が基準未満（境界値-1円）→ こちらも不合格
   profile.zaisanKiso.capitalAmount = 100_000_000;
   profile.zaisanKiso.netAssets = 39_999_999;
   result = evaluateEligibility(profile);
-  assert.equal(result.checks.find((c) => c.key === "zaisanKiso").passed, false);
+  check = result.checks.find((c) => c.key === "zaisanKiso");
+  assert.equal(check.passed, false);
+  assert.ok(
+    check.reasons.some((r) =>
+      r.includes("資本金または自己資本が基準（資本金2,000万円以上かつ自己資本4,000万円以上）に達していません")
+    )
+  );
 });
 
 test("専任技術者: 国家資格保有のみでも合格できる", () => {
@@ -513,6 +605,8 @@ test("専任技術者: 国家資格保有のみでも合格できる", () => {
   const result = evaluateEligibility(profile);
   const check = result.checks.find((c) => c.key === "senninGijutsusha");
   assert.equal(check.passed, true);
+  assert.deepEqual(check.reasons, ["[本店] 該当する国家資格等の保有により要件を満たします"]);
+  assert.deepEqual(check.warnings, ["本店: 資格者証・卒業証明書・実務経験証明書など裏付け書類の準備を忘れずに"]);
 });
 
 test("専任技術者: 指定学科卒業（高卒）+ 実務経験5年で合格できる", () => {
@@ -532,6 +626,8 @@ test("専任技術者: 指定学科卒業（高卒）+ 実務経験5年で合格
   const result = evaluateEligibility(profile);
   const check = result.checks.find((c) => c.key === "senninGijutsusha");
   assert.equal(check.passed, true);
+  assert.deepEqual(check.reasons, ["[本店] 指定学科卒業（高卒）+ 実務経験 5年で要件を満たします"]);
+  assert.deepEqual(check.warnings, ["本店: 資格者証・卒業証明書・実務経験証明書など裏付け書類の準備を忘れずに"]);
 });
 
 test("専任技術者: 指定学科卒業（高卒）でも実務経験4年では合格できない（境界値）", () => {
@@ -599,7 +695,10 @@ test("専任技術者: 複数営業所のうち1つでも不合格なら全体�
   const result = evaluateEligibility(profile);
   const check = result.checks.find((c) => c.key === "senninGijutsusha");
   assert.equal(check.passed, false);
+  assert.equal(check.label, "営業所ごとの専任技術者の配置");
   assert.ok(check.reasons.some((r) => r.includes("[支店]")));
+  // 本店（合格・警告あり）と支店（不合格・警告なし）の警告が、flatMapで正しく集約されていることの確認
+  assert.deepEqual(check.warnings, ["本店: 資格者証・卒業証明書・実務経験証明書など裏付け書類の準備を忘れずに"]);
 });
 
 test("専任技術者: 営業所が1つも登録されていなければ不合格になる", () => {
@@ -608,7 +707,9 @@ test("専任技術者: 営業所が1つも登録されていなければ不合�
   const result = evaluateEligibility(profile);
   const check = result.checks.find((c) => c.key === "senninGijutsusha");
   assert.equal(check.passed, false);
+  assert.equal(check.label, "営業所ごとの専任技術者の配置");
   assert.ok(check.reasons.some((r) => r.includes("営業所の情報が入力されていません")));
+  assert.deepEqual(check.warnings, []);
 });
 
 test("経営業務管理体制: ルートB（準ずる地位5年）でも合格できる", () => {
@@ -624,6 +725,8 @@ test("経営業務管理体制: ルートB（準ずる地位5年）でも合格�
   const result = evaluateEligibility(profile);
   const check = result.checks.find((c) => c.key === "keieiGyomuKanri");
   assert.equal(check.passed, true);
+  assert.deepEqual(check.reasons, ["準ずる地位での経験 5年（5年以上）でルートB該当"]);
+  assert.deepEqual(check.warnings, []);
 });
 
 test("経営業務管理体制: ルートC（補佐業務6年）でも合格できる", () => {
@@ -639,6 +742,8 @@ test("経営業務管理体制: ルートC（補佐業務6年）でも合格で�
   const result = evaluateEligibility(profile);
   const check = result.checks.find((c) => c.key === "keieiGyomuKanri");
   assert.equal(check.passed, true);
+  assert.deepEqual(check.reasons, ["補佐業務での経験 6年（6年以上）でルートC該当"]);
+  assert.deepEqual(check.warnings, []);
 });
 
 test("経営業務管理体制: 補佐業務5年（6年未満）ではルートC不成立（境界値）", () => {
@@ -757,6 +862,65 @@ test("欠格要件: 未成年者の法定代理人が欠格事由に該当する
   assert.ok(check.reasons.some((r) => r.includes("法定代理人（山田 一郎）") && r.includes("第十一号")));
 });
 
+test("欠格要件: 未成年者の法定代理人の氏名が未入力でも、肩書き「法定代理人」のみで理由文に出る（氏名未入力のフォールバック表記）", () => {
+  const profile = baseProfile();
+  profile.kekkaku.isMinor = true;
+  profile.kekkaku.legalRepresentativeKekkaku = { isUndischargedBankrupt: true };
+  // legalRepresentativeName を意図的に省略
+  const result = evaluateEligibility(profile);
+  const check = result.checks.find((c) => c.key === "kekkaku");
+  assert.equal(check.passed, false);
+  assert.ok(check.reasons.some((r) => r === "欠格要件に該当: 法定代理人が破産者で復権を得ていません（第十一号）"));
+});
+
+test("欠格要件: 法定代理人・役員・政令で定める使用人の欠格事由は、本人分と同じ8項目すべてを個別に判定する（未入力項目があっても他項目は機能することの確認）", () => {
+  const profile = baseProfile();
+  profile.kekkaku.isMinor = true;
+  profile.kekkaku.legalRepresentativeName = "山田 一郎";
+  profile.kekkaku.legalRepresentativeKekkaku = { hadLicenseRevokedWithin5Years: true };
+  let result = evaluateEligibility(profile);
+  let check = result.checks.find((c) => c.key === "kekkaku");
+  assert.equal(check.passed, false);
+  assert.ok(
+    check.reasons.some(
+      (r) => r === "欠格要件に該当: 法定代理人（山田 一郎）が5年以内に建設業許可を取り消された経験があります（第十一号）"
+    )
+  );
+
+  profile.kekkaku.legalRepresentativeKekkaku = {
+    hasWithdrawnLicenseDuringRevocationHearingWithin5Years: true,
+  };
+  result = evaluateEligibility(profile);
+  check = result.checks.find((c) => c.key === "kekkaku");
+  assert.equal(check.passed, false);
+  assert.ok(
+    check.reasons.some(
+      (r) =>
+        r ===
+        "欠格要件に該当: 法定代理人（山田 一郎）が許可取消しの聴聞通知後、取消しを免れるため廃業届出をしてから5年を経過していません（第十一号）"
+    )
+  );
+
+  profile.kekkaku.legalRepresentativeKekkaku = { hasRevocationNoticeWithin60DaysAsOfficer: true };
+  result = evaluateEligibility(profile);
+  check = result.checks.find((c) => c.key === "kekkaku");
+  assert.equal(check.passed, false);
+  assert.ok(
+    check.reasons.some(
+      (r) =>
+        r === "欠格要件に該当: 法定代理人（山田 一郎）が許可取消しの聴聞通知前60日以内に当該法人の役員等でした（第十一号）"
+    )
+  );
+
+  profile.kekkaku.legalRepresentativeKekkaku = { hasBusinessProhibitionOrderInEffect: true };
+  result = evaluateEligibility(profile);
+  check = result.checks.find((c) => c.key === "kekkaku");
+  assert.equal(check.passed, false);
+  assert.ok(
+    check.reasons.some((r) => r === "欠格要件に該当: 法定代理人（山田 一郎）が営業禁止処分の禁止期間中です（第十一号）")
+  );
+});
+
 test("欠格要件: 未成年者だが法定代理人の欠格事由が未入力の場合は合格扱いにせず警告を出す（第11号）", () => {
   const profile = baseProfile();
   profile.kekkaku.isMinor = true;
@@ -784,6 +948,30 @@ test("欠格要件: 役員がいるが欠格事由が未入力の場合は合格
   const check = result.checks.find((c) => c.key === "kekkaku");
   assert.equal(check.passed, true);
   assert.ok(check.warnings.some((w) => w.includes("役員") && w.includes("第十二号")));
+});
+
+test("欠格要件: 役員の一部だけでも欠格事由が入力済みなら、「全員未入力」の警告は出さない（everyで全件未入力を判定。一部入力ありをsomeと混同していないことの確認）", () => {
+  const profile = baseProfile();
+  profile.officers = [
+    { name: "鈴木 花子", title: "取締役", kekkaku: { hasCriminalRecordWithin5Years: false } },
+    { name: "佐藤 一郎", title: "監査役" }, // この役員は欠格事由が未入力
+  ];
+  const result = evaluateEligibility(profile);
+  const check = result.checks.find((c) => c.key === "kekkaku");
+  assert.equal(check.passed, true);
+  assert.ok(!check.warnings.some((w) => w.includes("役員") && w.includes("第十二号")));
+});
+
+test("欠格要件: 政令で定める使用人の一部だけでも欠格事由が入力済みなら、「全員未入力」の警告は出さない（everyで全件未入力を判定）", () => {
+  const profile = baseProfile();
+  profile.regulatoryEmployees = [
+    { name: "田中 次郎", kekkaku: { isBoryokudanMemberOrWithin5Years: false } },
+    { name: "高橋 三郎" }, // この使用人は欠格事由が未入力
+  ];
+  const result = evaluateEligibility(profile);
+  const check = result.checks.find((c) => c.key === "kekkaku");
+  assert.equal(check.passed, true);
+  assert.ok(!check.warnings.some((w) => w.includes("政令で定める使用人")));
 });
 
 test("欠格要件: 政令で定める使用人（法人）が欠格事由に該当する場合は不合格（建設業法第8条第12号）", () => {
