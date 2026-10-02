@@ -72,6 +72,15 @@ test("evaluateEligibility: prefecture未入力の場合も共通5要件のみで
   assert.equal(result.checks.length, 5);
 });
 
+test("clearPrefectureRules: 登録済みの内容を消去する", () => {
+  registerPrefectureRules("架空県", () => []);
+  assert.notEqual(getPrefectureRules("架空県"), undefined);
+
+  clearPrefectureRules();
+
+  assert.equal(getPrefectureRules("架空県"), undefined);
+});
+
 test("getPrefectureRules/evaluateEligibility: Object.prototypeのキー名を都道府県に指定しても関数として呼び出されない（CodeQL js/unvalidated-dynamic-method-call は誤検知）", () => {
   // レジストリは Map のため、"constructor" 等のプロトタイプ由来の名前を引いても
   // undefined になり、共通5要件のみで判定される。将来レジストリを素のオブジェクトへ
