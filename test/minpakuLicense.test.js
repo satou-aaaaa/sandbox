@@ -23,4 +23,5 @@ test("registerMinpakuLicense: 届出日が記録されていれば定期報告�
   const items = scheduleFn({ licenseId: "既定", minpakuDetail: { notificationDateIso: "2026-01-01" } });
   assert.equal(items.length, 1);
   assert.equal(items[0].type, "minpaku-periodic-report");
+  assert.equal(items[0].label, "定期報告（宿泊実績）の次回期限");
 });

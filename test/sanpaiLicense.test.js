@@ -23,7 +23,9 @@ test("registerSanpaiLicense: grantDateIsoのみあれば更新の2件（準備�
   const items = scheduleFn({ licenseId: "既定", grantDateIso: "2024-04-01" });
   assert.equal(items.length, 2);
   assert.equal(items[0].type, "sanpai-renewal-prepare");
+  assert.equal(items[0].label, "産廃許可 更新準備開始（満了60日前）");
   assert.equal(items[1].type, "sanpai-renewal-deadline");
+  assert.equal(items[1].label, "産廃許可 更新申請の最終締切（満了30日前）");
   assert.equal(items[1].dueDateIso, "2029-03-01"); // 5年後の満了日(2029-03-31)の30日前
 });
 
@@ -49,6 +51,7 @@ test("registerSanpaiLicense: 講習修了証発行日が記録されていれば
   });
   assert.equal(items.length, 1);
   assert.equal(items[0].type, "sanpai-koushu-expiry");
+  assert.equal(items[0].label, "講習修了証の有効期限（再受講の要否確認）");
   assert.equal(items[0].dueDateIso, "2029-04-01");
 });
 

@@ -46,10 +46,13 @@ test("calcKeieiJikoShinsaSchedule: 直近審査基準日が設定されていれ
   const items = calcKeieiJikoShinsaSchedule({ licenseId: "経審", keieiJikoShinsaDetail: { latestKijunbiIso: "2025-03-31" } });
   assert.equal(items.length, 3);
   assert.equal(items[0].type, "keiei-next-kessan-henko");
+  assert.equal(items[0].label, "次回決算に向けた決算変更届の提出期限（経審再受審の前提書類）");
   assert.equal(items[0].dueDateIso, "2026-07-31"); // 次回基準日(2026-03-31)+4ヶ月
   assert.equal(items[1].type, "keiei-recommended-reapplication");
+  assert.equal(items[1].label, "経審 再受審の推奨申請時期");
   assert.equal(items[1].dueDateIso, "2026-08-31"); // 上記+1ヶ月
   assert.equal(items[2].type, "keiei-validity-deadline");
+  assert.equal(items[2].label, "現行の経営事項審査結果の有効期限（切れると公共工事の入札参加資格を維持できません）");
   assert.equal(items[2].dueDateIso, "2026-10-31"); // 直近基準日(2025-03-31)+19ヶ月
 });
 

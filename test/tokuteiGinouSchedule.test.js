@@ -43,9 +43,14 @@ test("calcTokuteiGinouSchedule: expiryDateIsoのみ設定の場合、満了リ�
   const items = calcTokuteiGinouSchedule({ licenseId: "既定", tokuteiGinouDetail: { fieldKey: "gaishokugyou", expiryDateIso: "2026-12-31" } });
   assert.equal(items.length, 3);
   assert.equal(items[0].type, "zairyu-early-notice");
+  assert.equal(items[0].label, "在留期間更新の早期検討（満了90日前）");
   assert.equal(items[0].dueDateIso, "2026-10-02");
   assert.equal(items[1].type, "zairyu-prepare");
+  assert.equal(items[1].label, "更新申請の推奨開始日（満了60日前）");
+  assert.equal(items[1].dueDateIso, "2026-11-01");
   assert.equal(items[2].type, "zairyu-deadline");
+  assert.equal(items[2].label, "更新申請の目安締切（満了30日前）");
+  assert.equal(items[2].dueDateIso, "2026-12-01");
 });
 
 test("calcTokuteiGinouSchedule: cumulativeStayStartDateIsoのみ設定の場合、通算上限警告1件を返す", () => {
