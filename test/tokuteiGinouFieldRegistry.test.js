@@ -3,6 +3,16 @@ import assert from "node:assert/strict";
 import { registerField, getField, listFields, clearFields } from "../src/licenses/tokutei-ginou/eligibility/fieldRegistry.js";
 import { SEED_FIELDS, seedFieldRegistry } from "../src/licenses/tokutei-ginou/eligibility/fieldRegistry.seed.js";
 
+// ミューテーションテスト（#79）の対応方針: fieldRegistry.seed.jsは19分野分の
+// 表示文言（fieldLabel・skillTestName・supplementaryNote）を列挙した静的データで、
+// これらの文字列リテラルを個別に書き換えるミュータントの多くが生存する。
+// しかし各分野の判定に実際に影響する項目（fieldKeyの一意性、
+// requiresSectorSpecificJapaneseTest・supportsSpecifiedSkilled2の各フラグ）は
+// 以下で個別に検証済み。表示文言そのものの逐語検証は、ソースの値をテスト側で
+// 再掲するだけで法令・公式資料との整合性の検証にはならない（本ファイル冒頭の
+// コメントが明記するとおり、運用前に出入国在留管理庁等の公表資料での再確認が
+// 必要）ため、他モジュールのCLI表示用文言（ADR-0011）と同様に対応を見送る。
+
 test("getField: 未登録キーはundefinedを返す", () => {
   clearFields();
   assert.equal(getField("no-such-field"), undefined);
