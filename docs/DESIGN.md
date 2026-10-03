@@ -1031,10 +1031,10 @@ Webの `GET /clients.csv`（読み取り専用のダウンロードのみ。登�
   | C | kobutsu/eligibility/{eigyosho,engine,consistencyChecks}.js | 79.73% | 97.97%（残り3件は等価/実務上テスト不可能と判断し記録） | #214 |
   | C | minpaku/eligibility/*.js | 83.72% | 100% | #215 |
   | C | sanpai/eligibility/*.js | 76.09% | 94.57%（keiriKiso・kekkaku・koushu・shisetsu各100%。残り5件はengine.jsのCLI表示用`formatSanpaiEligibilityReport`の文言のみでADR-0011の既存方針により対象外） | #219 |
+  | C | nouchi-tenyo/eligibility/*.js | 67.29% | 88.79%（ippanKijun 100%、daijinKyogi 95.83%（timeout1件を除き実質100%）。残り12件のうちengine.js 8件はCLI表示用`formatNouchiTenyoEligibilityReport`の文言のみでADR-0011の既存方針により対象外、ricchiKijun.js 3件は農地区分グルーピングのswitch文に起因する等価ミュータント） | #220 |
 
-  **未着手（2026年10月時点）**: 優先度Cのうち nouchi-tenyo・
-  keiei-jiko-shinsa・tokutei-ginou の各`eligibility/*.js`。許可種別単位で
-  今後反復する。
+  **未着手（2026年10月時点）**: 優先度Cのうち keiei-jiko-shinsa・
+  tokutei-ginou の各`eligibility/*.js`。許可種別単位で今後反復する。
 - **`--incremental`オプションの検証（2026年10月・#79）**: Stryker 9系の
   `--incremental`（`reports/stryker-incremental.json`に前回の結果を保存し、
   ソースに変更が無ければミュータントの再実行を省略する機能）は、本プロジェクトの
