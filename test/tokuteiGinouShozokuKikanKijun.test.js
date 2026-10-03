@@ -13,9 +13,20 @@ function baseInput(overrides = {}) {
   };
 }
 
-test("checkShozokuKikanKijun: 全項目を満たす場合はpassed=trueになる", () => {
+test("checkShozokuKikanKijun: 全項目を満たす場合のkey・label・reasons・warningsを厳密に確認", () => {
   const result = checkShozokuKikanKijun(baseInput());
   assert.equal(result.passed, true);
+  assert.equal(result.key, "shozokuKikanKijun");
+  assert.equal(result.label, "特定技能所属機関の基準");
+  assert.deepEqual(result.warnings, []);
+  assert.deepEqual(result.reasons, [
+    "サンプル株式会社は特定技能所属機関としての基準（労働関係法令・入管法令の遵守実績、報酬水準）を満たしています",
+  ]);
+});
+
+test("checkShozokuKikanKijun: 違反がある場合は合格メッセージを含まない（労働関係法令違反の例）", () => {
+  const result = checkShozokuKikanKijun(baseInput({ noLaborLawViolationWithin5Years: false }));
+  assert.ok(!result.reasons.some((r) => r.includes("特定技能所属機関としての基準")));
 });
 
 test("checkShozokuKikanKijun: 労働関係法令違反がある場合はpassed=falseになる", () => {
