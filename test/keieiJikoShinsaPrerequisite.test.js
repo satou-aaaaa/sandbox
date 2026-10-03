@@ -51,3 +51,45 @@ test("checkKeieiJikoShinsaPrerequisite: 建設業許可保有・決算変更届�
   );
   assert.equal(result.passed, true);
 });
+
+test("checkKeieiJikoShinsaPrerequisite: licensesが未定義のクライアントも、許可なしとして不合格になる（オプショナルチェイニング）", () => {
+  const clientRecord = { clientName: "許可未登録" };
+  const result = checkKeieiJikoShinsaPrerequisite(
+    { isKessanHenkoTodokeSubmitted: true, targetGyoshu: ["とび・土工工事業"] },
+    clientRecord
+  );
+  assert.equal(result.passed, false);
+  assert.ok(result.reasons[0].includes("建設業許可"));
+});
+
+test("checkKeieiJikoShinsaPrerequisite: 建設業許可を保有しない場合のkey・label・warningsを厳密に確認", () => {
+  const clientRecord = { clientName: "無許可の会社", licenses: [{ licenseId: "x", licenseCategory: "kobutsu" }] };
+  const result = checkKeieiJikoShinsaPrerequisite(
+    { isKessanHenkoTodokeSubmitted: true, targetGyoshu: ["とび・土工工事業"] },
+    clientRecord
+  );
+  assert.equal(result.key, "keieiJikoShinsaPrerequisite");
+  assert.equal(result.label, "経審受審の前提条件");
+  assert.deepEqual(result.warnings, []);
+});
+
+test("checkKeieiJikoShinsaPrerequisite: 合格時のkey・label・warnings・reasonsを厳密に確認", () => {
+  const result = checkKeieiJikoShinsaPrerequisite(
+    { isKessanHenkoTodokeSubmitted: true, targetGyoshu: ["とび・土工工事業"] },
+    clientWithConstruction()
+  );
+  assert.equal(result.key, "keieiJikoShinsaPrerequisite");
+  assert.equal(result.label, "経審受審の前提条件");
+  assert.deepEqual(result.warnings, []);
+  assert.deepEqual(result.reasons, ["建設業許可の保有・決算変更届の提出・業種区分の選択、いずれも確認できました。"]);
+});
+
+test("checkKeieiJikoShinsaPrerequisite: 不合格時は合格メッセージを含まない（決算変更届未提出）", () => {
+  const result = checkKeieiJikoShinsaPrerequisite(
+    { isKessanHenkoTodokeSubmitted: false, targetGyoshu: ["とび・土工工事業"] },
+    clientWithConstruction()
+  );
+  assert.deepEqual(result.reasons, [
+    "直近決算分の決算変更届が未提出です。経審の申請には最新の決算内容を反映した決算変更届が前提書類として必要です。",
+  ]);
+});
