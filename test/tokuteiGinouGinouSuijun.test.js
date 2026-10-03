@@ -69,3 +69,32 @@ test("checkGinouSuijun: 未登録の分野キーでもエラーにならずフ�
   const result = checkGinouSuijun({ fieldKey: "unknown-field", hasPassedSkillTest: true, hasCompletedGinouJisshu2GoWell: false });
   assert.ok(result.reasons.some((r) => r.includes("unknown-field")));
 });
+
+test("checkGinouSuijun: 未登録の分野キーで技能評価試験に合格した場合、試験名のフォールバック文言「分野別試験」が使われる", () => {
+  clearFields();
+  const result = checkGinouSuijun({ fieldKey: "unknown-field", hasPassedSkillTest: true, hasCompletedGinouJisshu2GoWell: false });
+  assert.ok(result.reasons[0].includes("分野別試験"));
+});
+
+test("checkGinouSuijun: 技能実習2号修了時のkey・label・reasons・warningsを厳密に確認（留意事項なしの分野）", () => {
+  clearFields();
+  registerField({ fieldKey: "no-note-field", fieldLabel: "留意事項なし分野" });
+  const result = checkGinouSuijun({
+    fieldKey: "no-note-field",
+    hasPassedSkillTest: false,
+    hasCompletedGinouJisshu2GoWell: true,
+    isSameWorkCategoryAsGinouJisshu: true,
+  });
+  assert.equal(result.key, "ginouSuijun");
+  assert.equal(result.label, "技能水準要件");
+  assert.deepEqual(result.reasons, ["技能実習2号を良好に修了しているため、技能水準要件は満たされているものとみなされます"]);
+  assert.deepEqual(result.warnings, []);
+});
+
+test("checkGinouSuijun: どちらも満たさない場合のreasons・warningsを厳密に確認（留意事項なしの分野）", () => {
+  clearFields();
+  registerField({ fieldKey: "no-note-field", fieldLabel: "留意事項なし分野" });
+  const result = checkGinouSuijun({ fieldKey: "no-note-field", hasPassedSkillTest: false, hasCompletedGinouJisshu2GoWell: false });
+  assert.deepEqual(result.reasons, ["分野「留意事項なし分野」の技能評価試験に合格しておらず、技能実習2号の良好な修了もありません"]);
+  assert.deepEqual(result.warnings, []);
+});

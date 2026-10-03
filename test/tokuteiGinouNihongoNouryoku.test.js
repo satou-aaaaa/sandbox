@@ -52,3 +52,33 @@ test("checkNihongoNouryoku: 不合格の場合は分野固有試験の警告は�
   assert.equal(result.passed, false);
   assert.equal(result.warnings.length, 0);
 });
+
+test("checkNihongoNouryoku: JLPT N4以上合格時のkey・label・reasons・warningsを厳密に確認", () => {
+  setUpFields();
+  const result = checkNihongoNouryoku({ hasJlptN4OrAbove: true, hasPassedJftBasic: false, isExemptByGinouJisshu2Go: false }, "gaishokugyou");
+  assert.equal(result.key, "nihongoNouryoku");
+  assert.equal(result.label, "日本語能力水準要件");
+  assert.deepEqual(result.reasons, ["日本語能力試験N4以上に合格しています"]);
+  assert.deepEqual(result.warnings, []);
+});
+
+test("checkNihongoNouryoku: JFT-Basic合格時のreasonsを厳密に確認", () => {
+  setUpFields();
+  const result = checkNihongoNouryoku({ hasJlptN4OrAbove: false, hasPassedJftBasic: true, isExemptByGinouJisshu2Go: false }, "gaishokugyou");
+  assert.deepEqual(result.reasons, ["JFT-Basic（国際交流基金日本語基礎テスト）に合格しています"]);
+});
+
+test("checkNihongoNouryoku: いずれも満たさない場合のreasonsを厳密に確認", () => {
+  setUpFields();
+  const result = checkNihongoNouryoku({ hasJlptN4OrAbove: false, hasPassedJftBasic: false, isExemptByGinouJisshu2Go: false }, "gaishokugyou");
+  assert.deepEqual(result.reasons, [
+    "日本語能力試験N4以上・JFT-Basicのいずれの合格も確認できず、技能実習2号修了による免除にも該当しません",
+  ]);
+});
+
+test("checkNihongoNouryoku: 未登録の分野キーでも合格時にエラーにならず警告も出ない（オプショナルチェイニング）", () => {
+  clearFields();
+  const result = checkNihongoNouryoku({ hasJlptN4OrAbove: true, hasPassedJftBasic: false, isExemptByGinouJisshu2Go: false }, "unknown-field");
+  assert.equal(result.passed, true);
+  assert.deepEqual(result.warnings, []);
+});
