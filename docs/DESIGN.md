@@ -1032,9 +1032,15 @@ Webの `GET /clients.csv`（読み取り専用のダウンロードのみ。登�
   | C | minpaku/eligibility/*.js | 83.72% | 100% | #215 |
   | C | sanpai/eligibility/*.js | 76.09% | 94.57%（keiriKiso・kekkaku・koushu・shisetsu各100%。残り5件はengine.jsのCLI表示用`formatSanpaiEligibilityReport`の文言のみでADR-0011の既存方針により対象外） | #219 |
   | C | nouchi-tenyo/eligibility/*.js | 67.29% | 88.79%（ippanKijun 100%、daijinKyogi 95.83%（timeout1件を除き実質100%）。残り12件のうちengine.js 8件はCLI表示用`formatNouchiTenyoEligibilityReport`の文言のみでADR-0011の既存方針により対象外、ricchiKijun.js 3件は農地区分グルーピングのswitch文に起因する等価ミュータント） | #220 |
+  | A | construction/eligibility/rules/*.js（残り。keieiGyomuKanri・senninGijutsusha・zaisanKiso・kekkaku・seijitsusei） | 75.47% | 98.92%（残り4件は等価ミュータント2件＋静的文言2件） | #218 |
+  | C | keiei-jiko-shinsa/eligibility/*.js | 75.47% | 92.44%（prerequisite・inputCompleteness・yStatus各100%。判定ロジック本体のevaluateKeieiJikoShinsaReadinessも100%キル済み。残り9件はengine.jsのCLI表示用`formatKeieiJikoShinsaReport`の文言のみでADR-0011の既存方針により対象外） | #223 |
+  | C | tokutei-ginou/eligibility/{ginouSuijun,nihongoNouryoku,shozokuKikanKijun,shienTaisei}.js | 57.40% | 70.41%（ginouSuijun・nihongoNouryoku・shozokuKikanKijun各100%、shienTaisei 96.00%〔残り3件は義務的支援項目の未カバー件数ガードに関する等価ミュータント〕） | #224 |
+  | C | tokutei-ginou/eligibility/fieldRegistry.seed.js | 32.28% | 100%（19分野の表示文言を期待値とdeepEqualで突き合わせるスナップショット検証を追加） | #225 |
 
-  **未着手（2026年10月時点）**: 優先度Cのうち keiei-jiko-shinsa・
-  tokutei-ginou の各`eligibility/*.js`。許可種別単位で今後反復する。
+  優先度A〜Cは、これでファイルベースの対応が全て完了した
+  （2026年10月時点。tokutei-ginou/eligibility全体は#224・#225適用後、
+  56.80%→95.86%。残り14件はengine.jsのCLI表示文言11件〔ADR-0011既存方針
+  により対象外〕とshienTaisei.jsの等価ミュータント3件のみ）。
 - **`--incremental`オプションの検証（2026年10月・#79）**: Stryker 9系の
   `--incremental`（`reports/stryker-incremental.json`に前回の結果を保存し、
   ソースに変更が無ければミュータントの再実行を省略する機能）は、本プロジェクトの
