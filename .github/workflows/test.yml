@@ -158,3 +158,21 @@ jobs:
             grep -vE '^(GET|POST) ' load-test-output.txt
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
+
+  # ブランチ保護の必須チェックを、マトリクス（os・node-version）のジョブ名
+  # そのものではなくこの固定名に向けるための集約ジョブ（#229）。
+  # マトリクスを変更してもルールセット側の必須チェック設定を直さずに
+  # 済むようにする。test が1つでも失敗・キャンセル・スキップされたら
+  # 失敗にする。
+  ci-required:
+    name: ci-required
+    runs-on: ubuntu-latest
+    needs: [test]
+    if: always()
+    steps:
+      - name: testジョブの結果を確認
+        run: |
+          if [ "${{ needs.test.result }}" != "success" ]; then
+            echo "testジョブの結果がsuccessではありません: ${{ needs.test.result }}"
+            exit 1
+          fi
