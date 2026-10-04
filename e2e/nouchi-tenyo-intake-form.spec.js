@@ -48,3 +48,41 @@ test("建設業許可インテイクフォームから農地転用許可イン�
   await page.getByRole("link", { name: "→ 農地転用許可のインテイクフォームへ" }).click();
   await expect(page.locator("h1")).toHaveText("農地転用許可 申請者情報インテイク");
 });
+
+/**
+ * 下書き機能のE2E（Issue #228）。古物商許可のe2e/kobutsu-intake-form.spec.jsと
+ * 同じ位置づけ。農地転用許可でも「続きから入力」で自分の種別のフォームが開き、
+ * 配列行（資金調達内訳）を含めて値が復元されることを実ブラウザで確認する。
+ * 種別混在時の挙動（他種別を取り違えない・削除が他種別に影響しない）は
+ * e2e/kobutsu-intake-form.spec.jsに1テストとして追加済み。
+ */
+test("農地転用許可インテイクフォーム: 下書きとして保存→一覧→続きから入力で、資金調達内訳の行を含めて入力値が復元される", async ({
+  page,
+}) => {
+  await page.goto("/nouchi-tenyo");
+  await page.locator("#applicantName").fill("下書きE2Eテスト農地");
+  await page.locator("#landAreaSqm").fill("300");
+
+  await page.getByRole("button", { name: "＋ 資金調達区分を追加" }).click();
+  const rows = page.locator("#shikinChotatsuContainer .shikinChotatsu-row");
+  await rows.first().locator(".shikinChotatsu-kubun").fill("自己資金");
+  await rows.first().locator(".shikinChotatsu-amountYen").fill("1000000");
+
+  await page.getByRole("button", { name: "下書きとして保存" }).click();
+  await expect(page.locator(".saved-notice")).toBeVisible();
+  await expect(page.locator("#applicantName")).toHaveValue("下書きE2Eテスト農地");
+
+  // 保存した下書きが、農地転用許可の種別つきで一覧画面に表示される。
+  await page.goto("/drafts");
+  const draftRow = page.locator("tr", { hasText: "下書きE2Eテスト農地" });
+  await expect(draftRow).toContainText("農地転用許可");
+
+  // 「続きから入力」で農地転用許可のフォームに戻り、資金調達内訳の行を含めて値が復元される。
+  await draftRow.getByRole("link", { name: "続きから入力" }).click();
+  await expect(page.locator("h1")).toHaveText("農地転用許可 申請者情報インテイク");
+  await expect(page.locator("#applicantName")).toHaveValue("下書きE2Eテスト農地");
+  await expect(page.locator("#landAreaSqm")).toHaveValue("300");
+  await expect(rows).toHaveCount(1);
+  await expect(rows.first().locator(".shikinChotatsu-kubun")).toHaveValue("自己資金");
+  await expect(rows.first().locator(".shikinChotatsu-amountYen")).toHaveValue("1000000");
+});
