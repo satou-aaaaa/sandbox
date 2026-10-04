@@ -68,6 +68,12 @@ ${savedNoticeBlock}
   <section>
     <h2>1. 基本情報</h2>
     <label>申請者名（商号又は名称） <input type="text" id="applicantName" required></label>
+    <label>申請者区分（欠格要件第12号・第13号のどちらの号として判定するかに影響）
+      <select id="applicantType">
+        <option value="法人">法人</option>
+        <option value="個人">個人</option>
+      </select>
+    </label>
     <label>代表者氏名 <input type="text" id="representativeName"></label>
     <label>主たる営業所の所在地 <input type="text" id="address"></label>
     <label>許可行政庁（都道府県） <input type="text" id="prefecture"></label>
@@ -77,8 +83,14 @@ ${savedNoticeBlock}
 
   <section>
     <h2>2. 役員等の一覧（様式第六号用）</h2>
+    <p class="notice">役員ごとに欠格事由（建設業法第8条第12号）を確認する場合は、各行の「欠格事由の確認」を展開してください。未確認のまま送信すると、判定結果に「未確認」の警告が表示されます（欠格なしとして自動的に合格扱いにはしません）。</p>
     <div id="officersContainer"></div>
     <button type="button" id="addOfficerBtn">＋ 役員を追加</button>
+
+    <h3>令3条使用人の一覧（建設業法施行令第3条。支配人・支店/営業所の代表者）</h3>
+    <p class="notice">法人の場合は第12号、個人の場合は第13号の欠格事由判定に使用します（任意）。</p>
+    <div id="regulatoryEmployeesContainer"></div>
+    <button type="button" id="addRegulatoryEmployeeBtn">＋ 令3条使用人を追加</button>
   </section>
 
   <section>
@@ -150,6 +162,24 @@ ${savedNoticeBlock}
     <label><input type="checkbox" id="hasMentalImpairmentAffectingDuties"> 心身の故障により建設業を適正に営むことができないと認められる</label>
     <label><input type="checkbox" id="isControlledByBoryokudanMember"> 暴力団員等がその事業活動を支配する者である</label>
     <label><input type="checkbox" id="hasFalseOrOmittedStatement"> 申請書・添付書類に虚偽の記載、または重要な事実の記載漏れがある</label>
+
+    <fieldset class="row legal-rep-row">
+      <legend>未成年者の法定代理人（第11号）</legend>
+      <label><input type="checkbox" id="isMinor"> 申請者本人が未成年者である</label>
+      <label>法定代理人の氏名 <input type="text" id="legalRepresentativeName"></label>
+      <details class="legalRep-kekkaku-details">
+        <summary>法定代理人の欠格事由の確認（展開して入力）</summary>
+        <label><input type="checkbox" class="legalRep-kekkaku-confirmed"> 法定代理人の欠格事由を確認済み（未チェックの場合は「未確認」として扱われます）</label>
+        <label><input type="checkbox" class="legalRep-kekkaku-isUndischargedBankrupt"> 破産者で復権を得ていない</label>
+        <label><input type="checkbox" class="legalRep-kekkaku-hadLicenseRevokedWithin5Years"> 5年以内に建設業許可を取り消された経験がある</label>
+        <label><input type="checkbox" class="legalRep-kekkaku-hasWithdrawnLicenseDuringRevocationHearingWithin5Years"> 許可取消しの聴聞通知後、取消しを免れるため廃業届出をしてから5年を経過していない</label>
+        <label><input type="checkbox" class="legalRep-kekkaku-hasRevocationNoticeWithin60DaysAsOfficer"> 許可取消しの聴聞通知前60日以内に当該法人の役員等であった</label>
+        <label><input type="checkbox" class="legalRep-kekkaku-hasBusinessProhibitionOrderInEffect"> 営業禁止処分の禁止期間が経過していない</label>
+        <label><input type="checkbox" class="legalRep-kekkaku-hasCriminalRecordWithin5Years"> 拘禁刑以上の刑、または関連法令違反による罰金刑から5年を経過していない</label>
+        <label><input type="checkbox" class="legalRep-kekkaku-isBoryokudanMemberOrWithin5Years"> 暴力団員である、または脱退から5年を経過していない</label>
+        <label><input type="checkbox" class="legalRep-kekkaku-hasMentalImpairmentAffectingDuties"> 心身の故障により業務を適正に行うことができないと認められる</label>
+      </details>
+    </fieldset>
   </section>
 
   <section>
@@ -172,6 +202,38 @@ ${savedNoticeBlock}
     <input type="text" class="officer-name" placeholder="氏名" aria-label="役員の氏名">
     <input type="text" class="officer-title" placeholder="役名（例: 代表取締役）" aria-label="役員の役名">
     <input type="date" class="officer-birthDate" aria-label="役員の生年月日">
+    <details class="officer-kekkaku-details">
+      <summary>欠格事由の確認（展開して入力）</summary>
+      <label><input type="checkbox" class="officer-kekkaku-confirmed"> この役員の欠格事由を確認済み（未チェックの場合は「未確認」として扱われます）</label>
+      <label><input type="checkbox" class="officer-kekkaku-isUndischargedBankrupt"> 破産者で復権を得ていない</label>
+      <label><input type="checkbox" class="officer-kekkaku-hadLicenseRevokedWithin5Years"> 5年以内に建設業許可を取り消された経験がある</label>
+      <label><input type="checkbox" class="officer-kekkaku-hasWithdrawnLicenseDuringRevocationHearingWithin5Years"> 許可取消しの聴聞通知後、取消しを免れるため廃業届出をしてから5年を経過していない</label>
+      <label><input type="checkbox" class="officer-kekkaku-hasRevocationNoticeWithin60DaysAsOfficer"> 許可取消しの聴聞通知前60日以内に当該法人の役員等であった</label>
+      <label><input type="checkbox" class="officer-kekkaku-hasBusinessProhibitionOrderInEffect"> 営業禁止処分の禁止期間が経過していない</label>
+      <label><input type="checkbox" class="officer-kekkaku-hasCriminalRecordWithin5Years"> 拘禁刑以上の刑、または関連法令違反による罰金刑から5年を経過していない</label>
+      <label><input type="checkbox" class="officer-kekkaku-isBoryokudanMemberOrWithin5Years"> 暴力団員である、または脱退から5年を経過していない</label>
+      <label><input type="checkbox" class="officer-kekkaku-hasMentalImpairmentAffectingDuties"> 心身の故障により業務を適正に行うことができないと認められる</label>
+    </details>
+    <button type="button" class="removeRowBtn">削除</button>
+  </div>
+</template>
+
+<template id="regulatoryEmployeeRowTemplate">
+  <div class="row regulatory-employee-row">
+    <input type="text" class="employee-name" placeholder="氏名" aria-label="令3条使用人の氏名">
+    <input type="text" class="employee-title" placeholder="役職・地位（例: 支店長）" aria-label="令3条使用人の役職・地位">
+    <details class="employee-kekkaku-details">
+      <summary>欠格事由の確認（展開して入力）</summary>
+      <label><input type="checkbox" class="employee-kekkaku-confirmed"> この使用人の欠格事由を確認済み（未チェックの場合は「未確認」として扱われます）</label>
+      <label><input type="checkbox" class="employee-kekkaku-isUndischargedBankrupt"> 破産者で復権を得ていない</label>
+      <label><input type="checkbox" class="employee-kekkaku-hadLicenseRevokedWithin5Years"> 5年以内に建設業許可を取り消された経験がある</label>
+      <label><input type="checkbox" class="employee-kekkaku-hasWithdrawnLicenseDuringRevocationHearingWithin5Years"> 許可取消しの聴聞通知後、取消しを免れるため廃業届出をしてから5年を経過していない</label>
+      <label><input type="checkbox" class="employee-kekkaku-hasRevocationNoticeWithin60DaysAsOfficer"> 許可取消しの聴聞通知前60日以内に当該法人の役員等であった</label>
+      <label><input type="checkbox" class="employee-kekkaku-hasBusinessProhibitionOrderInEffect"> 営業禁止処分の禁止期間が経過していない</label>
+      <label><input type="checkbox" class="employee-kekkaku-hasCriminalRecordWithin5Years"> 拘禁刑以上の刑、または関連法令違反による罰金刑から5年を経過していない</label>
+      <label><input type="checkbox" class="employee-kekkaku-isBoryokudanMemberOrWithin5Years"> 暴力団員である、または脱退から5年を経過していない</label>
+      <label><input type="checkbox" class="employee-kekkaku-hasMentalImpairmentAffectingDuties"> 心身の故障により業務を適正に行うことができないと認められる</label>
+    </details>
     <button type="button" class="removeRowBtn">削除</button>
   </div>
 </template>
@@ -254,6 +316,9 @@ const STYLE = `
   .row input, .row select { width: auto; }
   fieldset.row { display: block; }
   fieldset.row label { display: inline-block; margin-right: 12px; }
+  details { width: 100%; margin: 6px 0; }
+  details summary { cursor: pointer; }
+  details label { margin: 4px 0 4px 16px; }
   button { cursor: pointer; }
   .actions { display: flex; gap: 10px; align-items: center; margin-top: 8px; }
   button.primary { font-size: 1.05em; padding: 10px 20px; }
@@ -264,6 +329,55 @@ const STYLE = `
 `;
 
 const CLIENT_SCRIPT = `
+// PersonKekkakuInput（役員・令3条使用人・法定代理人1名分の欠格事由）の
+// フィールド一覧。役員行・令3条使用人行・法定代理人ブロックの3箇所で
+// 同じ8項目を扱うため、チェックボックスのクラス名サフィックスとして
+// 共有する（src/licenses/construction/eligibility/types.js のPersonKekkakuInput
+// と対応。第5号〈営業停止命令〉・第14号〈暴力団員等による事業支配〉は
+// 法人・個人事業主本体に対する処分のためこの一覧には含まれない）。
+const PERSON_KEKKAKU_FIELDS = [
+  "isUndischargedBankrupt",
+  "hadLicenseRevokedWithin5Years",
+  "hasWithdrawnLicenseDuringRevocationHearingWithin5Years",
+  "hasRevocationNoticeWithin60DaysAsOfficer",
+  "hasBusinessProhibitionOrderInEffect",
+  "hasCriminalRecordWithin5Years",
+  "isBoryokudanMemberOrWithin5Years",
+  "hasMentalImpairmentAffectingDuties",
+];
+
+// 人物1名分の欠格事由（PersonKekkakuInput）を収集する。
+// 「欠格事由を確認済み」チェックボックス（<prefix>-confirmed）が未チェックの
+// 場合は、個々のチェックボックスの状態に関わらず undefined を返す。
+// これにより、未確認の人物を「欠格事由なし（全項目false）」として
+// 自動的に合格扱いにしてしまうことを防ぐ（CLAUDE.mdの「判定ロジックの
+// 合否そのものを曖昧にフォールバックさせない」方針。kekkaku.js側の
+// 「未入力ならwarningを出す」挙動と対になる）。
+// @param {Element} scopeEl 行(.row)やdocument等、対象のチェックボックス群を含む要素
+// @param {string} prefix クラス名の接頭辞（例: "officer-kekkaku"）
+function collectPersonKekkaku(scopeEl, prefix) {
+  const confirmedEl = scopeEl.querySelector("." + prefix + "-confirmed");
+  if (!confirmedEl || !confirmedEl.checked) return undefined;
+  const result = {};
+  PERSON_KEKKAKU_FIELDS.forEach((field) => {
+    result[field] = scopeEl.querySelector("." + prefix + "-" + field).checked;
+  });
+  return result;
+}
+
+// collectPersonKekkaku の逆関数（下書きからの復元用）。
+// @param {Element} scopeEl
+// @param {string} prefix
+// @param {Object|undefined} kekkaku
+function fillPersonKekkaku(scopeEl, prefix, kekkaku) {
+  const confirmedEl = scopeEl.querySelector("." + prefix + "-confirmed");
+  if (!confirmedEl) return;
+  confirmedEl.checked = !!kekkaku;
+  PERSON_KEKKAKU_FIELDS.forEach((field) => {
+    scopeEl.querySelector("." + prefix + "-" + field).checked = !!(kekkaku && kekkaku[field]);
+  });
+}
+
 function addRow(containerId, templateId) {
   const template = document.getElementById(templateId);
   const container = document.getElementById(containerId);
@@ -279,6 +393,10 @@ document.getElementById("addOfficerBtn").addEventListener("click", () => {
   addRow("officersContainer", "officerRowTemplate");
   refreshMissingFieldsPanel();
 });
+document.getElementById("addRegulatoryEmployeeBtn").addEventListener("click", () => {
+  addRow("regulatoryEmployeesContainer", "regulatoryEmployeeRowTemplate");
+  refreshMissingFieldsPanel();
+});
 document.getElementById("addOfficeBtn").addEventListener("click", () => {
   addRow("officesContainer", "officeRowTemplate");
   refreshMissingFieldsPanel();
@@ -292,6 +410,13 @@ function fillOfficerRow(row, officer) {
   row.querySelector(".officer-name").value = officer.name || "";
   row.querySelector(".officer-title").value = officer.title || "";
   row.querySelector(".officer-birthDate").value = officer.birthDate || "";
+  fillPersonKekkaku(row, "officer-kekkaku", officer.kekkaku);
+}
+
+function fillRegulatoryEmployeeRow(row, employee) {
+  row.querySelector(".employee-name").value = employee.name || "";
+  row.querySelector(".employee-title").value = employee.title || "";
+  fillPersonKekkaku(row, "employee-kekkaku", employee.kekkaku);
 }
 
 function fillOfficeRow(row, office) {
@@ -331,6 +456,15 @@ if (officers.length > 0) {
   addRow("officersContainer", "officerRowTemplate");
 }
 
+// 令3条使用人は役員・営業所と異なり任意項目のため、新規入力時に空行を
+// 1件も用意しない（工事経歴・完成工事原価の任意項目と同じ方針）。
+const regulatoryEmployees = (INITIAL_PROFILE && INITIAL_PROFILE.regulatoryEmployees) || [];
+regulatoryEmployees.forEach((employee) => {
+  addRow("regulatoryEmployeesContainer", "regulatoryEmployeeRowTemplate");
+  const rows = document.querySelectorAll("#regulatoryEmployeesContainer .regulatory-employee-row");
+  fillRegulatoryEmployeeRow(rows[rows.length - 1], employee);
+});
+
 const offices = (INITIAL_PROFILE && INITIAL_PROFILE.senninGijutsushaList) || [];
 if (offices.length > 0) {
   offices.forEach((office) => {
@@ -362,6 +496,7 @@ if (INITIAL_PROFILE) {
   const s = p.seijitsusei || {};
 
   setVal("applicantName", p.applicantName);
+  setVal("applicantType", p.applicantType || "法人");
   setVal("representativeName", p.representativeName);
   setVal("address", p.address);
   setVal("prefecture", p.prefecture);
@@ -399,6 +534,9 @@ if (INITIAL_PROFILE) {
   setChecked("hasMentalImpairmentAffectingDuties", kk.hasMentalImpairmentAffectingDuties);
   setChecked("isControlledByBoryokudanMember", kk.isControlledByBoryokudanMember);
   setChecked("hasFalseOrOmittedStatement", kk.hasFalseOrOmittedStatement);
+  setChecked("isMinor", kk.isMinor);
+  setVal("legalRepresentativeName", kk.legalRepresentativeName);
+  fillPersonKekkaku(document, "legalRep-kekkaku", kk.legalRepresentativeKekkaku);
 
   setChecked("hasNoDishonestActRisk", s.hasNoDishonestActRisk);
   setVal("seijitsuseiNotes", s.notes);
@@ -420,6 +558,15 @@ function collectOfficers() {
     name: row.querySelector(".officer-name").value,
     title: row.querySelector(".officer-title").value,
     birthDate: row.querySelector(".officer-birthDate").value || undefined,
+    kekkaku: collectPersonKekkaku(row, "officer-kekkaku"),
+  }));
+}
+
+function collectRegulatoryEmployees() {
+  return Array.from(document.querySelectorAll("#regulatoryEmployeesContainer .regulatory-employee-row")).map((row) => ({
+    name: row.querySelector(".employee-name").value,
+    title: row.querySelector(".employee-title").value || undefined,
+    kekkaku: collectPersonKekkaku(row, "employee-kekkaku"),
   }));
 }
 
@@ -473,12 +620,14 @@ function buildProfile() {
 
   return {
     applicantName: document.getElementById("applicantName").value,
+    applicantType: document.getElementById("applicantType").value,
     representativeName: str("representativeName"),
     address: str("address"),
     prefecture: str("prefecture"),
     applicationDate: str("applicationDate"),
     constructionTypes,
     officers: collectOfficers(),
+    regulatoryEmployees: collectRegulatoryEmployees(),
     constructionHistory: collectConstructionHistory(),
     completedConstructionCost: {
       materialCost: num("ccMaterialCost"),
@@ -524,6 +673,9 @@ function buildProfile() {
       hasMentalImpairmentAffectingDuties: checked("hasMentalImpairmentAffectingDuties"),
       isControlledByBoryokudanMember: checked("isControlledByBoryokudanMember"),
       hasFalseOrOmittedStatement: checked("hasFalseOrOmittedStatement"),
+      isMinor: checked("isMinor"),
+      legalRepresentativeName: str("legalRepresentativeName"),
+      legalRepresentativeKekkaku: collectPersonKekkaku(document, "legalRep-kekkaku"),
     },
     seijitsusei: {
       hasNoDishonestActRisk: checked("hasNoDishonestActRisk"),
@@ -547,7 +699,16 @@ function computeMissingFieldLabels() {
   document.querySelectorAll("#officersContainer .officer-row").forEach((row, i) => {
     if (!row.querySelector(".officer-name").value.trim()) missing.push("役員 " + (i + 1) + " の氏名");
     if (!row.querySelector(".officer-title").value.trim()) missing.push("役員 " + (i + 1) + " の役名");
+    if (!row.querySelector(".officer-kekkaku-confirmed").checked) missing.push("役員 " + (i + 1) + " の欠格事由の確認");
   });
+  document.querySelectorAll("#regulatoryEmployeesContainer .regulatory-employee-row").forEach((row, i) => {
+    if (!row.querySelector(".employee-name").value.trim()) missing.push("令3条使用人 " + (i + 1) + " の氏名");
+    if (!row.querySelector(".employee-kekkaku-confirmed").checked) missing.push("令3条使用人 " + (i + 1) + " の欠格事由の確認");
+  });
+  if (document.getElementById("isMinor").checked) {
+    if (!document.getElementById("legalRepresentativeName").value.trim()) missing.push("法定代理人の氏名");
+    if (!document.querySelector(".legalRep-kekkaku-confirmed").checked) missing.push("法定代理人の欠格事由の確認");
+  }
   document.querySelectorAll("#officesContainer .office-row").forEach((row, i) => {
     const label = row.querySelector(".office-officeName").value.trim() || "営業所 " + (i + 1);
     if (!row.querySelector(".office-officeName").value.trim()) missing.push("営業所 " + (i + 1) + " の営業所名");

@@ -12,6 +12,23 @@ import assert from "node:assert/strict";
 import { JSDOM } from "jsdom";
 import { renderFormPage } from "../src/web/formPage.js";
 import { buildSampleApplicantProfile } from "../scripts/sampleProfile.js";
+import { checkKekkaku } from "../src/licenses/construction/eligibility/rules/kekkaku.js";
+
+/**
+ * PersonKekkakuInput（役員・令3条使用人・法定代理人1名分の欠格事由）の
+ * 8項目。formPage.js の CLIENT_SCRIPT 内 PERSON_KEKKAKU_FIELDS と同じ一覧
+ * （src/licenses/construction/eligibility/types.js のPersonKekkakuInput参照）。
+ */
+const PERSON_KEKKAKU_FIELDS = [
+  "isUndischargedBankrupt",
+  "hadLicenseRevokedWithin5Years",
+  "hasWithdrawnLicenseDuringRevocationHearingWithin5Years",
+  "hasRevocationNoticeWithin60DaysAsOfficer",
+  "hasBusinessProhibitionOrderInEffect",
+  "hasCriminalRecordWithin5Years",
+  "isBoryokudanMemberOrWithin5Years",
+  "hasMentalImpairmentAffectingDuties",
+];
 
 /**
  * renderFormPage() のHTMLを実際に<script>込みで実行し、window（グローバル関数群）を返す。
@@ -107,6 +124,7 @@ test("buildProfile: 下書きから復元したプロフィールをそのまま
   const rebuilt = toPlain(buildProfile());
 
   assert.equal(rebuilt.applicantName, sample.applicantName);
+  assert.equal(rebuilt.applicantType, sample.applicantType);
   assert.equal(rebuilt.representativeName, sample.representativeName);
   assert.deepEqual(rebuilt.constructionTypes, sample.constructionTypes);
 
@@ -115,6 +133,14 @@ test("buildProfile: 下書きから復元したプロフィールをそのまま
     assert.equal(rebuilt.officers[i].name, officer.name);
     assert.equal(rebuilt.officers[i].title, officer.title);
     assert.equal(rebuilt.officers[i].birthDate, officer.birthDate);
+    assert.deepEqual(rebuilt.officers[i].kekkaku, officer.kekkaku);
+  });
+
+  assert.equal(rebuilt.regulatoryEmployees.length, sample.regulatoryEmployees.length);
+  sample.regulatoryEmployees.forEach((employee, i) => {
+    assert.equal(rebuilt.regulatoryEmployees[i].name, employee.name);
+    assert.equal(rebuilt.regulatoryEmployees[i].title, employee.title);
+    assert.deepEqual(rebuilt.regulatoryEmployees[i].kekkaku, employee.kekkaku);
   });
 
   assert.equal(rebuilt.senninGijutsushaList.length, sample.senninGijutsushaList.length);
@@ -129,7 +155,14 @@ test("buildProfile: 下書きから復元したプロフィールをそのまま
   assert.deepEqual(rebuilt.completedConstructionCost, sample.completedConstructionCost);
   assert.deepEqual(rebuilt.keieiGyomuKanri, sample.keieiGyomuKanri);
   assert.deepEqual(rebuilt.zaisanKiso, sample.zaisanKiso);
-  assert.deepEqual(rebuilt.kekkaku, sample.kekkaku);
+  // sample.kekkaku は isMinor/legalRepresentativeKekkaku を含まない（未成年者ではない
+  // 申請者のサンプルのため）。buildProfile()は常にisMinorを明示的なbooleanとして
+  // 送るため、個別キーで比較する（深い等価比較だとキー集合の差で失敗する）。
+  Object.keys(sample.kekkaku).forEach((key) => {
+    assert.equal(rebuilt.kekkaku[key], sample.kekkaku[key], `kekkaku.${key}`);
+  });
+  assert.equal(rebuilt.kekkaku.isMinor, false);
+  assert.equal(rebuilt.kekkaku.legalRepresentativeKekkaku, undefined);
   assert.equal(rebuilt.seijitsusei.hasNoDishonestActRisk, sample.seijitsusei.hasNoDishonestActRisk);
 });
 
@@ -151,6 +184,7 @@ test("missingFieldsPanel: 必須項目をすべて入力するとパネルが非
   document.getElementById("responsibleName").value = "山田 太郎";
   document.querySelector("#officersContainer .officer-name").value = "山田 太郎";
   document.querySelector("#officersContainer .officer-title").value = "代表取締役";
+  document.querySelector("#officersContainer .officer-kekkaku-confirmed").checked = true;
   document.querySelector("#officesContainer .office-officeName").value = "本店";
   document.querySelector("#officesContainer .office-personName").value = "佐藤 一郎";
 
@@ -171,4 +205,141 @@ test("missingFieldsPanel: 工事名等に<を含む値を入れてもHTMLタグ�
   const panel = document.getElementById("missingFieldsPanel");
   assert.ok(!panel.querySelector("img"));
   assert.match(panel.innerHTML, /&lt;img/);
+});
+
+/**
+ * Issue #227 の受け入れ条件6（重要）: 役員・令3条使用人・法定代理人の
+ * 欠格事由は、「欠格事由の確認」チェックボックス（<prefix>-confirmed）を
+ * 明示的にチェックしない限り、個々の項目チェックボックスの状態（すべて
+ * 未チェック=false）に関わらず `kekkaku` を undefined として送る。
+ * これにより、未入力の人物を「欠格なし（全項目false）」として自動的に
+ * 合格扱いにしてしまうことを防ぐ（CLAUDE.mdの「判定の合否を曖昧に
+ * フォールバックさせない」方針。rules/kekkaku.js側の
+ * `officers?.length && officers.every((o) => !o.kekkaku)` による
+ * warning判定が、buildProfile()側の挙動次第で機能しなくなる回帰を防止する）。
+ */
+test("buildProfile: 役員の「欠格事由の確認」をチェックしないまま送信すると、officers[].kekkakuはundefinedになり自動的に合格扱いにならない", () => {
+  const { document, buildProfile } = loadFormWindow();
+  document.querySelector("#officersContainer .officer-name").value = "山田 太郎";
+  document.querySelector("#officersContainer .officer-title").value = "代表取締役";
+  // .officer-kekkaku-confirmed は意図的にチェックしない（未確認の状態を再現）。
+
+  const profile = buildProfile();
+  assert.equal(profile.officers[0].kekkaku, undefined);
+
+  const check = checkKekkaku(profile.kekkaku, profile.officers, profile.regulatoryEmployees, profile.applicantType);
+  assert.equal(check.passed, true); // 不合格に誤ってフォールバックするのでもない
+  assert.ok(
+    check.warnings.some((w) => w.includes("役員の欠格事由") && w.includes("未入力")),
+    `warningsに未確認の旨が含まれない: ${JSON.stringify(check.warnings)}`
+  );
+});
+
+test("buildProfile: 令3条使用人の「欠格事由の確認」をチェックしないまま送信すると、regulatoryEmployees[].kekkakuはundefinedになる", () => {
+  const { document, buildProfile } = loadFormWindow();
+  document.getElementById("addRegulatoryEmployeeBtn").click();
+  const row = document.querySelector("#regulatoryEmployeesContainer .regulatory-employee-row");
+  row.querySelector(".employee-name").value = "田中 次郎";
+  // .employee-kekkaku-confirmed は意図的にチェックしない。
+
+  const profile = buildProfile();
+  assert.equal(profile.regulatoryEmployees[0].kekkaku, undefined);
+
+  const check = checkKekkaku(profile.kekkaku, profile.officers, profile.regulatoryEmployees, profile.applicantType);
+  assert.ok(
+    check.warnings.some((w) => w.includes("政令で定める使用人の欠格事由") && w.includes("未入力")),
+    `warningsに未確認の旨が含まれない: ${JSON.stringify(check.warnings)}`
+  );
+});
+
+test("buildProfile: isMinorをチェックしても法定代理人の「欠格事由の確認」をチェックしなければlegalRepresentativeKekkakuはundefinedのままになる", () => {
+  const { document, buildProfile } = loadFormWindow();
+  document.getElementById("isMinor").checked = true;
+  document.getElementById("legalRepresentativeName").value = "山田 一郎";
+  // .legalRep-kekkaku-confirmed は意図的にチェックしない。
+
+  const profile = buildProfile();
+  assert.equal(profile.kekkaku.isMinor, true);
+  assert.equal(profile.kekkaku.legalRepresentativeKekkaku, undefined);
+
+  const check = checkKekkaku(profile.kekkaku, profile.officers, profile.regulatoryEmployees, profile.applicantType);
+  assert.ok(
+    check.warnings.some((w) => w.includes("法定代理人の欠格事由") && w.includes("未入力")),
+    `warningsに未確認の旨が含まれない: ${JSON.stringify(check.warnings)}`
+  );
+});
+
+/**
+ * Issue #227 の受け入れ条件6: 人物ごとの欠格事由8項目を単独でtrueにした
+ * 場合に、その項目だけがtrueとして反映され、他の項目はfalse（明示的な
+ * 「該当しない」回答）になることを確認する。
+ * @param {string} prefix チェックボックスのクラス名接頭辞
+ * @param {(doc: Document) => Element} getScope 対象行/要素を取得する関数
+ * @param {(profile: object) => object | undefined} getKekkaku buildProfile()の結果からkekkakuを取り出す関数
+ */
+function assertEachPersonKekkakuFieldRoundTrips(prefix, getScope, getKekkaku) {
+  PERSON_KEKKAKU_FIELDS.forEach((field) => {
+    const { document, buildProfile } = loadFormWindow();
+    const scope = getScope(document);
+    scope.querySelector("." + prefix + "-confirmed").checked = true;
+    scope.querySelector("." + prefix + "-" + field).checked = true;
+
+    const kekkaku = getKekkaku(buildProfile());
+    PERSON_KEKKAKU_FIELDS.forEach((other) => {
+      assert.equal(kekkaku[other], other === field, `${field}のみチェック時の${other}の値`);
+    });
+  });
+}
+
+test("buildProfile: 役員の欠格事由8項目をそれぞれ単独でチェックすると、その項目だけがtrueになる", () => {
+  assertEachPersonKekkakuFieldRoundTrips(
+    "officer-kekkaku",
+    (document) => document.querySelector("#officersContainer .officer-row"),
+    (profile) => profile.officers[0].kekkaku
+  );
+});
+
+test("buildProfile: 令3条使用人の欠格事由8項目をそれぞれ単独でチェックすると、その項目だけがtrueになる", () => {
+  assertEachPersonKekkakuFieldRoundTrips(
+    "employee-kekkaku",
+    (document) => {
+      document.getElementById("addRegulatoryEmployeeBtn").click();
+      return document.querySelector("#regulatoryEmployeesContainer .regulatory-employee-row");
+    },
+    (profile) => profile.regulatoryEmployees[0].kekkaku
+  );
+});
+
+test("buildProfile: 法定代理人の欠格事由8項目をそれぞれ単独でチェックすると、その項目だけがtrueになる", () => {
+  assertEachPersonKekkakuFieldRoundTrips(
+    "legalRep-kekkaku",
+    (document) => document,
+    (profile) => profile.kekkaku.legalRepresentativeKekkaku
+  );
+});
+
+test("buildProfile: 下書きから役員・令3条使用人・法定代理人の欠格事由を復元すると元の内容が再現される（往復確認）", () => {
+  const sample = buildSampleApplicantProfile();
+  sample.kekkaku.isMinor = true;
+  sample.kekkaku.legalRepresentativeName = "山田 一郎";
+  sample.kekkaku.legalRepresentativeKekkaku = { isUndischargedBankrupt: true, hasCriminalRecordWithin5Years: true };
+
+  const { buildProfile } = loadFormWindow({ profile: sample });
+  const rebuilt = toPlain(buildProfile());
+
+  assert.deepEqual(rebuilt.officers[0].kekkaku, sample.officers[0].kekkaku);
+  assert.deepEqual(rebuilt.officers[1].kekkaku, sample.officers[1].kekkaku);
+  assert.deepEqual(rebuilt.regulatoryEmployees[0].kekkaku, sample.regulatoryEmployees[0].kekkaku);
+  assert.equal(rebuilt.kekkaku.isMinor, true);
+  assert.equal(rebuilt.kekkaku.legalRepresentativeName, sample.kekkaku.legalRepresentativeName);
+  assert.deepEqual(rebuilt.kekkaku.legalRepresentativeKekkaku, {
+    isUndischargedBankrupt: true,
+    hadLicenseRevokedWithin5Years: false,
+    hasWithdrawnLicenseDuringRevocationHearingWithin5Years: false,
+    hasRevocationNoticeWithin60DaysAsOfficer: false,
+    hasBusinessProhibitionOrderInEffect: false,
+    hasCriminalRecordWithin5Years: true,
+    isBoryokudanMemberOrWithin5Years: false,
+    hasMentalImpairmentAffectingDuties: false,
+  });
 });
