@@ -346,7 +346,10 @@ BtoB下請けポータル・会社設立サポートとも異なり、判定す�
   一方、CSVのインポート（`scripts/import-clients-csv.js`）は2026年9月に
   `importClients`へ切り替え、既存クライアントの`<種別>Detail`・CSVに無い既存の
   許可を削除せずマージする（従来は`upsertClient`で丸ごと置換され、Detailが
-  黙って消えていた。#74）
+  黙って消えていた。#74）。なお、別のPC等への**データ移行**には
+  `npm run data:backup` / `npm run data:restore`（世代バックアップ。
+  `docs/DEVELOPMENT_GUIDE.md`参照）を使うこと。こちらは`data/clients.json`
+  をそのまま保全するため`<種別>Detail`も失われない（#235）
   （2026年9月・`scripts/add-client.js`が`--license-category`と
   種別ごとの詳細フラグに対応済み。`npm run client:add -- --help`相当は
   無いため、スクリプト冒頭のコメントで使い方を確認すること）
