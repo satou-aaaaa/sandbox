@@ -87,6 +87,7 @@
     "succession:reminders": "node scripts/succession-reminders.js",
     "web": "node src/web/server.js",
     "changelog:draft": "node scripts/changelog-draft.mjs",
+    "changelog:aggregate": "node scripts/aggregate-changelog.mjs",
     "scaffold:module": "node scripts/scaffold-module.mjs",
     "reminders:daily": "node scripts/reminders-daily.js",
     "gen:review-pack": "node scripts/generate-review-pack-sample.js",

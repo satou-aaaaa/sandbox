@@ -141,6 +141,7 @@ npm run typecheck           # tsc --noEmit（JSDoc型チェック）
 npm run lint                # ESLint（eslint-plugin-securityによる静的セキュリティ解析を含む）
 npm run scaffold:module -- <名前> "<和名>"   # 新しい許可種別アドオンの雛形（判定ロジックは作らない）
 npm run changelog:draft     # CHANGELOG用の下書きをgit履歴から標準出力へ（人が編集して取り込む）
+npm run changelog:aggregate -- --section "## 見出し"  # changelog.d/*.md の断片をCHANGELOG.mdへ集約（取り込み後は断片を削除。詳細はDEVELOPMENT_GUIDE.md 3.6）
 npm run reminders:daily     # 期限の日次点検。全文は out/ にだけ保存、標準出力は件数と最短期限のみ（名前は出さない）
 npm run gen:review-pack     # 押印前レビューパック（判定理由・警告・期限を1枚のdocxに）のサンプル出力
 ```
