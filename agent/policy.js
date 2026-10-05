@@ -1690,6 +1690,8 @@ export const LABEL_REPORT = "agent-report";
  *   majorUpdates?: MajorUpdate[],
  *   quality?: ReturnType<typeof computeQuality>,
  *   tokenDaysLeft?: number | null,
+ *   metrics?: ReturnType<typeof aggregateMetrics>,
+ *   stagnantReady?: number,
  * }} ReportData
  */
 
@@ -1738,7 +1740,7 @@ export function detectAuthFailure(text) {
  */
 export function reportSeverity(d) {
   if (d.incidents.length > 0 || d.breaker || d.selftest?.ok === false) return "incident";
-  if (d.needsHuman.length > 0 || d.needsReview.length > 0 || d.failing.length > 0 || d.reverted > 0 || (d.stalePrs?.length ?? 0) > 0 || tokenNeedsAction(d.tokenDaysLeft)) return "attention";
+  if (d.needsHuman.length > 0 || d.needsReview.length > 0 || d.failing.length > 0 || d.reverted > 0 || (d.stalePrs?.length ?? 0) > 0 || (d.stagnantReady ?? 0) > 0 || tokenNeedsAction(d.tokenDaysLeft)) return "attention";
   return "ok";
 }
 
@@ -1834,6 +1836,7 @@ export function buildReport(d) {
     if (d.failing.length) lines.push(`- CIが失敗しているエージェントのPR ${d.failing.length}件（自己修復の対象）:`, itemList(d.failing));
     if (d.reverted > 0) lines.push(`- 期間内に ${d.reverted} 件が取り消されました（理由は各リバートPRを参照）`);
     if (d.stalePrs?.length) lines.push(`- ${STALE_PR_DAYS}日以上たっても承認・マージされていないPR ${d.stalePrs.length}件:`, stalePrList(d.stalePrs));
+    if (d.stagnantReady) lines.push(`- ${STAGNANT_READY_DAYS}日以上着手されない作業待ちIssue（agent-ready）が ${d.stagnantReady}件あります（次のサイクルで自動的に人手へ回します）`);
     if (tokenNeedsAction(d.tokenDaysLeft)) lines.push(`- ${tokenWarning(/** @type {number} */ (d.tokenDaysLeft))}`);
     lines.push("");
   }
@@ -1854,6 +1857,7 @@ export function buildReport(d) {
     const body = buildQualityMarkdown(d.quality).replace("## エージェントの品質指標（累計）", "### エージェントの品質指標（累計）");
     lines.push("", body.slice(0, body.lastIndexOf("\n\n_GitHub")));
   }
+  if (d.metrics && d.metrics.length > 0) lines.push("", buildMetricsMarkdown(d.metrics));
   lines.push("", "_自動集計（GitHubの状態から決定的に作成。LLM不使用）_");
   return lines.join("\n");
 }
@@ -2128,4 +2132,102 @@ export function formatBriefComment(brief) {
     "---",
     "判断したら、選んだ案をこのIssueにコメントするか、`/agent retry` で実装に回す場合は内容を具体化してください。資料を作り直すには `agent-briefed` ラベルを外してください。",
   ].join("\n");
+}
+
+// ---------------------------------------------------------------------------
+// ループの自己計測と停滞検知（ADR-0017 Amendment 35）
+//
+// 法令根拠は無い（運用ツールの内部ロジック）。サイクルの各ステップの所要時間・成否を記録して推移を見える化し、
+// 進まないまま放置された作業待ちIssueを人手に回す。どちらもLLMを使わない決定的な処理。
+// ---------------------------------------------------------------------------
+
+/** 作業待ち（agent-ready）のまま、この日数を超えて更新が無ければ「停滞」とみなす。日次上限による順番待ちを誤検知しない長さ。 */
+export const STAGNANT_READY_DAYS = 7;
+
+/**
+ * 作業待ち（`agent-ready`）のまま、更新されずに放置された停滞Issueか。
+ * 処理中・完了・人手待ち・対象外のラベルが付いていれば、停滞ではない。
+ * @param {{labels: {name: string}[], updatedAt: string}} issue
+ * @param {number} now
+ * @param {number} [thresholdDays]
+ * @returns {boolean}
+ */
+export function isStagnantReady(issue, now, thresholdDays = STAGNANT_READY_DAYS) {
+  const names = issue.labels.map((l) => l.name);
+  if (!names.includes(LABEL_READY)) return false;
+  if ([LABEL_WORKING, LABEL_DONE, LABEL_NEEDS_HUMAN, LABEL_SKIP].some((n) => names.includes(n))) return false;
+  const updated = Date.parse(issue.updatedAt);
+  return Number.isFinite(updated) && now - updated > thresholdDays * 24 * 60 * 60 * 1000;
+}
+
+/**
+ * @typedef {{at: string, step: string, ms: number, ok: boolean, usageLimit: boolean}} MetricEntry
+ */
+
+/**
+ * サイクルの1ステップの実行結果を、記録用の1行にする。
+ * @param {{step: string, startedMs: number, endedMs: number, status: number | null, output: string}} r
+ * @returns {MetricEntry}
+ */
+export function buildMetricEntry(r) {
+  return {
+    at: new Date(r.endedMs).toISOString(),
+    step: r.step,
+    ms: Math.max(0, Math.round(r.endedMs - r.startedMs)),
+    ok: r.status === 0,
+    usageLimit: detectUsageLimit(r.output),
+  };
+}
+
+/**
+ * 記録（JSON Lines）の本文を読み、壊れた行は無視して配列にする。
+ * @param {string} text
+ * @returns {MetricEntry[]}
+ */
+export function parseMetricLines(text) {
+  /** @type {MetricEntry[]} */
+  const out = [];
+  for (const line of text.split("\n")) {
+    try {
+      const e = JSON.parse(line);
+      if (typeof e.step === "string" && Number.isFinite(e.ms) && typeof e.at === "string") out.push(e);
+    } catch {
+      /* 壊れた行は無視する */
+    }
+  }
+  return out;
+}
+
+/**
+ * 期間内の記録を、ステップ別に集計する（実行回数・失敗回数・利用枠逼迫回数・平均/最大所要時間）。
+ * @param {MetricEntry[]} entries
+ * @param {number} sinceMs この時刻（ミリ秒）以降だけを対象にする
+ * @returns {{step: string, runs: number, failures: number, throttled: number, avgMs: number, maxMs: number}[]} 失敗の多い順
+ */
+export function aggregateMetrics(entries, sinceMs) {
+  const by = new Map();
+  for (const e of entries) {
+    if (!(Date.parse(e.at) >= sinceMs)) continue;
+    const a = by.get(e.step) ?? { step: e.step, runs: 0, failures: 0, throttled: 0, totalMs: 0, maxMs: 0 };
+    a.runs++;
+    if (!e.ok) a.failures++;
+    if (e.usageLimit) a.throttled++;
+    a.totalMs += e.ms;
+    a.maxMs = Math.max(a.maxMs, e.ms);
+    by.set(e.step, a);
+  }
+  return [...by.values()]
+    .map(({ totalMs, ...a }) => ({ ...a, avgMs: Math.round(totalMs / a.runs) }))
+    .sort((a, b) => b.failures - a.failures || b.avgMs - a.avgMs);
+}
+
+/**
+ * ステップ別の集計を、レポート用のMarkdownにする。
+ * @param {ReturnType<typeof aggregateMetrics>} agg
+ * @returns {string}
+ */
+export function buildMetricsMarkdown(agg) {
+  const sec = (/** @type {number} */ ms) => `${(ms / 1000).toFixed(1)}秒`;
+  const rows = agg.map((a) => `| ${a.step} | ${a.runs} | ${a.failures} | ${a.throttled} | ${sec(a.avgMs)} | ${sec(a.maxMs)} |`);
+  return ["### ステップ別の実行状況", "| ステップ | 実行 | 失敗 | 利用枠逼迫 | 平均 | 最大 |", "|---|---|---|---|---|---|", ...rows].join("\n");
 }

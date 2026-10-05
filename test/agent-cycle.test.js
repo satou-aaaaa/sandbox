@@ -147,3 +147,49 @@ test("releaseLock: 他プロセスのロックは解放しない", () => {
     rmSync(dir, { recursive: true, force: true });
   }
 });
+
+// --- ループの自己計測と停滞検知（ADR-0017 Amendment 35） ---
+import { STAGNANT_READY_DAYS, aggregateMetrics, buildMetricEntry, buildMetricsMarkdown, isStagnantReady, parseMetricLines } from "../agent/policy.js";
+
+const DAY = 24 * 60 * 60 * 1000;
+const issue = (labels, ageDays) => ({ labels: labels.map((name) => ({ name })), updatedAt: new Date(NOW - ageDays * DAY).toISOString() });
+
+test("isStagnantReady: agent-ready のまま7日を超えたものだけ停滞", () => {
+  assert.equal(isStagnantReady(issue(["agent-ready"], STAGNANT_READY_DAYS + 1), NOW), true);
+  assert.equal(isStagnantReady(issue(["agent-ready"], STAGNANT_READY_DAYS - 1), NOW), false);
+});
+
+test("isStagnantReady: 処理中・人手待ち・対象外・ready無しは停滞ではない", () => {
+  for (const other of ["agent-working", "agent-needs-human", "agent-skip", "agent-done"]) {
+    assert.equal(isStagnantReady(issue(["agent-ready", other], 30), NOW), false, other);
+  }
+  assert.equal(isStagnantReady(issue(["bug"], 30), NOW), false);
+  assert.equal(isStagnantReady({ labels: [{ name: "agent-ready" }], updatedAt: "壊れた日時" }, NOW), false);
+});
+
+test("buildMetricEntry: 所要時間・成否・利用枠逼迫を記録する", () => {
+  const e = buildMetricEntry({ step: "run", startedMs: 1000, endedMs: 4500, status: 1, output: "" });
+  assert.deepEqual(e, { at: new Date(4500).toISOString(), step: "run", ms: 3500, ok: false, usageLimit: false });
+  assert.equal(buildMetricEntry({ step: "run", startedMs: 5, endedMs: 1, status: 0, output: "" }).ms, 0);
+  assert.equal(buildMetricEntry({ step: "run", startedMs: 0, endedMs: 1, status: 0, output: "[利用枠の上限を検知]" }).usageLimit, true);
+});
+
+test("parseMetricLines: 壊れた行・形式違いは無視する", () => {
+  const good = JSON.stringify({ at: "2026-09-30T00:00:00Z", step: "scout", ms: 10, ok: true, usageLimit: false });
+  assert.equal(parseMetricLines(`${good}\n壊れた行\n{"step":1}\n\n${good}`).length, 2);
+});
+
+test("aggregateMetrics: 期間内をステップ別に集計し、失敗の多い順に並べる", () => {
+  const at = (d) => new Date(NOW - d * DAY).toISOString();
+  const entries = [
+    { at: at(1), step: "run", ms: 1000, ok: false, usageLimit: true },
+    { at: at(2), step: "run", ms: 3000, ok: true, usageLimit: false },
+    { at: at(1), step: "scout", ms: 500, ok: true, usageLimit: false },
+    { at: at(20), step: "scout", ms: 99999, ok: false, usageLimit: false },
+  ];
+  const agg = aggregateMetrics(entries, NOW - 7 * DAY);
+  assert.deepEqual(agg.map((a) => a.step), ["run", "scout"]);
+  assert.deepEqual(agg[0], { step: "run", runs: 2, failures: 1, throttled: 1, avgMs: 2000, maxMs: 3000 });
+  assert.equal(agg[1].runs, 1);
+  assert.match(buildMetricsMarkdown(agg), /\| run \| 2 \| 1 \| 1 \| 2\.0秒 \| 3\.0秒 \|/);
+});

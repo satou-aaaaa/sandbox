@@ -20,11 +20,15 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   LABEL_INCIDENT,
+  LABEL_READY,
   LABEL_NEEDS_HUMAN,
   LABEL_REPORT,
   LABEL_REVERT_PR,
   LABEL_PR,
+  aggregateMetrics,
   buildReport,
+  isStagnantReady,
+  parseMetricLines,
   computeQuality,
   pickMajorUpdates,
   pickStalePrs,
@@ -39,6 +43,7 @@ import { LOG_DIR, REPO, gh, log } from "./run.mjs";
 const AGENT_DIR = resolve(dirname(fileURLToPath(import.meta.url)));
 const STATE_DIR = join(AGENT_DIR, ".state");
 const HISTORY_FILE = join(STATE_DIR, "cost-history.jsonl");
+const METRICS_FILE = join(STATE_DIR, "metrics.jsonl");
 const REPORT_STATE_FILE = join(STATE_DIR, "report.json");
 const args = process.argv.slice(2);
 const POST = args.includes("--post");
@@ -119,6 +124,9 @@ function collect() {
     failing: openPrs.filter((p) => p.headRefName.startsWith("agent/issue-") && summarizeChecks(p.statusCheckRollup) === "failed").map((p) => ({ number: p.number, title: p.title })),
     costUsd: costForPeriod(DAYS),
     selftest,
+    stagnantReady: JSON.parse(gh("issue", "list", "--repo", REPO, "--state", "open", "--label", LABEL_READY, "--json", "number,labels,updatedAt", "--limit", "50")).filter((i) => isStagnantReady(i, Date.now())).length,
+    // ステップ別の実行状況は週次だけに載せる（記録が無ければ省略）
+    metrics: PERIOD === "weekly" && existsSync(METRICS_FILE) ? aggregateMetrics(parseMetricLines(readFileSync(METRICS_FILE, "utf8")), since) : undefined,
     breaker: shouldTripBreaker(revertPrs.map((p) => p.createdAt), Date.now()),
     stalePrs: pickStalePrs(openPrs, Date.now()),
     majorUpdates: pickMajorUpdates(openPrs),

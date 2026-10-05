@@ -18,12 +18,15 @@
  * 設計の根拠: docs/adr/0017-agent-sdk-issue-loop.md（Amendment 6）
  */
 import { spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { appendFileSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
+  STAGNANT_READY_DAYS,
   USAGE_BACKOFF_MS,
+  buildMetricEntry,
+  isStagnantReady,
   detectUsageLimit,
   isBackedOff,
   isOrphanedTriage,
@@ -48,6 +51,7 @@ const AGENT_DIR = resolve(dirname(fileURLToPath(import.meta.url)));
 const LOCK_FILE = join(AGENT_DIR, ".state", "cycle.lock");
 const KILL_SWITCH_FILE = join(AGENT_DIR, ".disabled");
 const BACKOFF_FILE = join(AGENT_DIR, ".state", "backoff.json");
+const METRICS_FILE = join(AGENT_DIR, ".state", "metrics.jsonl");
 const DRY_RUN = process.argv.includes("--dry-run");
 const TMP_PREFIXES = ["kkt-agent-", "kkt-triage-", "kkt-task-"];
 
@@ -92,6 +96,25 @@ function recover() {
       `トリアージ後のラベルが宙に浮いた状態（\`${LABEL_TRIAGED}\` はあるが、処理状態を示すラベルがどれも無い）で見つかったため、\`${LABEL_NEEDS_HUMAN}\` を付けました。エージェントの異常終了が原因の可能性があります。状況を確認し、再度任せる場合は \`${LABEL_TRIAGED}\` と \`${LABEL_NEEDS_HUMAN}\` を外してください（再判定されます）。`,
     );
     log(`回復: #${issue.number} の宙に浮いたラベルを ${LABEL_NEEDS_HUMAN} に戻しました`);
+    recovered++;
+  }
+  // 作業待ちのまま長く着手されないIssue（停滞）を人手に回す。同じ状態を毎サイクル待ち続けて利用枠を空費しない
+  const ready = JSON.parse(
+    gh("issue", "list", "--repo", REPO, "--state", "open", "--label", LABEL_READY, "--json", "number,labels,updatedAt", "--limit", "50"),
+  );
+  for (const issue of ready) {
+    if (!isStagnantReady(issue, Date.now())) continue;
+    gh("issue", "edit", String(issue.number), "--repo", REPO, "--remove-label", LABEL_READY, "--add-label", LABEL_NEEDS_HUMAN);
+    gh(
+      "issue",
+      "comment",
+      String(issue.number),
+      "--repo",
+      REPO,
+      "--body",
+      `作業待ち（\`${LABEL_READY}\`）のまま ${STAGNANT_READY_DAYS} 日以上着手されなかったため、自動処理を中止して「${LABEL_NEEDS_HUMAN}」に回しました。内容が大きすぎる・前提が足りないなどの可能性があります。内容を見直し、再度任せる場合は「${LABEL_NEEDS_HUMAN}」を外して「${LABEL_READY}」を付け直してください。`,
+    );
+    log(`回復: #${issue.number} は ${STAGNANT_READY_DAYS} 日以上着手されないため人手に回しました`);
     recovered++;
   }
   // 登録済みの一時worktreeで古いものを外し、登録の残骸を掃除する
@@ -142,6 +165,17 @@ function breakerTripped() {
   return true;
 }
 
+/** ステップの実行結果を記録に追記する（ループの自己計測。記録の失敗はサイクルを止めない）。 */
+function recordMetric(entry) {
+  try {
+    mkdirSync(dirname(METRICS_FILE), { recursive: true });
+    appendFileSync(METRICS_FILE, `${JSON.stringify(entry)}
+`);
+  } catch {
+    /* 計測の失敗は無視する */
+  }
+}
+
 /**
  * 子スクリプトを実行し、出力を返す（表示もする）。
  * @param {string} script
@@ -150,8 +184,10 @@ function breakerTripped() {
  */
 function runStep(script, args) {
   log(`--- ${script} ${args.join(" ")}`.trimEnd());
+  const startedMs = Date.now();
   const r = spawnSync(process.execPath, [join(AGENT_DIR, script), ...args], { cwd: AGENT_DIR, encoding: "utf8", env: process.env, maxBuffer: 64 * 1024 * 1024 });
   const out = `${r.stdout ?? ""}${r.stderr ?? ""}`;
+  if (!DRY_RUN) recordMetric(buildMetricEntry({ step: script.replace(/.mjs$/, ""), startedMs, endedMs: Date.now(), status: r.status, output: out }));
   process.stdout.write(out);
   if (r.status !== 0) log(`${script} が終了コード ${r.status} で終了しました`);
   return out;
