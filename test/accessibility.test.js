@@ -82,7 +82,12 @@ test("renderFormPage: 役員・営業所・工事経歴の行を追加した状�
   // HTML片を単体で検査すれば、行を追加した後の状態も同じ結果になる。
   const html = renderFormPage();
   const dom = new JSDOM(html);
-  const templateIds = ["officerRowTemplate", "officeRowTemplate", "constructionHistoryRowTemplate"];
+  const templateIds = [
+    "officerRowTemplate",
+    "regulatoryEmployeeRowTemplate",
+    "officeRowTemplate",
+    "constructionHistoryRowTemplate",
+  ];
   for (const id of templateIds) {
     const template = dom.window.document.getElementById(id);
     assert.ok(template, `テンプレート #${id} が見つかりません`);

@@ -216,6 +216,18 @@ docs/            設計方針・アーキテクチャドキュメント一式。
 `RequirementCheckResult.warnings` に未確認である旨を出す
 （`src/licenses/construction/eligibility/rules/kekkaku.js`参照）。
 
+**Webフォームとの連携（Issue #227）**: `src/web/formPage.js` の役員行・
+令3条使用人行（新設。役員行と同じ追加・削除パターン）に、`PersonKekkakuInput`
+8項目分のチェックボックスを `<details>` で折りたたんだ入力欄を設けている。
+各行には「欠格事由を確認済み」チェックボックス（`<prefix>-confirmed`）があり、
+これが未チェックの場合はブラウザ側JavaScript（`collectPersonKekkaku`）が
+個々の項目の状態に関わらず `kekkaku` を `undefined` として送信する。これにより、
+フォーム未操作の人物を「欠格事由なし（全項目false）」として誤って送信し、
+`kekkaku.js` 側の未確認warningを空振りさせてしまう事態を防いでいる
+（§8.ではなく§2.役員等の一覧・§1.基本情報の `applicantType` に配置。
+未成年者の法定代理人（第11号）は§8.欠格要件内に同じ確認パターンで設置）。
+申請者区分（`applicantType`）は§1.基本情報に選択欄を設けている。
+
 ### 4.6 SeijitsuseiInput
 
 `hasNoDishonestActRisk`（boolean）、`notes`（string, 任意）
