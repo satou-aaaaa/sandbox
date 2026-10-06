@@ -1,0 +1,1 @@
+- エージェントのループに自己計測と停滞検知を追加した（ADR-0017 Amendment 35）。`cycle.mjs` が各ステップの所要時間・成否を `agent/.state/metrics.jsonl` に記録し、週次レポートにステップ別の実行状況を載せる。`agent-ready` のまま7日以上着手されないIssueは `agent-needs-human` に回す
