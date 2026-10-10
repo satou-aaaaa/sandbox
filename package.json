@@ -110,7 +110,7 @@
     "autocannon": "^8.0.0",
     "axe-core": "^4.13.0",
     "c8": "^12.0.0",
-    "eslint": "^10.11.0",
+    "eslint": "^10.12.0",
     "eslint-plugin-security": "^4.1.0",
     "fast-check": "^4.10.2",
     "globals": "^17.12.0",
