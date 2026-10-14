@@ -14,10 +14,11 @@ name: Agent cycle
 #  3. ローカルの定期実行（Claudeのスケジュールタスク agent-cycle）は無効にする（二重実行を避けるため）
 #
 # 手動実行（workflow_dispatch）は、変数に関わらず常に実行できる（試運転用。dry_run=true なら書き込みなし）。
+#
+# 【定期実行は外している（ADR-0017 Amendment 36）】
+#  定期の1サイクルは Claude のルーティン「運用エージェント」（平日 2:07 JST）に一本化した。
+#  両方を定期実行すると同じ作業を2回行い、利用枠を二重に使うため。ここは手動実行だけ残す。
 on:
-  schedule:
-    # 平日 09:00 JST（= 00:00 UTC）。GitHubのcronは数分〜数十分遅れることがある
-    - cron: "0 0 * * 1-5"
   workflow_dispatch:
     inputs:
       dry_run:
