@@ -111,6 +111,126 @@ Microsoft Word、LibreOffice Writer等で開いて内容を確認すること。
 - 単純なバグ修正や、既存の設計原則に沿った機能追加ではADRは不要。
   「なぜAではなくBを選んだか」を将来説明する必要がありそうな決定のみ対象とする。
 
+### 2.7 ディレクトリ構成の詳細（CLAUDE.md から移設）
+
+CLAUDE.md には1行ずつの要約だけを置き、各モジュールの説明はここに置く。
+
+```
+src/
+  core/                          許可種別に依存しない共通コア
+    eligibility/                 要件判定の集約・共通型
+    documents/                   docx生成の共通ヘルパー
+    reminders/                   期限計算・クライアント永続化・CSV変換・ダイジェスト集約
+  licenses/
+    construction/                建設業許可アドオン（法定5要件・都道府県固有ルール合成・
+                                  リマインド）
+    kobutsu/                     古物商許可アドオン（欠格事由・営業所/管理者要件・
+                                  書類生成・変更届リマインド）
+    sanpai/                      産業廃棄物収集運搬業許可アドオン（欠格事由・講習修了・
+                                  経理的基礎・書類生成・更新/講習修了証期限リマインド）
+    minpaku/                     住宅宿泊事業（民泊）届出アドオン（欠格事由・必要書類チェック・
+                                  書類生成・定期報告リマインド）
+    gijinkoku/                   在留資格「技術・人文知識・国際業務」申請支援アドオン（学歴/実務
+                                  経験・報酬要件、書類生成、在留期間満了リマインド。他の
+                                  モジュールより専門性・リスクが高い分野のため強調文言を全出力に付与）
+    keiei-jiko-shinsa/           経営事項審査（経審）申請支援アドオン（建設業許可保有の確認・
+                                  評価項目の入力完備性チェック〈評点計算なし〉・書類生成・
+                                  年次反復型リマインド。同一クライアントの建設業許可を参照する）
+    nouchi-tenyo/                農地転用許可アドオン（立地基準/一般基準の判定、書類生成、
+                                  「条件履行期限型」リマインド。更新の概念が無く、許可条件の
+                                  履行期限を追跡し履行済み記録で自動的にリマインドが消える）
+    inshokuten-eigyo/            飲食店営業許可アドオン（施設基準・食品衛生責任者設置要件の
+                                  判定、書類生成、可変期間〈5〜8年〉満了リマインド。HACCPに
+                                  沿った衛生管理は許可要件ではなく継続義務であることを全出力に
+                                  明記）
+    tokutei-ginou/               特定技能1号申請支援アドオン（対象19分野の分野別サブ
+                                  レジストリ、技能水準/日本語能力/所属機関基準/支援体制の
+                                  判定、書類生成、在留期間満了＋通算5年上限接近警告の
+                                  リマインド。gijinkoku同様、専門性・リスクが高い分野の
+                                  ため強調文言を全出力に付与）
+  portal/                        BtoB下請けケース管理ポータル（許可種別アドオンではない
+                                  独立ドメイン。元請/案件管理・書類生成・納期リマインド）
+  incorporation/                 会社設立サポート（許可種別アドオンではない独立ドメイン。
+                                  定款・発起人決定書サマリー生成、定款認証予約日/出資金
+                                  払込期限リマインド。登記申請〈司法書士の独占業務〉に
+                                  類する様式は一切実装しない）
+  succession/                    相続関連（遺言書・遺産分割協議書）支援（許可種別アドオン
+                                  でも要件判定でもない独立ドメイン。法定相続人・法定相続分
+                                  の自動計算〈民法900条・901条〉、財産目録/協議書/自筆証書
+                                  遺言文案の生成、相続放棄/相続税申告/遺留分侵害額請求の
+                                  期限リマインド。争いの有無・遺留分該当性等の法的評価は
+                                  自動判定せず必ず人手確認を促す。マイナンバー等の機微情報
+                                  は型定義上保持しない）
+  documents/                     様式（youshiki*.js）生成モジュール（建設業許可分）
+  web/                           インテイク用Webフォーム（建設業許可・古物商許可・
+                                  農地転用許可対応。古物商許可は個人申請のみ・
+                                  ローカルホスト限定）
+agent/         Issue自律処理ループ（Agent SDK。開発運用ツールでアプリ本体ではない。
+               依存は`agent/package.json`に分離。PR作成・リスクに応じた自動マージ・事後リバート。押印/提出は人手。ADR-0017）
+test/          node --test のユニットテスト（1ファイル1モジュール対応が基本）
+features/      Cucumber.js（BDD/Gherkin）の受け入れ基準（`.feature`・
+               `step_definitions/`。2026年9月・ADR-0016で例外的に導入。
+               対象は法令根拠が特に重要な判定ロジックに限定する）
+scripts/       動作確認用サンプル・CLIスクリプト（gen:*, client:*, reminders。
+               portal/incorporation/succession等の独立ドメインは
+               `<ドメイン>:case-add` / `<ドメイン>:reminders` 系で統一）
+docs/          設計方針・アーキテクチャドキュメント（下記参照）
+```
+
+### 2.8 テストの方針と各テストの約束ごと（CLAUDE.md から移設）
+
+```bash
+npm test                    # node --test（ユニット・アクセシビリティ・カオス・契約）。コミット前に必ず通すこと
+npm run test:coverage       # 行・分岐カバレッジ付き（テキスト出力）
+npm run test:coverage:html  # カバレッジHTMLレポート生成（coverage/index.html。すぐ見たい時はこちら）
+npm run test:mutation       # Stryker（数分〜数十分。CIには含まれない。大きな変更の節目で手動実行）
+npm run test:e2e            # Playwright（実ブラウザ。初回は npx playwright install chromium が必要）
+npm run test:bdd            # Cucumber.js（Gherkin/BDD。features/。ADR-0016参照。npm testには含まれない）
+npm run test:load           # autocannon（同時アクセス下でのエラー・タイムアウト有無を確認）
+npm run typecheck           # tsc --noEmit（JSDoc型チェック）
+npm run lint                # ESLint（eslint-plugin-securityによる静的セキュリティ解析を含む）
+npm run scaffold:module -- <名前> "<和名>"   # 新しい許可種別アドオンの雛形（判定ロジックは作らない）
+npm run changelog:draft     # CHANGELOG用の下書きをgit履歴から標準出力へ（人が編集して取り込む）
+npm run changelog:aggregate -- --section "## 見出し"  # changelog.d/*.md の断片をCHANGELOG.mdへ集約（取り込み後は断片を削除。詳細はDEVELOPMENT_GUIDE.md 3.6）
+npm run reminders:daily     # 期限の日次点検。全文は out/ にだけ保存、標準出力は件数と最短期限のみ（名前は出さない）
+npm run gen:review-pack     # 押印前レビューパック（判定理由・警告・期限を1枚のdocxに）のサンプル出力
+```
+
+- **設計前提の機械検査**: `test/invariants.test.js`（ビルドレス・外部送信なし・127.0.0.1待受・DB無し・
+  `data/`未コミット・判定ロジック冒頭の法令根拠URL）と `test/docsConsistency.test.js`（モジュールと設計書の対応・
+  CLAUDE.mdの構成・ADR索引）が `npm test` で走る。法令根拠URLは全ロジックに記載済み（2026-09-30に条文を再確認）。
+  法令に基づかないファイル（算術ヘルパー・レジストリ等）だけ `test/fixtures/legal-basis-exempt.json` に理由つきで免除し、
+  `legal-basis-baseline.json`（未了分の基準線）は空。**新規ロジックはURLを書く**（基準線・免除への逃げは不可。ADR-0018）。
+  新モジュールは `npm run scaffold:module` で作ると、`docs/`・`MODULE_DOCS`・CLAUDE.md の更新漏れも検知できる。
+- テストは `test/` に1モジュール1ファイル対応で配置し、`node --test` で実行する
+  （Jest/Vitest等の外部フレームワークは導入しない）。**例外**: Gherkin/BDDに
+  限定してCucumber.jsを導入している（`features/`。発注者の明示的な依頼に
+  よるもの。ADR-0016参照）。新しい判定ロジックにGherkinシナリオを追加する
+  義務はなく、法令根拠が特に重要なモジュールに絞って任意で追加する。
+- Property-based testing（`fast-check`）は「入力の組み合わせが実質無限で、
+  性質を明確に言語化できる」純粋関数（日付計算・CSV往復変換・HTMLエスケープ等）
+  に限定して既存テストファイル末尾に追記する。専用ファイルに分離しない。乱用しない。
+- ミューテーションテストの対象は要件判定・欠格事由判定・日付/金額計算・CSV変換など
+  「間違えると実害が大きい」ロジックのみ（`stryker.config.mjs` 参照）。
+  書類生成・Web表示は対象外（branch coverage拡充で個別対応する前提）。
+- アクセシビリティテスト（`test/accessibility.test.js`）はaxe-core + jsdomで
+  `src/web/*Page.js` のHTMLを検証する。
+- E2Eテスト（Playwright）は `test/` ではなく `e2e/` に配置する
+  （`node --test` が `test/` 配下の.jsファイルを命名規則に関わらず自動検出し
+  衝突するため）。スコープは実ブラウザでの疎通確認（golden path）に限定し、
+  判定ロジックの網羅は単体テスト側に委ねる。
+- カオステスト（`test/chaos.test.js`）は依存先（ファイルシステム）の障害・
+  同時実行の競合をアプリケーション層で直接注入する。`data/clients.json`等への
+  read-modify-write操作は必ず `src/core/reminders/fileLock.js` の
+  `withFileLock` で包むこと（同時呼び出しでの lost update を防ぐため。
+  過去に実際にこの競合バグが見つかった経緯がある）。
+- 契約テスト（`test/contract.test.js`）は `schemas/client-record.schema.json`
+  （JSON Schema）で `ClientRecord`/`LicenseEntry` の形を検証する。
+  `digest.js` のJSDoc型定義を変更した場合はスキーマ側も追従させること。
+- 負荷テスト（`load/web-server.load.js`）はautocannonで同時アクセス時の
+  エラー・タイムアウト有無のみを確認し、具体的な性能閾値は判定しない
+  （閾値を決めるだけの実運用データがまだ無いため）。
+
 ## 3. Git運用ルール
 
 ### 3.1 リポジトリ
