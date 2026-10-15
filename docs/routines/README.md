@@ -12,10 +12,7 @@ Claude の定期実行（ルーティン）の手順を、ルーティンのプ�
 | [ops-agent.md](ops-agent.md) | リポジトリ運用エージェント（クラウド・1サイクル） | 平日 2:07 JST |
 | [weekly-issue-proposal.md](weekly-issue-proposal.md) | 週次: 新規Issueの提案（調査つき） | 週1（水曜 8:47 JST） |
 
-共通のきまり（2026-10-14）:
-
-- **節約モード**: 直近24時間に、どれかのルーティンが利用上限（usage limit）で失敗していたら、提案・巡回の係は
-  今回は何もせずに終える。守る順番は ①本日のタスク整理・連載の予約 ②開発（PRを進める）③監督 ④提案・巡回。
-- **Claude が要らない作業は CI へ**: 決まった手順だけで済む作業（テスト・Dependabot の自動マージ・計算だけの
-  定期処理など）は GitHub Actions で行い、ルーティンでは判断が要る部分だけを扱う。例: Dependabot の patch/minor
-  更新は `.github/workflows/dependabot-automerge.yml` が自動マージを予約するので、ルーティンで重ねて扱わない。
+共通のきまり（節約モード・守る順番・Claude が要らない作業は CI へ・satou さんへの連絡の書き方など）は、
+すべてのルーティンで同じものを使うため [satou-aaaaa/shared-workflows の `routines/common.md`](https://github.com/satou-aaaaa/shared-workflows/blob/main/routines/common.md) に置いている。
+各手順の前に読むこと。このリポジトリに特有の例: Dependabot の patch/minor 更新は `.github/workflows/dependabot-automerge.yml`
+が自動マージを予約するので、ルーティンで重ねて扱わない。
