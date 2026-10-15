@@ -3,7 +3,7 @@
  * AIレビュアーのプロンプト頼みにせず、CIで決定的に落とすためのテスト。
  *
  * 1. ビルドレス構成: TypeScript/トランスパイラ/ビルドスクリプトを導入していない
- * 2. 外部送信なし: src/ にネットワーク送信APIが無く、Webサーバーは 127.0.0.1 のみで待受
+ * 2. 外部送信なし: src/ と scripts/（例外は理由つき許可リスト）にネットワーク送信APIが無く、Webサーバーは 127.0.0.1 のみで待受
  * 3. 法令根拠: 判定・期限計算ロジックの冒頭コメントに根拠URLがある（既存の未対応分は基準線で許容）
  * 4. データはローカルのJSONのみ: DBライブラリ無し・data/ はコミットされていない
  */
@@ -17,6 +17,8 @@ import { REPO_ROOT, collectLegalBasis, toRepoPath, walkFiles } from "../scripts/
 const pkg = JSON.parse(readFileSync(join(REPO_ROOT, "package.json"), "utf8"));
 const allDeps = Object.keys({ ...pkg.dependencies, ...pkg.devDependencies });
 const srcFiles = walkFiles(join(REPO_ROOT, "src")).filter((f) => f.endsWith(".js"));
+const scriptFiles = walkFiles(join(REPO_ROOT, "scripts")).filter((f) => /\.(js|mjs)$/.test(f));
+const networkExempt = JSON.parse(readFileSync(join(REPO_ROOT, "test/fixtures/network-send-exempt.json"), "utf8")).files;
 
 test("ビルドレス: .ts ファイルとビルド用の依存・スクリプトが無い", () => {
   const tsFiles = walkFiles(REPO_ROOT)
@@ -28,12 +30,28 @@ test("ビルドレス: .ts ファイルとビルド用の依存・スクリプ�
   assert.equal(pkg.scripts.build, undefined, "build スクリプトを置かない");
 });
 
+// Webサーバー（src/web/server.js）は node:http で待受するだけなので、送信側のAPI（request/get・https 等）だけを検出する
+const NETWORK_SEND_PATTERN = /\bfetch\s*\(|node:https\b|node:net\b|node:dgram|node:tls|node:http2|\bXMLHttpRequest\b|\bWebSocket\b|\bhttps?\.(request|get)\s*\(|require\(["'](https?|net)["']\)/;
+const stripComments = (code) => code.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
+const sendsExternally = (f) => NETWORK_SEND_PATTERN.test(stripComments(readFileSync(f, "utf8")));
+
 test("外部送信なし: src/ にネットワーク送信APIを使うコードが無い", () => {
-  // Webサーバー（src/web/server.js）は node:http で待受するだけなので、送信側のAPI（request/get・https 等）だけを検出する
-  const pattern = /\bfetch\s*\(|node:https\b|node:net\b|node:dgram|node:tls|node:http2|\bXMLHttpRequest\b|\bWebSocket\b|\bhttps?\.(request|get)\s*\(|require\(["'](https?|net)["']\)/;
-  const stripComments = (code) => code.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
-  const offenders = srcFiles.filter((f) => pattern.test(stripComments(readFileSync(f, "utf8")))).map(toRepoPath);
+  const offenders = srcFiles.filter(sendsExternally).map(toRepoPath);
   assert.deepEqual(offenders, [], "個人情報・財務情報を外部へ送信しない（DESIGN.md 1章）");
+});
+
+test("外部送信なし: scripts/ の .js/.mjs も対象。例外は network-send-exempt.json の許可リストのみ", () => {
+  const offenders = scriptFiles.map(toRepoPath).filter((p) => !(p in networkExempt) && sendsExternally(join(REPO_ROOT, p)));
+  assert.deepEqual(offenders, [], "scripts/ にも送信処理を足さない。正当な例外は理由つきで test/fixtures/network-send-exempt.json に登録する（DESIGN.md 1章）");
+});
+
+test("外部送信の許可リスト: 理由が書かれ、存在する scripts/ のファイルで、実際に送信APIを使っている", () => {
+  const known = new Set(scriptFiles.map(toRepoPath));
+  for (const [file, reason] of Object.entries(networkExempt)) {
+    assert.ok(known.has(file), `${file} は scripts/ に存在しない（削除・改名したなら許可リストからも消す）`);
+    assert.ok(typeof reason === "string" && reason.length >= 10, `${file} の許可理由を書く`);
+    assert.ok(sendsExternally(join(REPO_ROOT, file)), `${file} は送信APIを使っていないので、許可リストから外す`);
+  }
 });
 
 test("Webサーバーは 127.0.0.1 のみで待受し、0.0.0.0 等を指定しない", () => {
