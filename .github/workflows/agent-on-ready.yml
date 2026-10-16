@@ -3,9 +3,18 @@ name: Agent on ready
 # Issueに agent-ready ラベルが付いたら、次の定期実行を待たずにそのIssueだけを即時に処理する（ADR-0017 Amendment 18）。
 # 有効化は agent-cycle.yml と同じ（シークレット2つ + リポジトリ変数 AGENT_CYCLE_ENABLED=true）。
 # 未設定・false の間は何もしない。定期実行（cycle）が取りこぼしを拾うため、これは「速さ」のための追加経路。
+#
+# 【ラベルでの即時実行は外している（2026-10-16）】
+#  Actions 用の鍵（AGENT_GH_TOKEN）が無効になり、10/15 はラベルを付けるたびに checkout で失敗していた。
+#  処理はルーティン「運用エージェント」が拾うので、ここは手動実行だけ残す（agent-cycle.yml と同じ扱い）。
+#  鍵を作り直してラベルでの即時実行に戻すときは、下の on: に issues: types: [labeled] を戻す。
 on:
-  issues:
-    types: [labeled]
+  workflow_dispatch:
+    inputs:
+      issue:
+        description: "処理するIssue番号"
+        required: true
+        type: number
 
 # サイクル・他のIssueの処理と同時に走らせない（二重処理の防止）
 concurrency:
@@ -18,10 +27,7 @@ permissions:
 jobs:
   run:
     # 所有者本人が agent-ready を付けたときだけ（第三者のラベル操作では動かさない）
-    if: >-
-      vars.AGENT_CYCLE_ENABLED == 'true'
-      && github.event.label.name == 'agent-ready'
-      && github.event.sender.login == github.repository_owner
+    if: github.event_name == 'workflow_dispatch' && github.actor == github.repository_owner
     runs-on: ubuntu-latest
     timeout-minutes: 60
     env:
@@ -52,5 +58,5 @@ jobs:
           git config user.email "kensetsu-agent@users.noreply.github.com"
       - name: 対象のIssueだけを処理
         env:
-          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          ISSUE_NUMBER: ${{ inputs.issue }}
         run: node agent/run.mjs --issue "$ISSUE_NUMBER"

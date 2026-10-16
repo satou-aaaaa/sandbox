@@ -532,3 +532,11 @@ Actions 側は 2026-10-08 以降すべて失敗しているため今は実害が
 
 **決定**: `agent-cycle.yml` から `schedule` を外し、`workflow_dispatch`（手動実行・試運転）だけを残す。定期実行は Claude のルーティンに一本化する（発注者承認、トークン節約の提案7）。
 Amendment 9 の「Actions を有効にしたらローカル側は無効にする」とは逆向きだが、二重実行を避けるという目的は同じ。`agent-on-ready.yml`（`agent-ready` 付与時の即時処理）は変更しない。
+
+## Amendment 37（2026-10-16）: ラベル付与時の即時処理（`agent-on-ready.yml`）も手動実行だけにする
+
+**背景**: 2026-10-15 は `agent-ready` を付けるたびに `agent-on-ready.yml` が起動し、7回とも checkout で失敗した（`could not read Username`。Actions 用の鍵 `AGENT_GH_TOKEN` が無効）。
+同じ時刻に自動点検（selftest）が `run.mjs --issue` を直接呼んでおり、Actions 側と並んで走っていた。
+
+**決定**: `agent-on-ready.yml` の `issues: labeled` を外し、Issue 番号を入力する `workflow_dispatch` だけを残す。`agent-ready` の Issue はルーティン「運用エージェント」が拾う。
+鍵を作り直して即時処理に戻すときは、`on:` に `issues: types: [labeled]` と元の `if:` 条件（所有者本人が付けた `agent-ready` のときだけ）を戻す。

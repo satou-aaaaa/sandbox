@@ -54,6 +54,7 @@ import {
   checkDailyBudget,
   findProtectedPaths,
   isEligibleIssue,
+  withOnlyIssue,
   normalizeState,
   recordRun,
   retryCount,
@@ -161,13 +162,24 @@ function ensureLabels() {
   }
 }
 
+/**
+ * 番号で1件を直接取り寄せる（開いていなければ null）。
+ * @param {number} n
+ * @returns {import("./policy.js").IssueSummary | null}
+ */
+function fetchOpenIssue(n) {
+  const i = JSON.parse(gh("issue", "view", String(n), "--repo", REPO, "--json", "number,title,body,author,labels,state"));
+  if (i.state !== "OPEN") return null;
+  log(`#${n} は一覧にまだ出ていないため、直接取り寄せました`);
+  return { number: i.number, title: i.title, body: i.body, author: i.author, labels: i.labels };
+}
+
 /** @returns {import("./policy.js").IssueSummary[]} */
 function fetchCandidates() {
   const json = gh("issue", "list", "--repo", REPO, "--state", "open", "--label", LABEL_READY, "--json", "number,title,body,author,labels", "--limit", "50");
   /** @type {import("./policy.js").IssueSummary[]} */
   const issues = JSON.parse(json);
-  return issues
-    .filter((i) => ONLY_ISSUE === null || i.number === ONLY_ISSUE)
+  return withOnlyIssue(issues, ONLY_ISSUE, fetchOpenIssue)
     .filter((i) => {
       const ok = isEligibleIssue(i);
       if (!ok) log(`#${i.number} は対象外（起票者またはラベル条件を満たしません）`);

@@ -2,6 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import path from "node:path";
 import {
+  withOnlyIssue,
   detectAuthFailure,
   tokenDaysLeft,
   tokenNeedsAction,
@@ -1269,4 +1270,16 @@ test("buildScoutVerifyPrompt: 提案をデータとして区切り、終了タ�
   assert.match(p, /読み取り専用/);
   assert.match(p, /迷ったら rejected/);
   assert.equal(p.match(/<\/scout-proposal>/g)?.length, 1);
+});
+
+test("withOnlyIssue: 一覧に無い指定Issueは直接取り寄せた1件で補う（#265 作成直後の取りこぼし）", () => {
+  const a = { number: 1, title: "a", body: "", author: { login: "x" }, labels: [] };
+  const b = { number: 2, title: "b", body: "", author: { login: "x" }, labels: [] };
+  let called = 0;
+  const fetchOne = (n) => { called++; return n === 3 ? { ...a, number: 3 } : null; };
+  assert.deepEqual(withOnlyIssue([a, b], null, fetchOne), [a, b]);
+  assert.deepEqual(withOnlyIssue([a, b], 2, fetchOne), [b]);
+  assert.equal(called, 0);
+  assert.deepEqual(withOnlyIssue([a, b], 3, fetchOne).map((i) => i.number), [3]);
+  assert.deepEqual(withOnlyIssue([a], 9, fetchOne), []);
 });

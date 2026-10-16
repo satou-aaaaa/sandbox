@@ -97,6 +97,24 @@ export function isEligibleIssue(issue) {
 }
 
 /**
+ * 「--issue N」で1件だけ処理するとき、一覧に N が無ければ直接取り寄せた1件で補う。
+ * 起票直後のIssueはラベルでの一覧（検索）にすぐ出ないことがあり、自動点検が「対象 0 件」で失敗したため
+ * （Issue #265。GitHubの一覧は結果整合で、作成直後は反映が遅れることがある）。
+ * 補った1件にも同じ条件（isEligibleIssue）をかけるのは呼び出し側の役目。
+ * @param {IssueSummary[]} listed ラベルで取った一覧
+ * @param {number | null} onlyIssue 対象に限るIssue番号（null なら一覧をそのまま返す）
+ * @param {(n: number) => IssueSummary | null} fetchOne 番号から1件を取り寄せる（開いていなければ null）
+ * @returns {IssueSummary[]}
+ */
+export function withOnlyIssue(listed, onlyIssue, fetchOne) {
+  if (onlyIssue === null) return listed;
+  const hit = listed.filter((i) => i.number === onlyIssue);
+  if (hit.length > 0) return hit;
+  const one = fetchOne(onlyIssue);
+  return one ? [one] : [];
+}
+
+/**
  * @param {number} issueNumber
  * @returns {string} 作業ブランチ名
  */
