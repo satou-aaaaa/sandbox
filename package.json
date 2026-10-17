@@ -100,7 +100,7 @@
     "docx": "^9.9.0"
   },
   "devDependencies": {
-    "@cucumber/cucumber": "^13.2.1",
+    "@cucumber/cucumber": "^13.3.0",
     "@eslint/js": "^10.0.1",
     "@playwright/test": "^1.64.0",
     "@stryker-mutator/core": "^10.0.0",
