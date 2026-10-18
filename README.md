@@ -160,9 +160,11 @@ npm run client:import out/clients-export.csv   # CSVから一括登録・更新
 `--minpaku-*`・`--gijinkoku-*`・`--keiei-*`・`--nouchi-*`・`--inshokuten-*`・
 `--tokutei-ginou-*`。使い方はスクリプト冒頭のコメントと引数なしで実行したときの
 使い方表示を参照）で登録できる。
-リマインド計算の起点は、建設業許可・産廃許可が `--grant-date`（許可年月日。
-産廃許可の`sanpaiDetail`は有効期間などの追加情報）、他の種別は`<種別>Detail`の日付。
-そのため `--grant-date` は建設業許可・産廃許可のみ必須で、他の種別では不要。
+リマインドの計算に使う日付は種別ごとに異なる。建設業許可・産廃許可は `--grant-date`
+（許可年月日。産廃許可の`sanpaiDetail`は有効期間などの追加情報）を使うため、
+`--grant-date` はこの2種別のみ必須。他の種別は`<種別>Detail`の値を使う（例: 民泊は
+届出日で報告義務の有無だけを判定し、次回期限は本日から計算する）。詳しくは
+各種別の `src/licenses/<種別>/reminders/` を参照。
 
 ```bash
 npm run client:add -- "サンプル質店" --license-id 古物商 --license-category kobutsu --kobutsu-last-change-date 2026-09-01
