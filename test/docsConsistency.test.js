@@ -81,3 +81,75 @@ test("ADRファイルがすべて docs/adr/README.md の一覧に載っている
 test("CHANGELOG.md が存在し、見出しがある", () => {
   assert.match(read("CHANGELOG.md"), /^## /m);
 });
+
+/** コード中コメントの docs 参照を探す対象（生成物・依存物は除く）。 */
+const CODE_EXT = /\.(?:m?js|cjs)$/;
+const SKIP_DIRS = new Set(["node_modules", ".git", "coverage", "reports", ".stryker-tmp", ".e2e-tmp", "playwright-report", "out", "data"]);
+
+/**
+ * コメントの中にあっても実在を求めない、説明用の架空パス。
+ * テストの入力値（文字列リテラル）はコメントではないので、ここに足す必要はない。
+ */
+/** @type {Set<string>} */
+const FICTIONAL_DOC_PATHS = new Set();
+
+/** @param {string} rel @returns {string[]} REPO_ROOT からの相対パス */
+function listCodeFiles(rel = "") {
+  /** @type {string[]} */
+  const out = [];
+  for (const d of readdirSync(join(REPO_ROOT, rel), { withFileTypes: true })) {
+    if (SKIP_DIRS.has(d.name)) continue;
+    const p = rel ? `${rel}/${d.name}` : d.name;
+    if (d.isDirectory()) out.push(...listCodeFiles(p));
+    else if (CODE_EXT.test(d.name)) out.push(p);
+  }
+  return out;
+}
+
+/**
+ * ソースのコメント部分から `docs/….md` の参照を取り出す。
+ * 行コメント（`//` 以降）と、ブロックコメントの行（`/*`・`*` で始まる行）だけを見る。
+ * `//` が文字列の中にある行（URL など）でも、そこから後ろに docs 参照があれば拾う（取りこぼしより誤検出を選ぶ）。
+ * @param {string} src
+ * @returns {{ line: number, path: string }[]}
+ */
+function findDocRefsInComments(src) {
+  /** @type {{ line: number, path: string }[]} */
+  const refs = [];
+  src.split("\n").forEach((text, i) => {
+    const trimmed = text.trimStart();
+    let comment = "";
+    if (trimmed.startsWith("*") || trimmed.startsWith("/*")) comment = trimmed;
+    else if (text.includes("//")) comment = text.slice(text.indexOf("//"));
+    for (const m of comment.matchAll(/docs\/[A-Za-z0-9_./-]*?\.md\b/g)) refs.push({ line: i + 1, path: m[0] });
+  });
+  return refs;
+}
+
+test("findDocRefsInComments はコメント中の参照だけを拾う", () => {
+  const src = [
+    "/**",
+    " * 経緯は`docs/adr/9999-nonexistent.md`参照",
+    " */",
+    'const fixture = "docs/in-string.md";',
+    "foo(); // docs/DESIGN.md 7.1節",
+  ].join("\n");
+  assert.deepEqual(findDocRefsInComments(src), [
+    { line: 2, path: "docs/adr/9999-nonexistent.md" },
+    { line: 5, path: "docs/DESIGN.md" },
+  ]);
+});
+
+test("コード中コメントの docs/….md 参照が実在する", () => {
+  const files = listCodeFiles();
+  assert.ok(files.length > 0);
+  /** @type {string[]} */
+  const missing = [];
+  for (const f of files) {
+    for (const { line, path } of findDocRefsInComments(read(f))) {
+      if (FICTIONAL_DOC_PATHS.has(path)) continue;
+      if (!existsSync(join(REPO_ROOT, path))) missing.push(`${f}:${line} ${path}`);
+    }
+  }
+  assert.deepEqual(missing, [], `存在しない docs 参照（改名したなら参照も直す。説明用の架空パスなら FICTIONAL_DOC_PATHS に足す）:\n${missing.join("\n")}`);
+});

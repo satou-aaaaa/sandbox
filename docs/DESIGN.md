@@ -998,9 +998,11 @@ Webの `GET /clients.csv`（読み取り専用のダウンロードのみ。登�
 - **実行方法**: `npm run test:mutation`（`stryker run`のエイリアス）。
   ミュータント1件ごとに`node --test`（全テスト）を再実行する
   「commandランナー」を使うため、日常のPRごとに毎回実行するものでは
-  なく、大きな変更の節目やテスト方針の見直し時に手動実行する運用とする
-  （実行には数分〜数十分かかる。詳細な設計判断は`stryker.config.mjs`の
-  コメントを参照）。
+  ない（実行には数分〜数十分かかる。詳細な設計判断は`stryker.config.mjs`の
+  コメントを参照）。`.github/workflows/weekly-mutation.yml`が毎週実行し、
+  生き残ったミュータントの要約をIssue（ラベル`mutation-report`）に出す
+  （ADR-0018。必須チェック外で、閾値による失敗もさせない）。大きな変更の
+  節目やテスト方針の見直し時には手動でも実行する。
 - **対象範囲**: 要件判定・欠格事由判定・日付/金額計算・CSV相互変換など
   「間違えると実害が大きい」ロジックに絞る（`src/documents/**`・
   `src/web/**`等の書類生成・画面表示は対象外。理由は設定ファイルの
@@ -1071,8 +1073,8 @@ Webの `GET /clients.csv`（読み取り専用のダウンロードのみ。登�
 - **`thresholds.break`の導入（2026年10月・#79）**: 優先度A〜Cの実測が
   出揃い、対象範囲の大半が90%台後半〜100%に達し著しく低いファイルが
   無いことを確認できたため、`break: 70`（`low`と同値）を設定した
-  （発注者の判断: 導入する）。CIには組み込まない（ADR-0011の既存方針）ため、
-  `npm run test:mutation`を手動実行した際に、大規模な検証漏れ
+  （発注者の判断: 導入する）。PRのCIには組み込まない（ADR-0011の既存方針）ため、
+  週次実行（`weekly-mutation.yml`。ADR-0018）や手動実行の結果で、大規模な検証漏れ
   （役員チェック項目の判定が空でも気づけない、等）を検知する目安として使う。
 
 ### 7.2 Property-based testing（fast-check。2026年9月導入）
@@ -1198,7 +1200,9 @@ lost update。片方の登録が完全に失われる）を発見し、
 （ADR-0016）。
 
 対象は`features/`ディレクトリに配置し、`npm run test:bdd`
-（既存の`npm test`には含めない）で実行する。最初の実例として
+（既存の`npm test`には含めない）で実行する。CIでは
+`.github/workflows/nightly.yml`が毎晩実行し、失敗したときだけ常設Issue
+（ラベル`nightly-failure`）に集約する（ADR-0018。必須チェック外）。最初の実例として
 `features/construction-kekkaku.feature`（建設業法第8条の欠格要件。
 `src/licenses/construction/eligibility/rules/kekkaku.js`）を実装した。
 ステップ定義（`features/step_definitions/`）は判定ロジックを再実装せず、

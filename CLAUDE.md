@@ -60,6 +60,7 @@ npm run scaffold:module -- <名前> "<和名>"   # 新モジュールの雛形
 ```
 
 - 外部テストフレームワークは入れない（`node --test`。例外は Cucumber.js のみ、ADR-0016）。E2E は `e2e/` に置く。
+- `npm test` の外で CI が回すもの: BDD（`test:bdd`）は `nightly.yml` で毎晩、mutation（`test:mutation`）は `weekly-mutation.yml` で毎週（どちらも必須チェック外。ADR-0018）。
 - 新規の判定ロジックには法令根拠URLを書く（基準線・免除への逃げは不可。ADR-0018）。
 - `data/clients.json` 等の read-modify-write は `src/core/reminders/fileLock.js` の `withFileLock` で包む。
 - `digest.js` の型を変えたら `schemas/client-record.schema.json` も追従させる。
