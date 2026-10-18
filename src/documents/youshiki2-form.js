@@ -119,7 +119,8 @@ function sumThousandYen(records) {
 
 /**
  * ApplicantProfile.constructionHistory を業種ごとのシートに分ける。
- * 業種の並びは profile.constructionTypes の順（載っていない業種は入力順で後ろ）、
+ * 業種の並びは profile.constructionTypes の順（載っていない業種は入力順で後ろ）。
+ * 実績の無い申請業種も0件のシートとして含める。
  * 各シートの行は正式な記載順序（元請が先、各グループ内は請負代金の額の大きい順）。
  *
  * @param {import('../licenses/construction/eligibility/types.js').ApplicantProfile} profile
@@ -136,7 +137,11 @@ export function resolveYoushiki2FormSheets(profile) {
     groups.set(key, list);
   }
 
+  // 工事の実績が無い申請業種にも空のシートを出す（手書きで記入・「該当なし」と書くため）。
   const declared = profile.constructionTypes ?? [];
+  for (const type of declared) {
+    if (!groups.has(type)) groups.set(type, []);
+  }
   const keys = [...groups.keys()].sort((a, b) => {
     const ia = declared.indexOf(a);
     const ib = declared.indexOf(b);
@@ -332,7 +337,7 @@ function buildTotalRows(sheet) {
 function buildSheetChildren(sheet) {
   return [
     new Paragraph({
-      children: [new TextRun({ text: "様式第二号（第二条、第十九条の八、第十九条の十二関係）", font: FONT, size: 16 })],
+      children: [new TextRun({ text: "様式第二号（第二条、第十三条の二、第十三条の三、第十九条の八関係）", font: FONT, size: 16 })],
     }),
     buildFormLayoutDisclaimerParagraph(),
     new Paragraph({

@@ -115,6 +115,17 @@ test("罫線版 様式第二号: 工期は YYYY年M月 で表示し、着工年�
   assert.equal(formatYearMonth("令和7年4月"), "令和7年4月");
 });
 
+test("罫線版 様式第二号: 実績の無い申請業種も0件のシートとして出す", () => {
+  const profile = buildSampleApplicantProfile();
+  profile.constructionTypes = ["建築工事業", "大工工事業"];
+  profile.constructionHistory = [];
+  const sheets = resolveYoushiki2FormSheets(profile);
+  assert.deepEqual(sheets.map((s) => [s.constructionType, s.totalCount, s.totalAmountThousandYen]), [
+    ["建築工事業", 0, "0"],
+    ["大工工事業", 0, "0"],
+  ]);
+});
+
 test("toThousandYen: 数値でなければ空欄", () => {
   assert.equal(toThousandYen(Number.POSITIVE_INFINITY), "");
   assert.equal(toThousandYen(/** @type {any} */ ("1000")), "");
