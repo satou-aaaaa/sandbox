@@ -18,7 +18,7 @@ Git運用・進め方を統一するためのガイド。`docs/REQUIREMENTS.md`�
 ### 1.1 必要なもの
 
 - Node.js v24.15.0以上（`engines` に指定。2026年10月・#204で22系から引き上げ。`node -v` で確認。`.nvmrc` があるので
-  nvm利用者は `nvm use` で揃えられる）
+  nvm利用者は `nvm install` で24系の最新を入れて切り替えられる。`nvm use` は手元にある古い24系を選ぶことがあるので、`node -v` で24.15.0以上か確かめる）
 - npm（Node.jsに同梱）
 - Git
 - エディタ（VS Code推奨。JSDocの型補完・型チェックがそのまま効く）

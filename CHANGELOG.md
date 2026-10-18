@@ -20,9 +20,12 @@ Node.js 22のEOL（2027-04-30。出典: https://raw.githubusercontent.com/nodejs
   `node-version`を`24.x`にした
 - `agent/package.json`の`engines`を、すでにEOLの20系を許していた`>=20`から`>=24`にした
   （実行環境はCIが24.x、Dockerイメージが26系）
-- `npm run test:coverage`の分岐カバレッジの下限を95%から93%にした。同じコード・同じテストで、
-  Node 22では96.17%、Node 24では93.83%と出る（Node 24のV8は分岐の数え方が細かい）ため。
-  行カバレッジの下限（99%）は変えていない
+- Node 24のV8は分岐を細かく数えるため、同じコード・同じテストで分岐カバレッジが96.17%（Node 22）
+  から93.83%に下がり、下限95%を割った。下限は変えず、`agent/gh-rest.mjs`・`agent/policy.js`・
+  `scripts/lib/lawWatch.mjs`・`agent/radar-lib.js`の未通過の分岐を通すテストを4ファイル足して
+  97.10%にした（行99.61%）。テストを書く中で見つけたREST互換層の不具合は#286に分けた
+- `.nvmrc`は`24`のまま、開発ガイドの案内を`nvm install`に変えた（`nvm use`は手元にある古い24系を
+  選ぶことがあり、`engines`の下限24.15.0を満たさない場合があるため）
 - `docs/DEVELOPMENT_GUIDE.md`・`docs/REQUIREMENTS.md`（NFR-1）・`docs/DESIGN.md`・
   `docs/BEST_PRACTICES_AUDIT.md`の記載を合わせた。過去の決定記録であるADR本文は書き換えていない
 
