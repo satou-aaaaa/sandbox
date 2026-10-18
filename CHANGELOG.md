@@ -20,6 +20,9 @@ Node.js 22のEOL（2027-04-30。出典: https://raw.githubusercontent.com/nodejs
   `node-version`を`24.x`にした
 - `agent/package.json`の`engines`を、すでにEOLの20系を許していた`>=20`から`>=24`にした
   （実行環境はCIが24.x、Dockerイメージが26系）
+- `npm run test:coverage`の分岐カバレッジの下限を95%から93%にした。同じコード・同じテストで、
+  Node 22では96.17%、Node 24では93.83%と出る（Node 24のV8は分岐の数え方が細かい）ため。
+  行カバレッジの下限（99%）は変えていない
 - `docs/DEVELOPMENT_GUIDE.md`・`docs/REQUIREMENTS.md`（NFR-1）・`docs/DESIGN.md`・
   `docs/BEST_PRACTICES_AUDIT.md`の記載を合わせた。過去の決定記録であるADR本文は書き換えていない
 
