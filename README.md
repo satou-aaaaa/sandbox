@@ -154,10 +154,13 @@ npm run client:import out/clients-export.csv   # CSVから一括登録・更新
 データは `data/clients.json`（コミット対象外）にローカル保存される。外部への送信は行わない。
 `npm run web` 起動中はブラウザの `/reminders` からも同じ内容を確認できる（表示専用）。
 
-古物商許可・産廃許可・民泊届出・技人国ビザのクライアント（各`<種別>Detail`が
-リマインド計算の起点になる）は、`add-client.js` の `--license-category` と
-種別ごとの詳細フラグ（`--kobutsu-*`・`--sanpai-*`・`--minpaku-*`・
-`--gijinkoku-*`。使い方はスクリプト冒頭のコメント参照）で登録できる。
+建設業許可以外のクライアント（各`<種別>Detail`がリマインド計算の起点になる）は、
+`add-client.js` の `--license-category`（`construction`・`kobutsu`・`sanpai`・
+`minpaku`・`gijinkoku`・`keiei-jiko-shinsa`・`nouchi-tenyo`・`inshokuten-eigyo`・
+`tokutei-ginou` の9種別）と、種別ごとの詳細フラグ（`--kobutsu-*`・`--sanpai-*`・
+`--minpaku-*`・`--gijinkoku-*`・`--keiei-*`・`--nouchi-*`・`--inshokuten-*`・
+`--tokutei-ginou-*`。使い方はスクリプト冒頭のコメントと引数なしで実行したときの
+使い方表示を参照）で登録できる。
 建設業許可以外を指定する場合、`--grant-date` は種別によっては不要
 （建設業許可・産廃許可のみ必須。他の種別は`<種別>Detail`の日付が
 リマインドの起点のため）。

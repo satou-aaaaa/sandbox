@@ -210,6 +210,8 @@ export function createGhRest({ api = ghApi, repo: defaultRepo = "" } = {}) {
     prList: ["--repo", "--state", "--label", "--head", "--json", "--limit", "--jq"],
     prView: ["--repo", "--json", "--jq"],
     prCreate: ["--repo", "--base", "--head", "--title", "--body", "--label"],
+    prEdit: ["--repo", "--add-label", "--remove-label"],
+    prComment: ["--repo", "--body"],
     prMerge: ["--repo"],
     runList: ["--repo", "--branch", "--workflow", "--event", "--limit", "--json", "--jq"],
     runView: ["--repo"],

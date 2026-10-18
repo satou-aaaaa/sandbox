@@ -173,6 +173,21 @@ test("pr merge --auto: GraphQL専用のため何もしない（Actionsのworkflo
   assert.deepEqual(calls[0].body, { merge_method: "squash" });
 });
 
+test("pr edit: ラベルの追加・削除を Issue のラベルAPIで行う（#286）", () => {
+  const { gh, calls } = fake({ [`DELETE repos/${R}/issues/10/labels/old`]: null, [`POST repos/${R}/issues/10/labels`]: [] });
+  assert.equal(gh(["pr", "edit", "10", "--repo", R, "--remove-label", "old", "--add-label", "new"]), "");
+  assert.deepEqual(calls.map((c) => `${c.method} ${c.path}`), [`DELETE repos/${R}/issues/10/labels/old`, `POST repos/${R}/issues/10/labels`]);
+  assert.deepEqual(calls[1].body, { labels: ["new"] });
+});
+
+test("pr comment: Issue のコメントAPIへ投稿する（--body 省略時は空文字。#286）", () => {
+  const { gh, calls } = fake({ [`POST repos/${R}/issues/10/comments`]: {} });
+  assert.equal(gh(["pr", "comment", "https://github.com/o/r/pull/10", "--repo", R, "--body", "見ました"]), "");
+  assert.deepEqual(calls[0].body, { body: "見ました" });
+  gh(["pr", "comment", "10", "--repo", R]);
+  assert.deepEqual(calls[1].body, { body: "" });
+});
+
 test("pr diff: diff形式で取得し、そのまま返す", () => {
   const { gh, calls } = fake({ [`GET repos/${R}/pulls/8`]: "diff --git a/x b/x\n" });
   assert.equal(gh(["pr", "diff", "8", "--repo", R]), "diff --git a/x b/x\n");
