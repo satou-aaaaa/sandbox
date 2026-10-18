@@ -195,7 +195,7 @@ export function needsAttention(report) {
  * @returns {string} Issue本文・ジョブサマリー用のMarkdown
  */
 export function buildReportMarkdown(report, today) {
-  const files = (fs) => fs.map((f) => `\`${f}\``).join("、");
+  const files = (/** @type {string[]} */ fs) => fs.map((f) => `\`${f}\``).join("、");
   const lines = [`# 法令・様式の根拠URL 点検結果（${today}）`, ""];
   lines.push(`変化なし ${report.unchanged} 件／変化あり ${report.changed.length} 件／取得失敗 ${report.failed.length} 件／新規 ${report.added.length} 件／参照なし ${report.removed.length} 件`, "");
   if (report.changed.length > 0) {

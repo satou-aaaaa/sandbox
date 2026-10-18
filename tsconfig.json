@@ -9,6 +9,6 @@
     "strict": true,
     "skipLibCheck": true
   },
-  "include": ["src/**/*.js", "scripts/**/*.js"],
+  "include": ["src/**/*.js", "scripts/**/*.js", "scripts/**/*.mjs", "hooks/**/*.mjs"],
   "exclude": ["node_modules", "out", "test"]
 }

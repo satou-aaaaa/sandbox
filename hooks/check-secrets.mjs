@@ -42,6 +42,10 @@ function getStagedFiles() {
   return output.split("\n").filter(Boolean);
 }
 
+/**
+ * @param {string} filePath
+ * @returns {string}
+ */
 function getStagedContent(filePath) {
   try {
     return execFileSync("git", ["show", `:${filePath}`], { encoding: "utf8" });
@@ -57,7 +61,11 @@ function getAllTrackedFiles() {
   return output.split("\n").filter(Boolean);
 }
 
-/** 指定ファイルのHEAD時点での内容を返す（`--all`モード用）。 */
+/**
+ * 指定ファイルのHEAD時点での内容を返す（`--all`モード用）。
+ * @param {string} filePath
+ * @returns {string}
+ */
 function getContentAtHead(filePath) {
   try {
     return execFileSync("git", ["show", `HEAD:${filePath}`], { encoding: "utf8" });
