@@ -94,6 +94,7 @@ src/
                         テストへの影響を避けるための判断）
     youshiki1.js        様式第一号のdocx生成
     youshiki2.js        様式第二号（工事経歴書）のdocx生成（M8）
+    youshiki2-form.js   様式第二号（工事経歴書）の罫線版（正式様式の欄の並び・業種ごとに1枚。ADR-0021）
     youshiki6.js        様式第六号（役員等の一覧表）のdocx生成
     youshiki7.js        様式第七号（経営業務管理責任者証明書）のdocx生成
     youshiki8.js        様式第八号（専任技術者証明書）のdocx生成（営業所ごとにセクション分け）
@@ -497,6 +498,7 @@ URLをコメントに明記、`node --test` によるユニットテスト）で
 | `youshiki7.js` | 様式第七号（経営業務管理責任者証明書） | `checkKeieiGyomuKanri` を再利用し、判定結果（`RequirementCheckResult`）の reasons/warnings をそのまま箇条書き表示。判定ロジックを再実装しない |
 | `youshiki8.js` | 様式第八号（専任技術者証明書） | `senninGijutsushaList` の営業所ごとに `checkSenninGijutsushaForOffice` を呼び、見出し＋表＋根拠のセクションを繰り返す。正式提出は営業所ごとに分割する必要がある旨をコメントで明記 |
 | `youshiki20-2.js` | 様式第二十号の二（誓約書） | `checkKekkaku` を再利用。建設業法第8条全14号を判定対象とするが（2026年9月・Issue #72）、役員・政令使用人・法定代理人の情報が未入力の号は`warnings`で未確認である旨を明示する |
+| `youshiki2-form.js` | 様式第二号（工事経歴書）罫線版（Issue #76） | 並び順は `youshiki2.js` の `compareWorkRecords` を共用。入力項目の無い欄（JV・工事現場・PC等の内訳）は空欄で出し手書きで補う。注記は `buildFormLayoutDisclaimerParagraph`（人手確認の注記は残す。ADR-0021） |
 | `youshiki2.js` | 様式第二号（工事経歴書。M8） | `checkKekkaku`等の判定ロジック再利用はない（工事経歴には合否判定が存在しないため）。並び順の解決（§5.17）と、掲載件数の絞り込み・税込税抜換算を自動化しない旨の注記（ADR-0009）が実装の中心 |
 | `youshiki16.js` | 様式第十六号の一部（完成工事原価報告書。M10） | 貸借対照表・損益計算書本体は対象外（ADR-0010）。材料費・労務費・外注費・経費の4区分・6項目の合計表示と、損益計算書との整合性は自動チェックしない旨の注記（§5.19）が実装の中心 |
 
@@ -998,9 +1000,11 @@ Webの `GET /clients.csv`（読み取り専用のダウンロードのみ。登�
 - **実行方法**: `npm run test:mutation`（`stryker run`のエイリアス）。
   ミュータント1件ごとに`node --test`（全テスト）を再実行する
   「commandランナー」を使うため、日常のPRごとに毎回実行するものでは
-  なく、大きな変更の節目やテスト方針の見直し時に手動実行する運用とする
-  （実行には数分〜数十分かかる。詳細な設計判断は`stryker.config.mjs`の
-  コメントを参照）。
+  ない（実行には数分〜数十分かかる。詳細な設計判断は`stryker.config.mjs`の
+  コメントを参照）。`.github/workflows/weekly-mutation.yml`が毎週実行し、
+  生き残ったミュータントの要約をIssue（ラベル`mutation-report`）に出す
+  （ADR-0018。必須チェック外で、閾値による失敗もさせない）。大きな変更の
+  節目やテスト方針の見直し時には手動でも実行する。
 - **対象範囲**: 要件判定・欠格事由判定・日付/金額計算・CSV相互変換など
   「間違えると実害が大きい」ロジックに絞る（`src/documents/**`・
   `src/web/**`等の書類生成・画面表示は対象外。理由は設定ファイルの
@@ -1071,8 +1075,8 @@ Webの `GET /clients.csv`（読み取り専用のダウンロードのみ。登�
 - **`thresholds.break`の導入（2026年10月・#79）**: 優先度A〜Cの実測が
   出揃い、対象範囲の大半が90%台後半〜100%に達し著しく低いファイルが
   無いことを確認できたため、`break: 70`（`low`と同値）を設定した
-  （発注者の判断: 導入する）。CIには組み込まない（ADR-0011の既存方針）ため、
-  `npm run test:mutation`を手動実行した際に、大規模な検証漏れ
+  （発注者の判断: 導入する）。PRのCIには組み込まない（ADR-0011の既存方針）ため、
+  週次実行（`weekly-mutation.yml`。ADR-0018）や手動実行の結果で、大規模な検証漏れ
   （役員チェック項目の判定が空でも気づけない、等）を検知する目安として使う。
 
 ### 7.2 Property-based testing（fast-check。2026年9月導入）
@@ -1198,7 +1202,9 @@ lost update。片方の登録が完全に失われる）を発見し、
 （ADR-0016）。
 
 対象は`features/`ディレクトリに配置し、`npm run test:bdd`
-（既存の`npm test`には含めない）で実行する。最初の実例として
+（既存の`npm test`には含めない）で実行する。CIでは
+`.github/workflows/nightly.yml`が毎晩実行し、失敗したときだけ常設Issue
+（ラベル`nightly-failure`）に集約する（ADR-0018。必須チェック外）。最初の実例として
 `features/construction-kekkaku.feature`（建設業法第8条の欠格要件。
 `src/licenses/construction/eligibility/rules/kekkaku.js`）を実装した。
 ステップ定義（`features/step_definitions/`）は判定ロジックを再実装せず、

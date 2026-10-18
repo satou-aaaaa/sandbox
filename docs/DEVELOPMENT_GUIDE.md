@@ -183,9 +183,9 @@ docs/          設計方針・アーキテクチャドキュメント（下記�
 npm test                    # node --test（ユニット・アクセシビリティ・カオス・契約）。コミット前に必ず通すこと
 npm run test:coverage       # 行・分岐カバレッジ付き（テキスト出力）
 npm run test:coverage:html  # カバレッジHTMLレポート生成（coverage/index.html。すぐ見たい時はこちら）
-npm run test:mutation       # Stryker（数分〜数十分。CIには含まれない。大きな変更の節目で手動実行）
+npm run test:mutation       # Stryker（数分〜数十分。PRのCIには含まれず、weekly-mutation.yml が毎週実行。ADR-0018）
 npm run test:e2e            # Playwright（実ブラウザ。初回は npx playwright install chromium が必要）
-npm run test:bdd            # Cucumber.js（Gherkin/BDD。features/。ADR-0016参照。npm testには含まれない）
+npm run test:bdd            # Cucumber.js（Gherkin/BDD。features/。ADR-0016参照。npm testには含まれず、nightly.yml が毎晩実行）
 npm run test:load           # autocannon（同時アクセス下でのエラー・タイムアウト有無を確認）
 npm run typecheck           # tsc --noEmit（JSDoc型チェック）
 npm run lint                # ESLint（eslint-plugin-securityによる静的セキュリティ解析を含む）

@@ -64,6 +64,18 @@ function formatEngineer(record) {
 }
 
 /**
+ * 工事経歴書の正式な記載順序（元請工事を先に、各グループ内は請負代金の額の
+ * 大きい順）で2件を比べる。サマリー版と罫線版（youshiki2-form.js）で共用する。
+ * @param {import('../licenses/construction/eligibility/types.js').WorkRecordInput} a
+ * @param {import('../licenses/construction/eligibility/types.js').WorkRecordInput} b
+ * @returns {number}
+ */
+export function compareWorkRecords(a, b) {
+  if (a.isSubcontract !== b.isSubcontract) return a.isSubcontract ? 1 : -1;
+  return b.contractAmount - a.contractAmount;
+}
+
+/**
  * ApplicantProfile.constructionHistory から工事経歴書の表示行を解決する。
  * 正式な記載順序（元請工事を先に、各グループ内は請負代金の額の大きい順）に
  * 並べ替える。入力側（配列の並び順）には依存しない設計にすることで、
@@ -75,10 +87,7 @@ function formatEngineer(record) {
 export function resolveYoushiki2Rows(profile) {
   const records = profile.constructionHistory ?? [];
 
-  const sorted = [...records].sort((a, b) => {
-    if (a.isSubcontract !== b.isSubcontract) return a.isSubcontract ? 1 : -1;
-    return b.contractAmount - a.contractAmount;
-  });
+  const sorted = [...records].sort(compareWorkRecords);
 
   return sorted.map((record) => [
     orNotEntered(record.constructionType),

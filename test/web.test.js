@@ -63,11 +63,12 @@ test("POST /submit は判定結果と書類ダウンロードリンクを含む�
     assert.match(html, /5要件すべて充足/); // サンプルデータは全要件を満たすように作られている
     assert.match(html, /\/download\/[^"]+\/youshiki1\.docx/);
 
-    // 実際に7様式分のdocxがディスクに生成されていることを確認する。
+    // 実際に8ファイル（7様式＋様式第二号の罫線版）のdocxがディスクに生成されていることを確認する。
     const sessions = await fs.readdir(ctx.outDir);
     assert.equal(sessions.length, 1);
     const files = await fs.readdir(path.join(ctx.outDir, sessions[0]));
-    assert.equal(files.length, 7);
+    assert.equal(files.length, 8);
+    assert.ok(files.includes("youshiki2-form.docx"));
   } finally {
     await ctx.close();
   }

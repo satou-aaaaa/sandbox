@@ -29,6 +29,10 @@ jobs:
           cache: npm
       - run: npm ci
       - name: ミューテーションテスト
+        # スコアが stryker.config.mjs の thresholds.break を下回ると Stryker は終了コード1を返す。
+        # ADR-0018 の「閾値による自動失敗はしない」に合わせてジョブは止めず、下の要約・Issue で結果を知らせる
+        # （レポートが出ないほどの異常終了なら、次の要約の手順が失敗してジョブも失敗する）。
+        continue-on-error: true
         run: npx stryker run --reporters json,clear-text
       - name: 生き残りの要約
         shell: bash
