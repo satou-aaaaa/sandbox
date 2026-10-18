@@ -20,16 +20,11 @@
 
 ### コンフリクト解消の手順（自分が作成したPRのみに適用。force-push・履歴の書き換えはしない）
 
-1. `git fetch origin main` と `git fetch origin <PRのブランチ>` で最新化する。
-2. `git worktree add /tmp/pr-<N> origin/<ブランチ>` で別ディレクトリにチェックアウトし、そこで作業する（現在のセッションの作業ブランチには触れない）。ローカルブランチを作り直す（`git checkout -b <ブランチ名>`）。
-3. `git merge origin/main --no-edit` でmainを取り込む。コンフリクトが出たら中身を読んで解消する:
-   - 両側が独立した追加（新しいテストケース・ADRへの追記・JSDoc型への新しいフィールド・import文への新しい名前の追加など）であれば、両方を残す（どちらかを消さない）。
-   - ADRのAmendment番号など連番が衝突する場合は、後から解消する側を次の空き番号に振り直す。
-   - 判定ロジック（合否・reasons・warnings）や `agent/policy.js` のガードレール自体が両側で異なるロジックに変更されている場合は、機械的に結合せず、意図を理解した上で解消する。判断がつかない場合はマージを保留し、PRにその旨をコメントする。
-4. 解消後、`npm ci`・`npm test`・`npm run typecheck`・`npm run lint` をこのworktreeで実行し、すべて通ることを確認する（1つでも失敗したら、原因を修正するか、解消をやり直す）。
-5. `git add -A && git commit --no-edit` でマージコミットを作り、`git push origin HEAD:<元のブランチ名>` でPRのブランチへpushする（force pushはしない）。
-6. `git worktree remove /tmp/pr-<N> --force` で後片付けする。
-7. GitHub側のCI（CodeQL・test等）の完了を待ち、すべて緑で `mergeable_state` が `clean` になったらマージする。他のPRが先にマージされて再度コンフリクトが生じた場合は、同じ手順をもう一度行う。
+共通の手順は [satou-aaaaa/shared-workflows の `routines/pr.md`](https://github.com/satou-aaaaa/shared-workflows/blob/main/routines/pr.md) の「コンフリクトを直す」（`origin/main` をマージで取り込み、両側の独立した追加は両方残す、連番は振り直す、確認を回してから force なしで push）。このリポジトリでは加えて次を守る。
+
+- 作業は `git worktree add /tmp/pr-<N> origin/<ブランチ>` の別ディレクトリで行い、終わったら `git worktree remove /tmp/pr-<N> --force` で片付ける（今のセッションの作業ブランチには触れない）。
+- 判定ロジック（合否・reasons・warnings）や `agent/policy.js` のガードレール自体が両側で異なるロジックに変更されている場合は、機械的に結合しない。判断がつかなければマージを保留し、PRにその旨をコメントする。
+- 解消後の確認は `npm ci`・`npm test`・`npm run typecheck`・`npm run lint`。
 
 ## Issue（確認→PR作成→CIチェック→マージまでを一連で実行）
 
