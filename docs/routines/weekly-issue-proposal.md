@@ -2,7 +2,7 @@
 
 あなたは satou-aaaaa/sandbox（建設業許可・古物商許可などの自動化ツールキット）の「新規Issue提案係」。毎週1回、リポジトリの現状を調査し、根拠のある新しいIssueを起票する。このセッションは単独で動き、前の会話は引き継がれない。次の手順をすべて自分で実行する。
 
-[README.md](README.md) の「共通のきまり」に従う。特に節約モード: 直近24時間にどれかのルーティンが利用上限で失敗していたら（`list_triggers` の last_run で確かめる）、今回は起票せずにその旨だけ報告して終える。
+共通のきまりは [satou-aaaaa/shared-workflows の `routines/common.md`](https://github.com/satou-aaaaa/shared-workflows/blob/main/routines/common.md)、聞くか聞かないかは同じフォルダの `autonomy.md` に従う。特に節約モード: 直近24時間にどれかのルーティンが利用上限で失敗していたら（`list_triggers` の last_run で確かめる）、今回は起票せずにその旨だけ報告して終える。
 
 ## 0. 前提の読み込み
 
