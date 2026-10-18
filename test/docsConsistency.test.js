@@ -6,6 +6,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
+import { Linter } from "eslint";
 import { REPO_ROOT } from "../scripts/lib/legalBasis.mjs";
 
 const read = (rel) => readFileSync(join(REPO_ROOT, rel), "utf8");
@@ -89,8 +90,8 @@ const SKIP_DIRS = new Set(["node_modules", ".git", "coverage", "reports", ".stry
 /**
  * コメントの中にあっても実在を求めない、説明用の架空パス。
  * テストの入力値（文字列リテラル）はコメントではないので、ここに足す必要はない。
+ * @type {Set<string>}
  */
-/** @type {Set<string>} */
 const FICTIONAL_DOC_PATHS = new Set();
 
 /** @param {string} rel @returns {string[]} REPO_ROOT からの相対パス */
@@ -107,22 +108,26 @@ function listCodeFiles(rel = "") {
 }
 
 /**
- * ソースのコメント部分から `docs/….md` の参照を取り出す。
- * 行コメント（`//` 以降）と、ブロックコメントの行（`/*`・`*` で始まる行）だけを見る。
- * `//` が文字列の中にある行（URL など）でも、そこから後ろに docs 参照があれば拾う（取りこぼしより誤検出を選ぶ）。
+ * ソースのコメントから `docs/….md` の参照を取り出す。
+ * 文字列・正規表現・テンプレートの中の `//` をコメントと取り違えないよう、
+ * 自前の行単位の判定ではなく ESLint（開発依存に既にある）のパーサーでコメントだけを取り出す。
  * @param {string} src
+ * @param {"module" | "commonjs"} [sourceType]
  * @returns {{ line: number, path: string }[]}
  */
-function findDocRefsInComments(src) {
+function findDocRefsInComments(src, sourceType = "module") {
+  const linter = new Linter();
+  const messages = linter.verify(src, { languageOptions: { ecmaVersion: "latest", sourceType } });
+  const fatal = messages.find((m) => m.fatal);
+  if (fatal) throw new Error(`構文解析に失敗した（${fatal.line}行目: ${fatal.message}）`);
   /** @type {{ line: number, path: string }[]} */
   const refs = [];
-  src.split("\n").forEach((text, i) => {
-    const trimmed = text.trimStart();
-    let comment = "";
-    if (trimmed.startsWith("*") || trimmed.startsWith("/*")) comment = trimmed;
-    else if (text.includes("//")) comment = text.slice(text.indexOf("//"));
-    for (const m of comment.matchAll(/docs\/[A-Za-z0-9_./-]*?\.md\b/g)) refs.push({ line: i + 1, path: m[0] });
-  });
+  for (const c of linter.getSourceCode().getAllComments()) {
+    const startLine = c.loc?.start.line ?? 1;
+    c.value.split("\n").forEach((text, i) => {
+      for (const m of text.matchAll(/docs\/[A-Za-z0-9_./-]*?\.md\b/g)) refs.push({ line: startLine + i, path: m[0] });
+    });
+  }
   return refs;
 }
 
@@ -132,11 +137,16 @@ test("findDocRefsInComments はコメント中の参照だけを拾う", () => {
     " * 経緯は`docs/adr/9999-nonexistent.md`参照",
     " */",
     'const fixture = "docs/in-string.md";',
+    'const url = "https://example.test/docs/in-url.md";',
+    "const re = /\\/\\/docs\\/in-regex.md/;",
+    "const tpl = `// docs/in-template.md`;",
     "foo(); // docs/DESIGN.md 7.1節",
+    "const x = 1; /* docs/inline-block.md */",
   ].join("\n");
   assert.deepEqual(findDocRefsInComments(src), [
     { line: 2, path: "docs/adr/9999-nonexistent.md" },
-    { line: 5, path: "docs/DESIGN.md" },
+    { line: 8, path: "docs/DESIGN.md" },
+    { line: 9, path: "docs/inline-block.md" },
   ]);
 });
 
@@ -146,7 +156,8 @@ test("コード中コメントの docs/….md 参照が実在する", () => {
   /** @type {string[]} */
   const missing = [];
   for (const f of files) {
-    for (const { line, path } of findDocRefsInComments(read(f))) {
+    const sourceType = f.endsWith(".cjs") ? "commonjs" : "module";
+    for (const { line, path } of findDocRefsInComments(read(f), sourceType)) {
       if (FICTIONAL_DOC_PATHS.has(path)) continue;
       if (!existsSync(join(REPO_ROOT, path))) missing.push(`${f}:${line} ${path}`);
     }
