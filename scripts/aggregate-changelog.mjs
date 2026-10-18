@@ -31,8 +31,8 @@ import { aggregateChangelog, defaultSectionHeading, isFragmentFile } from "./lib
 const REPO_ROOT = resolve(fileURLToPath(new URL("..", import.meta.url)));
 
 const args = process.argv.slice(2);
-const opt = (name) => (args.includes(name) ? args[args.indexOf(name) + 1] : undefined);
-const flag = (name) => args.includes(name);
+const opt = (/** @type {string} */ name) => (args.includes(name) ? args[args.indexOf(name) + 1] : undefined);
+const flag = (/** @type {string} */ name) => args.includes(name);
 
 const fragmentsDir = opt("--dir") ?? "changelog.d";
 const changelogPath = opt("--changelog") ?? "CHANGELOG.md";
