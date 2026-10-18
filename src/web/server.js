@@ -38,6 +38,7 @@ import { pathToFileURL } from "node:url";
 import { evaluateEligibility, formatEligibilityReport } from "../licenses/construction/eligibility/engine.js";
 import { writeYoushiki1Docx } from "../documents/youshiki1.js";
 import { writeYoushiki2Docx } from "../documents/youshiki2.js";
+import { writeYoushiki2FormDocx } from "../documents/youshiki2-form.js";
 import { writeYoushiki6Docx } from "../documents/youshiki6.js";
 import { writeYoushiki7Docx } from "../documents/youshiki7.js";
 import { writeYoushiki8Docx } from "../documents/youshiki8.js";
@@ -100,6 +101,7 @@ const MAX_BODY_BYTES = 5 * 1024 * 1024; // 5MB（フォーム入力のみを想�
 const DOCUMENT_TARGETS = [
   { label: "様式第一号（建設業許可申請書）", filename: "youshiki1.docx", write: writeYoushiki1Docx },
   { label: "様式第二号（工事経歴書）", filename: "youshiki2.docx", write: writeYoushiki2Docx },
+  { label: "様式第二号（工事経歴書・罫線版）", filename: "youshiki2-form.docx", write: writeYoushiki2FormDocx },
   { label: "様式第六号（役員等の一覧表）", filename: "youshiki6.docx", write: writeYoushiki6Docx },
   { label: "様式第七号（経営業務管理責任者証明書）", filename: "youshiki7.docx", write: writeYoushiki7Docx },
   { label: "様式第八号（専任技術者証明書）", filename: "youshiki8.docx", write: writeYoushiki8Docx },

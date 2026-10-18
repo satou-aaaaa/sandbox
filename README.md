@@ -91,6 +91,7 @@ npm run test:load           # 負荷テスト（autocannon。同時アクセス�
 npm run gen:eligibility     # 要件判定のサンプル実行
 npm run gen:youshiki1       # 様式第一号サマリーのdocx生成サンプル
 npm run gen:youshiki2       # 様式第二号（工事経歴書）サマリーのdocx生成サンプル
+npm run gen:youshiki2-form  # 様式第二号（工事経歴書）罫線版のdocx生成サンプル（正式様式の欄の並び。ADR-0021）
 npm run gen:youshiki6       # 様式第六号サマリーのdocx生成サンプル
 npm run gen:youshiki7       # 様式第七号サマリーのdocx生成サンプル
 npm run gen:youshiki8       # 様式第八号サマリーのdocx生成サンプル
@@ -330,7 +331,8 @@ docs/            設計方針・アーキテクチャドキュメント
 ## 次のステップ
 
 - [ ] 実際に活動する都道府県のJCIP対応状況・gBizID要件を確認
-- [ ] 対象都道府県の正式様式レイアウト・記載要領を入手し、正式様式に準拠した出力への拡張を検討（M6）
+- [ ] 対象都道府県の正式様式レイアウト・記載要領を入手し、正式様式に準拠した出力への拡張を検討（M6）。
+      第一歩として様式第二号（工事経歴書）の罫線版を追加済み（Issue #76・ADR-0021）。効果を見て他の様式へ広げる
 - [ ] 対象都道府県が確定次第、`src/licenses/construction/eligibility/prefectureRules.js` に固有要件を
       登録する（合成の仕組み自体はM6の土台として実装済み。`docs/adr/0005-*.md`）
 - [ ] JCIP連携は行政書士登録・対象都道府県確定・仕様書本文の精査が揃うまで着手しない

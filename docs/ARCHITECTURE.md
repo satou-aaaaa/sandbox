@@ -73,7 +73,7 @@ M11（`docs/DESIGN_kobutsu-core.md`）で、許可種別に依存しない共通
 - `eligibility/engine.js` — 5要件（＋登録済みの都道府県固有要件）をまとめて判定し、総合結果とレポートを生成（集約部分はコアの`aggregate.js`を再利用）
 - `eligibility/prefectureRules.js` — 都道府県固有の追加要件を登録・合成する仕組み（M6の土台。具体的な要件は未登録）
 - `eligibility/consistencyChecks.js` — 入力内容のルールベース整合性チェック（M7。合否判定には影響しない付加情報。外部AI APIは使わない）
-- `documents/youshiki1.js`・`youshiki2.js`（工事経歴書、M8）・`youshiki6.js`・`youshiki7.js`・`youshiki8.js`・`youshiki16.js`（完成工事原価報告書、M10）・`youshiki20-2.js`・`youshiki25-14.js`（経審総括表、M9） — 各様式のdocx自動生成
+- `documents/youshiki1.js`・`youshiki2.js`（工事経歴書、M8）・`youshiki2-form.js`（工事経歴書の罫線版、ADR-0021）・`youshiki6.js`・`youshiki7.js`・`youshiki8.js`・`youshiki16.js`（完成工事原価報告書、M10）・`youshiki20-2.js`・`youshiki25-14.js`（経審総括表、M9） — 各様式のdocx自動生成
 - `reminders/renewalSchedule.js` — 5年更新（早期検討180日前・準備開始60日前・法定期限30日前の3段階、M7）・決算変更届の期限計算
 - `index.js` — `registerConstructionLicense()`でコアの`scheduleTypes.js`へ登録するエントリポイント
 

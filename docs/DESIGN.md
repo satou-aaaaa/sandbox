@@ -94,6 +94,7 @@ src/
                         テストへの影響を避けるための判断）
     youshiki1.js        様式第一号のdocx生成
     youshiki2.js        様式第二号（工事経歴書）のdocx生成（M8）
+    youshiki2-form.js   様式第二号（工事経歴書）の罫線版（正式様式の欄の並び・業種ごとに1枚。ADR-0021）
     youshiki6.js        様式第六号（役員等の一覧表）のdocx生成
     youshiki7.js        様式第七号（経営業務管理責任者証明書）のdocx生成
     youshiki8.js        様式第八号（専任技術者証明書）のdocx生成（営業所ごとにセクション分け）
@@ -497,6 +498,7 @@ URLをコメントに明記、`node --test` によるユニットテスト）で
 | `youshiki7.js` | 様式第七号（経営業務管理責任者証明書） | `checkKeieiGyomuKanri` を再利用し、判定結果（`RequirementCheckResult`）の reasons/warnings をそのまま箇条書き表示。判定ロジックを再実装しない |
 | `youshiki8.js` | 様式第八号（専任技術者証明書） | `senninGijutsushaList` の営業所ごとに `checkSenninGijutsushaForOffice` を呼び、見出し＋表＋根拠のセクションを繰り返す。正式提出は営業所ごとに分割する必要がある旨をコメントで明記 |
 | `youshiki20-2.js` | 様式第二十号の二（誓約書） | `checkKekkaku` を再利用。建設業法第8条全14号を判定対象とするが（2026年9月・Issue #72）、役員・政令使用人・法定代理人の情報が未入力の号は`warnings`で未確認である旨を明示する |
+| `youshiki2-form.js` | 様式第二号（工事経歴書）罫線版（Issue #76） | 並び順は `youshiki2.js` の `compareWorkRecords` を共用。入力項目の無い欄（JV・工事現場・PC等の内訳）は空欄で出し手書きで補う。注記は `buildFormLayoutDisclaimerParagraph`（人手確認の注記は残す。ADR-0021） |
 | `youshiki2.js` | 様式第二号（工事経歴書。M8） | `checkKekkaku`等の判定ロジック再利用はない（工事経歴には合否判定が存在しないため）。並び順の解決（§5.17）と、掲載件数の絞り込み・税込税抜換算を自動化しない旨の注記（ADR-0009）が実装の中心 |
 | `youshiki16.js` | 様式第十六号の一部（完成工事原価報告書。M10） | 貸借対照表・損益計算書本体は対象外（ADR-0010）。材料費・労務費・外注費・経費の4区分・6項目の合計表示と、損益計算書との整合性は自動チェックしない旨の注記（§5.19）が実装の中心 |
 
