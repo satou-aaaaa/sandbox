@@ -2,7 +2,7 @@
 
 リポジトリ satou-aaaaa/sandbox の運用エージェントを、このクラウド環境で1サイクル実行し、結果を日本語で簡潔に報告する。
 
-[README.md](README.md) の「共通のきまり」（節約モード・Claude が要らない作業は CI へ）にも従う。
+共通のきまり（節約モード・Claude が要らない作業は CI へ など）は [satou-aaaaa/shared-workflows の `routines/common.md`](https://github.com/satou-aaaaa/shared-workflows/blob/main/routines/common.md)、聞くか聞かないかは同じフォルダの `autonomy.md` に従う。
 
 ## 手順（この順に、Bashで実行する）
 

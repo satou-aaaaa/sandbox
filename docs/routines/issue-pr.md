@@ -2,7 +2,7 @@
 
 この kensetsu-kyoka-toolkit（satou-aaaaa/sandbox）リポジトリのオープンな issue・pull request を確認し、対応する。作業を始める前に、まずリポジトリルートの CLAUDE.md を読み、プロジェクトの規約（ビルドレスJS+JSDoc構成、外部送信禁止、判定ロジックへの法令根拠の明記、単一JSONファイル永続化、Git運用方針、テストコマンド）を必ず確認すること。
 
-[README.md](README.md) の「共通のきまり」（節約モード・Claude が要らない作業は CI へ）にも従う。
+共通のきまり（節約モード・Claude が要らない作業は CI へ など）は [satou-aaaaa/shared-workflows の `routines/common.md`](https://github.com/satou-aaaaa/shared-workflows/blob/main/routines/common.md)、聞くか聞かないかは同じフォルダの `autonomy.md` に従う。
 
 ## Pull Request（Dependabot等、既にオープンなもの）
 
