@@ -1136,7 +1136,7 @@ jsdomを使うのは、レンダリング不要な静的HTML構造の検査（�
 - **ブラウザ**: Chromiumのみを対象とする（複数ブラウザの差異を検証する
   価値より、CIの実行時間・ローカル環境のディスク使用量を優先）。
 - **実行方法**: `npm run test:e2e`（初回のみ`npx playwright install chromium`が
-  必要）。CIでは他の「OS非依存」チェックと同じくubuntu-latest・Node 22.xの
+  必要）。CIでは他の「OS非依存」チェックと同じくubuntu-latest・Node 24.xの
   1系統のみで実行する（アプリ側はOS依存の分岐が無いHTTPサーバーのため）。
 
 ### 7.5 静的セキュリティ解析（eslint-plugin-security。2026年9月導入）

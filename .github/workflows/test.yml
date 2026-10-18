@@ -24,7 +24,7 @@ jobs:
   test:
     runs-on: ${{ matrix.os }}
     # まれなハング状態でActions利用時間を無駄に消費するのを防ぐ。
-    # ubuntu・22.xのセルはPlaywrightのブラウザインストールが加わり時間が
+    # ubuntu・24.xのセルはPlaywrightのブラウザインストールが加わり時間が
     # 伸びるため、他セルより若干余裕を持たせている。
     timeout-minutes: 15
     strategy:
@@ -37,17 +37,20 @@ jobs:
         # 見逃すリスクがあったため。過去に.gitattributesでの改行コード
         # 対応が必要になった経緯を踏まえた対応）。
         os: [ubuntu-latest, windows-latest]
-        node-version: [22.x, 24.x]
+        node-version: [24.x, 26.x]
         # 【2026年9月・ベストプラクティス監査第7回】Windows runnerはUbuntuの
         # 2倍の課金倍率。Windows環境を含める目的（OS依存バグの検出）は
         # Node.jsのメジャーバージョンにはほぼ依存しないため、windows-latest
-        # は22.xの1系統のみに絞り、24.x分を除外してActions利用時間を削減する
+        # は主軸（現在24.x）の1系統のみに絞り、もう一方を除外してActions利用時間を削減する
         # （発注者の判断により対応。docs/BEST_PRACTICES_AUDIT.md §6参照）。
         # 【2026年9月・#78】Node 20はEOL（2026-04-30）かつjsdom 30.xが
         # Node 22.22.2以上を要求するため、マトリクスを20.x/22.xから22.x/24.xへ変更した。
+        # 【2026年10月・#204】Node 22のEOL（2027-04-30）に備え、主軸を24.x
+        # （EOL 2028-04-30）へ移し、マトリクスを22.x/24.xから24.x/26.xへ変更した。
+        # 26.xは次のLTS（2026-10-28にLTS入り）の先行確認用。
         exclude:
           - os: windows-latest
-            node-version: 24.x
+            node-version: 26.x
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
@@ -57,19 +60,20 @@ jobs:
       - run: npm ci
       - run: npm run typecheck
       - run: npm run lint
-      # ubuntu・22.xのジョブは直後に `npm run test:coverage` で同じ200件を
+      # ubuntu・24.xのジョブは直後に `npm run test:coverage` で同じ200件を
       # カバレッジ計測付きで再実行する（合否件数もそちらで確認できる）ため、
       # そのセルだけは同一テストの二重実行を避けるためこのステップを省略する。
       - name: npm test
-        if: "!(matrix.os == 'ubuntu-latest' && matrix.node-version == '22.x')"
+        if: "!(matrix.os == 'ubuntu-latest' && matrix.node-version == '24.x')"
         run: npm test
       # カバレッジ計測は結果がOS・Node.jsバージョンに依存しないため、
-      # ubuntu・22.x の1系統のみで実行する（従来はNode 20系の既知の不具合を避ける目的も
-      # 兼ねていた。#78でNode 20をサポート対象から外した後も、実行時間の節約のため維持する）。
+      # ubuntu・24.x の1系統のみで実行する（従来はNode 20系の既知の不具合を避ける目的も
+      # 兼ねていた。#78でNode 20をサポート対象から外した後も、実行時間の節約のため維持する。
+      # #204で主軸を22.xから24.xへ移した）。
       # テスト件数・カバレッジ数値をActionsのジョブサマリーにも出力し、ログを
       # 開かなくても概要を確認できるようにする。
       - name: テストカバレッジ計測とサマリー出力
-        if: matrix.os == 'ubuntu-latest' && matrix.node-version == '22.x'
+        if: matrix.os == 'ubuntu-latest' && matrix.node-version == '24.x'
         shell: bash
         run: |
           set -o pipefail
@@ -99,15 +103,15 @@ jobs:
       # 引き続き代替する（docs/BEST_PRACTICES_AUDIT.md §1・§6参照）。
       # 結果はOSに依存しないため ubuntu の1系統のみで足りる。
       - name: シークレット混入チェック（CI側の安全網）
-        if: matrix.os == 'ubuntu-latest' && matrix.node-version == '22.x'
+        if: matrix.os == 'ubuntu-latest' && matrix.node-version == '24.x'
         run: npm run check-secrets
       # 依存パッケージの既知脆弱性チェック。package-lock.jsonのみに依存する結果であり
-      # OS・Node.jsバージョンいずれにも依存しないため、ubuntu・22.xの1系統のみで足りる。
+      # OS・Node.jsバージョンいずれにも依存しないため、ubuntu・24.xの1系統のみで足りる。
       - name: npm audit（高深刻度以上）
-        if: matrix.os == 'ubuntu-latest' && matrix.node-version == '22.x'
+        if: matrix.os == 'ubuntu-latest' && matrix.node-version == '24.x'
         run: npm audit --audit-level=high
       # npmレジストリ上のパッケージ署名を検証する（サプライチェーン改ざん対策）。
-      # 同上の理由でubuntu・22.xの1系統のみで足りる。
+      # 同上の理由でubuntu・24.xの1系統のみで足りる。
       # 【既知の問題】npmレジストリ側のSigstore署名添付（attestation）取得APIが
       # 一時的に応答しないことがあり、`@playwright/test`等でEMISSINGSIGNATUREKEYと
       # なって本ステップだけが単発で失敗する事象が複数のPRで発生した（他の
@@ -116,7 +120,7 @@ jobs:
       # `continue-on-error` で結果を無視する（本物の署名不備も見逃してしまう）
       # のではなく、コマンド自体を3回まで再試行する形でCI側の安定性を上げる。
       - name: npmパッケージ署名の検証
-        if: matrix.os == 'ubuntu-latest' && matrix.node-version == '22.x'
+        if: matrix.os == 'ubuntu-latest' && matrix.node-version == '24.x'
         shell: bash
         run: |
           for i in 1 2 3; do
@@ -126,23 +130,23 @@ jobs:
           done
           exit 1
       # E2Eテスト（Playwright）。ブラウザバイナリのダウンロードを伴い実行時間も
-      # 長いため、他の「OS非依存」チェックと同じくubuntu・22.xの1系統のみで
+      # 長いため、他の「OS非依存」チェックと同じくubuntu・24.xの1系統のみで
       # 実行する（アプリ側はOS依存の分岐が無いHTTPサーバーのため、複数OSで
       # 重複実行する価値は薄いと判断。ADR-0012参照）。
       - name: Playwrightブラウザのインストール
-        if: matrix.os == 'ubuntu-latest' && matrix.node-version == '22.x'
+        if: matrix.os == 'ubuntu-latest' && matrix.node-version == '24.x'
         run: npx playwright install --with-deps chromium
       - name: E2Eテスト
-        if: matrix.os == 'ubuntu-latest' && matrix.node-version == '22.x'
+        if: matrix.os == 'ubuntu-latest' && matrix.node-version == '24.x'
         run: npm run test:e2e
       # 負荷テスト（autocannon）。厳密な性能閾値は判定せず、同時リクエスト下で
       # エラー・タイムアウト・5xxが発生しないことのみを確認する（ADR-0013参照）。
       # 共有CIランナーの性能は変動するため、具体的なレイテンシ数値でのpass/fail
       # 判定はせず「壊れずに応答できるか」に絞ることでCI環境でも安定して
       # 実行できるようにしている。他の「OS非依存」チェックと同じくubuntu・
-      # 22.xの1系統のみで実行する。
+      # 24.xの1系統のみで実行する。
       - name: 負荷テストとサマリー出力
-        if: matrix.os == 'ubuntu-latest' && matrix.node-version == '22.x'
+        if: matrix.os == 'ubuntu-latest' && matrix.node-version == '24.x'
         shell: bash
         run: |
           set -o pipefail

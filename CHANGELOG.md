@@ -6,6 +6,23 @@
 日付単位のリリースではなく `docs/PROPOSAL.md` のマイルストーン（M1〜）を
 単位として記録する。
 
+## Node 22のサポート終了に備え、主軸をNode 24へ移行（2026年10月18日・#204）
+
+Node.js 22のEOL（2027-04-30。出典: https://raw.githubusercontent.com/nodejs/Release/main/schedule.json ）に
+備え、開発・CIの主軸を24.x（EOL 2028-04-30）へ移した（発注者の判断で案A＝24.xへ一括移行）。
+
+- `package.json`の`engines.node`を`>=22.22.2`から`>=24.15.0`に変更した（jsdom 30.xの
+  要件`^22.22.2 || ^24.15.0 || >=26.0.0`の24系の下限）。`.nvmrc`も`24`に更新した
+- CIのマトリクスを`22.x/24.x`から`24.x/26.x`に変更した。カバレッジ・E2E・負荷テスト・
+  監査など1系統だけで回すステップは24.xで実行する。Windowsは従来どおり1系統（24.x）に絞る。
+  26.xは次のLTS（2026-10-28にLTS入り）の先行確認用
+- 定期・エージェント系ワークフロー（nightly・weekly-mutation・law-watch・agent-*）の
+  `node-version`を`24.x`にした
+- `agent/package.json`の`engines`を、すでにEOLの20系を許していた`>=20`から`>=24`にした
+  （実行環境はCIが24.x、Dockerイメージが26系）
+- `docs/DEVELOPMENT_GUIDE.md`・`docs/REQUIREMENTS.md`（NFR-1）・`docs/DESIGN.md`・
+  `docs/BEST_PRACTICES_AUDIT.md`の記載を合わせた。過去の決定記録であるADR本文は書き換えていない
+
 ## 技人国ビザ: 在留期間満了リマインドのミューテーションテストのカバレッジを強化（2026年10月2日・#79）
 
 ミューテーションテストの対象拡大（優先度B: 各許可種別の`reminders/*.js`）の最初の
