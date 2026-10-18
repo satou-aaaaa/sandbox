@@ -46,3 +46,4 @@ Architecture Decision Record（ADR）を管理する。
 | [0018](0018-repo-guards-and-ops-routines.md) | 設計前提の機械検査と、運用ルーティン（法令改正ウォッチャー・週次ミューテーション等）を拡充する | Accepted |
 | [0019](0019-law-change-impact-analysis.md) | 法令改正の影響分析を段階的に導入する（第一段: 影響する設計書の自動特定） | Accepted |
 | [0020](0020-client-data-backup-and-retention-defaults.md) | 顧客データ（clients.json等）の世代バックアップ・保持期間・暗号化前提の推奨デフォルト値を定める | Accepted |
+| [0021](0021-formal-layout-docx-reproduction.md) | 正式様式への対応は、まず様式第二号（工事経歴書）をdocxの罫線で再現する（方式B）。依存は追加しない | Accepted |

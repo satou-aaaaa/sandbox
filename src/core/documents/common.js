@@ -75,6 +75,26 @@ export function buildDisclaimerParagraph() {
 }
 
 /**
+ * 正式様式の欄配置に合わせた「罫線版」の様式用の注記段落を作る（Issue #76・ADR-0021）。
+ * 罫線版でも提出前の人手確認は省けないため、サマリー版の注記
+ * （buildDisclaimerParagraph）の代わりにこれを文書冒頭に含めること。
+ */
+export function buildFormLayoutDisclaimerParagraph() {
+  return new Paragraph({
+    spacing: { after: 120 },
+    children: [
+      new TextRun({
+        text: "※ 正式様式の欄の並びに合わせた下書きです。提出前に必ず行政書士が内容と最新の様式・記載要領を確認し、空欄（手書きで補う欄）を埋めてください。",
+        font: FONT,
+        size: 16,
+        italics: true,
+        color: "AA0000",
+      }),
+    ],
+  });
+}
+
+/**
  * 見出し3相当の小見出し段落を作る（営業所ごとのセクション分けなどに使用）。
  * @param {string} text
  */
