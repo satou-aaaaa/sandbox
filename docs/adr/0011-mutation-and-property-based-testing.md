@@ -129,3 +129,13 @@ Date: 2026-09-16
 繰り返す運用では`--incremental`を付けることを推奨する
 （`reports/stryker-incremental.json`は`.gitignore`対象のローカル
 ファイルで、セッション間の共有は想定しない）。
+
+## Amendment 2（2026-10-18）: 週次の自動実行（#258）
+
+ADR-0018 で、`.github/workflows/weekly-mutation.yml` が毎週（日曜 03:00 JST）
+`npm run test:mutation` を実行し、生き残ったミュータントの要約をジョブサマリーと
+常設Issue（ラベル`mutation-report`）に出すようになった。本文の「CIには組み込まない」は、
+「PRごとのCI（必須チェック）には組み込まない」と読み替える。週次実行も必須チェックには
+含めず、`thresholds.break`による失敗もさせない。手動実行は引き続き可能。
+あわせて、BDD（`npm run test:bdd`。ADR-0016）も `npm test` には含めず、
+`.github/workflows/nightly.yml` が毎晩実行している（ADR-0018）。

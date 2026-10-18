@@ -57,7 +57,7 @@ jobs:
       - run: npm ci
       - run: npm run typecheck
       - run: npm run lint
-      # ubuntu・22.xのジョブは直後に `npm run test:coverage` で同じ200件を
+      # ubuntu・22.xのジョブは直後に `npm run test:coverage` で同じテスト一式を
       # カバレッジ計測付きで再実行する（合否件数もそちらで確認できる）ため、
       # そのセルだけは同一テストの二重実行を避けるためこのステップを省略する。
       - name: npm test
