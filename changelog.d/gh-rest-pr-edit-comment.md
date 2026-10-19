@@ -1,0 +1,1 @@
+- `agent/gh-rest.mjs` の REST モードで、`gh pr edit` のラベル追加・削除と `gh pr comment` の本文が捨てられていたのを直した（#286）。あわせて README のクライアント登録の説明を、`add-client.js` が受け付ける9種別と種別ごとのフラグに合わせた（#262）
