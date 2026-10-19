@@ -25,10 +25,13 @@ Git運用・進め方を統一するためのガイド。`docs/REQUIREMENTS.md`�
 
 ### 1.2 セットアップ手順
 
+準備は `bash scripts/setup.sh` の1コマンド（Node.js の版の確認・`npm ci`・pre-commit フックの有効化・E2E のブラウザ。何度実行してもよい。Windows は Git Bash で）。
+Claude Code のクラウドセッションでは `.claude/settings.json` のフックが自動で実行する。
+
 ```bash
 git clone <リポジトリURL>
 cd kensetsu-kyoka-toolkit   # または実際のディレクトリ名
-npm install
+bash scripts/setup.sh
 npm run typecheck           # JSDocの型チェック（tsc --noEmit。ビルドは行わない）
 npm run lint                # ESLintによる静的チェック
 npm test                    # 全テストが成功することを確認（正確な件数は実行結果を参照）
