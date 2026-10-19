@@ -76,9 +76,7 @@
 ## セットアップ
 
 ```bash
-npm install
-npx playwright install chromium   # E2Eテスト用のブラウザバイナリを取得（初回のみ）
-git config core.hooksPath hooks   # シークレット混入チェックのpre-commitフックを有効化（初回のみ）
+bash scripts/setup.sh       # 準備の1コマンド（Node.js の版の確認・npm ci・pre-commit フック・E2E のブラウザ。何度実行してもよい）
 npm run typecheck           # JSDocの型チェック（tsc --noEmit。ビルドは行わない）
 npm run lint                # ESLintによる静的チェック（セキュリティ静的解析を含む）
 npm test                    # ユニットテスト・アクセシビリティテスト・カオステスト・契約テストを実行

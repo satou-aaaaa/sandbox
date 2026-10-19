@@ -42,7 +42,16 @@ export default defineConfig({
     baseURL: `http://127.0.0.1:${PORT}`,
     trace: "on-first-retry",
   },
-  projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
+  // CHROMIUM_PATH: 入っている Chromium を使う（Claude Code のクラウドなど。scripts/setup.sh が設定する）
+  projects: [
+    {
+      name: "chromium",
+      use: {
+        ...devices["Desktop Chrome"],
+        launchOptions: process.env.CHROMIUM_PATH ? { executablePath: process.env.CHROMIUM_PATH } : {},
+      },
+    },
+  ],
   webServer: {
     command: "node src/web/server.js",
     url: `http://127.0.0.1:${PORT}`,

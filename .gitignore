@@ -6,7 +6,9 @@ desktop.ini
 # Editors
 .vscode/
 .idea/
-.claude/
+# Claude Code: 手元の設定は入れない。チームで共有する settings.json（クラウドの準備フック）だけ入れる
+.claude/*
+!.claude/settings.json
 
 # Node
 node_modules/

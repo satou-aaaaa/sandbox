@@ -53,6 +53,7 @@ test/  e2e/  features/  scripts/  docs/
 ## テスト（方針と約束ごとの全文は `docs/DEVELOPMENT_GUIDE.md` 2.8）
 
 ```bash
+bash scripts/setup.sh   # 最初に一度（クラウドセッションではフックが自動で実行）
 npm test            # コミット前に必ず通す（ユニット・a11y・カオス・契約・設計前提の機械検査）
 npm run typecheck   # JSDoc型チェック
 npm run lint        # ESLint（security プラグイン含む）
