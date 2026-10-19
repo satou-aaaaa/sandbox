@@ -57,10 +57,10 @@ Martin Fowler・OWASP・Google Cloud DORAチーム等の公開資料を出典と
 | 項目 | 状態 | 補足 |
 |---|---|---|
 | ユニットテスト | ✅ | `node --test`（Node.js標準機能）。全件通過を維持中（正確な件数はモジュール追加のたびに変わるため`npm test`の実行結果を確認すること。件数のハードコードは第7回監査で撤廃） |
-| CI（push/PR時の自動テスト） | ✅ | `.github/workflows/test.yml`。Node.js 22.x/24.x × ubuntu-latest/windows-latest（windowsは22.xのみ）の計3通りで実行（2026年9月にWindows環境を追加。2026年9月・#78でNode 20.x/22.xから変更。開発機がWindowsであり、過去に改行コード関連の問題が実際に発生した経緯を踏まえた対応） |
+| CI（push/PR時の自動テスト） | ✅ | `.github/workflows/test.yml`。Node.js 24.x/26.x × ubuntu-latest/windows-latest（windowsは24.xのみ）の計3通りで実行（2026年9月にWindows環境を追加。2026年9月・#78でNode 20.x/22.xから、2026年10月・#204で22.x/24.xから変更。開発機がWindowsであり、過去に改行コード関連の問題が実際に発生した経緯を踏まえた対応） |
 | CIの実行効率・堅牢性 | ✅ | 2026年9月追加。`concurrency`設定で同一ブランチ・PRへの連続pushの古い実行を自動キャンセル、`timeout-minutes: 10`でハング時のActions利用時間浪費を防止、`fail-fast: false`でOS/Node.jsバージョンの組み合わせごとの結果を最後まで確認できるようにした |
 | CI実行結果のサマリー表示 | ✅ | 2026年9月追加。テスト件数・カバレッジ数値を`$GITHUB_STEP_SUMMARY`に出力し、ログを展開しなくてもActionsの実行画面で概要を確認できるようにした |
-| テストカバレッジ計測 | ✅ | `npm run test:coverage`（`--experimental-test-coverage`）。CIでは22.xのジョブでのみ実行（結果がバージョンに依存しないため。従来はNode 20系の既知の不具合も理由だった）。継続してライン・分岐とも99%超を維持中（直近確認: 2026年9月、ライン約99.8%・分岐約99.1%。新規モジュール追加のたびに変動するため、正確な数値は`npm run test:coverage`の実行結果を確認すること）。`npm run test:coverage:html`（c8）でドリルダウン可能なHTMLレポートも生成できる（`coverage/index.html`） |
+| テストカバレッジ計測 | ✅ | `npm run test:coverage`（`--experimental-test-coverage`）。CIではubuntu・24.xのジョブでのみ実行（主軸の1系統で測れば足りるため。従来はNode 20系の既知の不具合も理由だった）。下限はライン99%・分岐95%（直近確認: 2026年10月・Node 24、ライン約99.6%・分岐約97.1%。Node 24は分岐を細かく数えるためNode 22より分岐の値が低く出る。新規モジュール追加のたびに変動するため、正確な数値は`npm run test:coverage`の実行結果を確認すること）。`npm run test:coverage:html`（c8）でドリルダウン可能なHTMLレポートも生成できる（`coverage/index.html`） |
 | カバレッジの閾値強制 | ⛔ | `--test-coverage-lines` 等で閾値未達を失敗にする設定は未導入。個人開発でカバレッジ数値そのものを目的化しないため、情報表示に留めている |
 | ミューテーションテスト | ✅ | 2026年9月追加。Stryker Mutatorで要件判定・欠格事由判定・日付/金額計算・CSV相互変換に対象を絞って導入（`npm run test:mutation`）。カバレッジでは検出できないアサーション不足の実バグを複数発見・修正した。詳細は[ADR-0011](adr/0011-mutation-and-property-based-testing.md) |
 | Property-based testing | ✅ | 2026年9月追加。fast-checkで日付計算・CSV往復変換・HTMLエスケープにランダム入力での性質検証を追加。[ADR-0011](adr/0011-mutation-and-property-based-testing.md) |
@@ -71,7 +71,7 @@ Martin Fowler・OWASP・Google Cloud DORAチーム等の公開資料を出典と
 | 契約テスト | ✅ | 2026年9月追加。`schemas/client-record.schema.json`（JSON Schema）+ ajvで`ClientRecord`/`LicenseEntry`の形を検証（`test/contract.test.js`）。外部API消費者がまだ無いため、将来のAPI公開に備えた土台という位置づけ。[ADR-0013](adr/0013-load-chaos-contract-testing.md) |
 | ブランチ保護ルール（必須レビュー等） | 🟡 | 2026年9月にリポジトリをpublicに変更したことで、従来は非公開リポジトリ・GitHub Freeプランの制約でGitHub Proへのアップグレードが必要だった「必須ステータスチェック」を含むブランチ保護ルールが、公開リポジトリでは無料で利用可能になった（§6参照）。単独開発のためレビュー必須は現実的でないが、「CIが通るまでマージ不可」の設定は改めて検討の余地あり。コードからは変更できないため、必要なら発注者（あなた）がGitHub UIで設定すること |
 | 型チェック（JSDoc + `tsconfig.json` の `checkJs`） | ✅ | 独立したタスクとして着手し導入済み。`npm run typecheck`（`tsc --noEmit`）をCIに追加。対象は`src/`・`scripts/`のみ（`test/`は対象外。ダミーデータ主体でstrictモードとの相性が悪いため）。導入時に判明した既存コードの型不備（暗黙のany、`err.code`アクセス時のunknown型、`req.url`のundefined未考慮等）は修正済み。詳細は[ADR-0007](adr/0007-checkjs-type-checking.md) |
-| テストピラミッド構成の明文化 | ✅ | DESIGN.md 7章に追記。単体テストを主体とし、`web.test.js`のような結合テストは最小限。E2Eテスト（Playwright）は2026年9月に導入し、golden pathの疎通確認に限定（ubuntu・Node22.xの1系統のみCIで実行）。[ADR-0012](adr/0012-accessibility-e2e-sast-coverage-tooling.md) |
+| テストピラミッド構成の明文化 | ✅ | DESIGN.md 7章に追記。単体テストを主体とし、`web.test.js`のような結合テストは最小限。E2Eテスト（Playwright）は2026年9月に導入し、golden pathの疎通確認に限定（ubuntu・Node 24.xの1系統のみCIで実行）。[ADR-0012](adr/0012-accessibility-e2e-sast-coverage-tooling.md) |
 | テストが実装ではなく振る舞いを検証しているか | ✅ | 既存テストは公開関数（`checkKeieiGyomuKanri`、`buildYoushiki1Document`等）の入出力を検証しており、プライベートな内部実装には依存していない。新規踏襲すべきパターンとして継続する |
 
 ## コードレビュー（単独開発におけるセルフレビュー運用）
@@ -97,7 +97,7 @@ Googleのeng-practicesが挙げる12のレビュー観点（設計・機能性�
 | 項目 | 状態 | 補足 |
 |---|---|---|
 | 改行コードの正規化 | ✅ | `.gitattributes`（`* text=auto eol=lf`）を追加。Windows環境で `git add` のたびにCRLF警告が出ていた問題を解消 |
-| Node.jsバージョン固定（開発環境） | ✅ | `.nvmrc`を追加。`nvm use` で `engines` の最小バージョンに揃えられる（導入時点は`20`。2026年9月・#78でNode 20のサポート終了に伴い`22`へ更新） |
+| Node.jsバージョン固定（開発環境） | ✅ | `.nvmrc`を追加。`nvm use` で `engines` の最小バージョンに揃えられる（導入時点は`20`。2026年9月・#78でNode 20のサポート終了に伴い`22`へ、2026年10月・#204でNode 22のサポート終了〈2027-04-30〉に備え`24`へ更新） |
 | Linter（ESLint等） | ✅ | `eslint`（flat config、`eslint.config.js`）を導入。`npm run lint` としてCIに追加。ビルドステップは増やしていない（`js.configs.recommended` ベース。型チェックはtsconfig.json/checkJs側の役割のため型関連ルールは扱わない）。導入時点でエラー0件 |
 | Formatter（Prettier等） | 🟡 | 同上。現状はコードスタイルが手作業で概ね統一されているため見送り |
 | コミット規約（Conventional Commits等） | ⛔ | DEVELOPMENT_GUIDE.md 3.3節で「日本語で簡潔に」という既存方針があり、変更しない |

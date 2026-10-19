@@ -5,7 +5,7 @@
   "type": "module",
   "description": "GitHub Issue を自律的に処理する開発運用用エージェントループ（本体アプリとは依存関係を分離）",
   "engines": {
-    "node": ">=20"
+    "node": ">=24"
   },
   "scripts": {
     "start": "node run.mjs",
