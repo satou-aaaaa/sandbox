@@ -3,7 +3,7 @@
  *
  * 判定ロジック自体は再実装せず、既存の`checkKekkaku`
  * （`test/eligibility.test.js`が単体テストする対象と同じ関数）を
- * そのまま呼び出す（CLAUDE.mdのコーディング規約「判定ロジックは
+ * そのまま呼び出す（AGENTS.mdのコーディング規約「判定ロジックは
  * eligibility/rules/*.jsを再利用する」に沿う）。
  */
 import { Given, When, Then } from "@cucumber/cucumber";

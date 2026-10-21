@@ -116,7 +116,7 @@ Microsoft Word、LibreOffice Writer等で開いて内容を確認すること。
 
 ### 2.7 ディレクトリ構成の詳細（CLAUDE.md から移設）
 
-CLAUDE.md には1行ずつの要約だけを置き、各モジュールの説明はここに置く。
+AGENTS.md には1行ずつの要約だけを置き、各モジュールの説明はここに置く。
 
 ```
 src/
@@ -201,10 +201,10 @@ npm run gen:review-pack     # 押印前レビューパック（判定理由・�
 
 - **設計前提の機械検査**: `test/invariants.test.js`（ビルドレス・外部送信なし・127.0.0.1待受・DB無し・
   `data/`未コミット・判定ロジック冒頭の法令根拠URL）と `test/docsConsistency.test.js`（モジュールと設計書の対応・
-  CLAUDE.mdの構成・ADR索引）が `npm test` で走る。法令根拠URLは全ロジックに記載済み（2026-09-30に条文を再確認）。
+  AGENTS.mdの構成・ADR索引）が `npm test` で走る。法令根拠URLは全ロジックに記載済み（2026-09-30に条文を再確認）。
   法令に基づかないファイル（算術ヘルパー・レジストリ等）だけ `test/fixtures/legal-basis-exempt.json` に理由つきで免除し、
   `legal-basis-baseline.json`（未了分の基準線）は空。**新規ロジックはURLを書く**（基準線・免除への逃げは不可。ADR-0018）。
-  新モジュールは `npm run scaffold:module` で作ると、`docs/`・`MODULE_DOCS`・CLAUDE.md の更新漏れも検知できる。
+  新モジュールは `npm run scaffold:module` で作ると、`docs/`・`MODULE_DOCS`・AGENTS.md の更新漏れも検知できる。
 - テストは `test/` に1モジュール1ファイル対応で配置し、`node --test` で実行する
   （Jest/Vitest等の外部フレームワークは導入しない）。**例外**: Gherkin/BDDに
   限定してCucumber.jsを導入している（`features/`。発注者の明示的な依頼に

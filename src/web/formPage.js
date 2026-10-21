@@ -350,7 +350,7 @@ const PERSON_KEKKAKU_FIELDS = [
 // 「欠格事由を確認済み」チェックボックス（<prefix>-confirmed）が未チェックの
 // 場合は、個々のチェックボックスの状態に関わらず undefined を返す。
 // これにより、未確認の人物を「欠格事由なし（全項目false）」として
-// 自動的に合格扱いにしてしまうことを防ぐ（CLAUDE.mdの「判定ロジックの
+// 自動的に合格扱いにしてしまうことを防ぐ（AGENTS.mdの「判定ロジックの
 // 合否そのものを曖昧にフォールバックさせない」方針。kekkaku.js側の
 // 「未入力ならwarningを出す」挙動と対になる）。
 // @param {Element} scopeEl 行(.row)やdocument等、対象のチェックボックス群を含む要素

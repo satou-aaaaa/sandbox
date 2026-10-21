@@ -131,6 +131,7 @@ test("findProtectedPaths: CI・フック・依存定義・実データ・秘密�
     "data/clients.json",
     ".env",
     "config/.env.local",
+    "AGENTS.md",
     "CLAUDE.md",
   ]);
   assert.deepEqual(hits, [
@@ -142,6 +143,7 @@ test("findProtectedPaths: CI・フック・依存定義・実データ・秘密�
     "data/clients.json",
     ".env",
     "config/.env.local",
+    "AGENTS.md",
     "CLAUDE.md",
   ]);
 });
@@ -440,7 +442,7 @@ test("classifyPrRisk: 設計文書・ADR・設定・スキーマ・範囲外は 
 });
 
 test("classifyPrRisk: 保護パスは allowLegal でも high で、理由に保護パスと出る", () => {
-  for (const p of [".github/workflows/test.yml", "agent/policy.js", "hooks/check-secrets.mjs", "CLAUDE.md", "package-lock.json", "package.json", "data/clients.json", ".env"]) {
+  for (const p of [".github/workflows/test.yml", "agent/policy.js", "hooks/check-secrets.mjs", "AGENTS.md", "CLAUDE.md", "package-lock.json", "package.json", "data/clients.json", ".env"]) {
     const r = classifyPrRisk([f(p)], { allowLegal: true });
     assert.equal(r.level, "high", p);
     assert.match(r.reasons.join(" "), /保護対象パス/, p);
@@ -497,7 +499,7 @@ test("parseScoutIssues: 受け入れ条件なし・短すぎる・長すぎる�
 });
 
 test("parseScoutIssues: 保護パスの変更を要求する提案は捨てる", () => {
-  for (const p of ["agent/policy.js", ".github/workflows/test.yml", "package.json", "CLAUDE.md", "hooks/check-secrets.mjs"]) {
+  for (const p of ["agent/policy.js", ".github/workflows/test.yml", "package.json", "AGENTS.md", "CLAUDE.md", "hooks/check-secrets.mjs"]) {
     const body = goodBody.replace("test/foo.test.js", p);
     assert.deepEqual(parseScoutIssues(JSON.stringify({ title: goodIssue.title, body })), [], p);
   }

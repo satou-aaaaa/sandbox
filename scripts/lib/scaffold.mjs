@@ -3,7 +3,7 @@
  *
  * 作るのは「骨組み」だけで、判定ロジック・法令根拠は含めない。法令根拠URLの場所には
  * `TODO(法令根拠)` を置き、test/invariants.test.js が残っていれば失敗させる（人が原文を確認して埋める）。
- * 既存アドオン（例: kobutsu）と同じ構成・命名・登録方式に揃える（CLAUDE.md「コーディング規約」）。
+ * 既存アドオン（例: kobutsu）と同じ構成・命名・登録方式に揃える（AGENTS.md「コーディング規約」）。
  */
 
 /**
@@ -226,7 +226,7 @@ version: 0.1 / 雛形（scripts/scaffold-module.mjs で生成。内容は人が�
 export function followUpChecklist(name, label) {
   return [
     `test/docsConsistency.test.js の MODULE_DOCS に "licenses/${name}": "${name}-core" を追加する`,
-    `CLAUDE.md のディレクトリ構成に ${name}/ の説明（${label}）を追加する`,
+    `AGENTS.md のディレクトリ構成に ${name}/ の説明（${label}）を追加する`,
     `src/licenses/registerAll.js・scripts/reminder-digest.js・src/web/server.js に register${toPascal(name)}License() を追加する（test/dailySummary.test.js が registerAll.js とserver.jsの差を検知する）`,
     "TODO(法令根拠) を、原文を確認したURLに置き換える（残っていると npm test が失敗する）",
     `docs/DESIGN_${name}-core.md・docs/REQUIREMENTS_${name}-core.md の TODO を埋める`,

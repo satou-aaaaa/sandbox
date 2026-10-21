@@ -213,7 +213,7 @@ test("missingFieldsPanel: 工事名等に<を含む値を入れてもHTMLタグ�
  * 明示的にチェックしない限り、個々の項目チェックボックスの状態（すべて
  * 未チェック=false）に関わらず `kekkaku` を undefined として送る。
  * これにより、未入力の人物を「欠格なし（全項目false）」として自動的に
- * 合格扱いにしてしまうことを防ぐ（CLAUDE.mdの「判定の合否を曖昧に
+ * 合格扱いにしてしまうことを防ぐ（AGENTS.mdの「判定の合否を曖昧に
  * フォールバックさせない」方針。rules/kekkaku.js側の
  * `officers?.length && officers.every((o) => !o.kekkaku)` による
  * warning判定が、buildProfile()側の挙動次第で機能しなくなる回帰を防止する）。

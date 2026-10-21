@@ -1,6 +1,6 @@
 /**
  * ドキュメント整合性の機械検査。新モジュールを追加したのに設計書・要件定義書・
- * CLAUDE.mdのディレクトリ構成・ADR索引の更新を忘れる、という陳腐化を検知する。
+ * AGENTS.mdのディレクトリ構成・ADR索引の更新を忘れる、という陳腐化を検知する。
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -55,12 +55,18 @@ test("DESIGN_*.md と REQUIREMENTS_*.md が対で存在する", () => {
   assert.deepEqual([...designs].sort(), [...reqs].sort());
 });
 
-test("CLAUDE.md のディレクトリ構成に、すべてのモジュールが載っている", () => {
-  const claude = read("CLAUDE.md");
+test("AGENTS.md のディレクトリ構成に、すべてのモジュールが載っている", () => {
+  const claude = read("AGENTS.md");
   for (const m of [...licenseModules, ...domainModules]) {
     const leaf = m.split("/").pop();
-    assert.ok(claude.includes(`${leaf}/`), `CLAUDE.md のディレクトリ構成に ${leaf}/ が無い`);
+    assert.ok(claude.includes(`${leaf}/`), `AGENTS.md のディレクトリ構成に ${leaf}/ が無い`);
   }
+});
+
+test("CLAUDE.md は AGENTS.md を読み込むだけで、本文を二重に持たない", () => {
+  // 指示の本文は AGENTS.md（shared-workflows の template/ と同じ形）。agent/ の保護パスは両方を守る。
+  assert.match(read("CLAUDE.md"), /^@AGENTS\.md\s*$/m);
+  assert.ok(read("AGENTS.md").includes("## 変更してはならない前提"), "AGENTS.md に「変更してはならない前提」の節が無い");
 });
 
 test("README.md のモジュール一覧表に、すべてのモジュールの設計書リンクが載っている", () => {
