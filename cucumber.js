@@ -8,7 +8,7 @@
  * 法令根拠が特に重要な判定ロジックについて、業務言語で書かれた
  * 受け入れ基準を別レイヤーとして追加するもの。
  *
- * 【CLAUDE.mdの既存方針との関係】CLAUDE.mdの「テスト」節は
+ * 【AGENTS.mdの既存方針との関係】AGENTS.mdの「テスト」節は
  * 「Jest/Vitest等の外部テストフレームワークは導入しない」としており、
  * 本来はこの方針に反する。発注者の明示的な指示により、Gherkin/BDDに
  * 限定した例外として導入した（経緯は`docs/adr/0016-cucumber-bdd-for-gherkin-acceptance-tests.md`

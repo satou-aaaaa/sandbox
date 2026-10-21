@@ -42,7 +42,7 @@ export function compareFragmentNames(a, b) {
  * 断片の一覧から、空ファイル・内容が重複するものを除いた本文一覧を作る。
  * ファイル名の自然順でソートしてから処理するため、重複時は先に出てくる
  * （番号の小さい・古い）ファイルを残し、後発を「重複のためスキップ」とする。
- * 不正・欠落データで止めず、スキップして処理を続ける方針（CLAUDE.md）に従う。
+ * 不正・欠落データで止めず、スキップして処理を続ける方針（AGENTS.md）に従う。
  * @param {RawFragment[]} rawFragments
  * @returns {{items: PreparedFragment[], emptySkipped: string[], duplicateSkipped: string[]}}
  */

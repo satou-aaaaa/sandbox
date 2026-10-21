@@ -20,7 +20,7 @@
  *   `regulatoryEmployees[].kekkaku`）
  * 役員・使用人・法定代理人の欠格情報が入力されていない場合でも判定結果を
  * 「合格」に固定はせず、`warnings`で未確認である旨を明示する
- * （CLAUDE.mdの「判定の合否を曖昧にフォールバックさせない」方針）。
+ * （AGENTS.mdの「判定の合否を曖昧にフォールバックさせない」方針）。
  *
  * @param {import('../types.js').PersonKekkakuInput | undefined} person
  * @param {string} roleLabel 理由文に出す肩書き＋氏名（例: "役員（山田太郎）"）

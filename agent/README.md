@@ -93,7 +93,7 @@ Issueに `agent-ready` を付けるのが「実行してよい」という人間
 
 1. `origin/main` から隔離した `git worktree` を作り、`npm ci`
 2. エージェントが実装（許可ツール: ファイル編集・テスト実行のみ。40ターン/$3まで）
-3. 保護パス（`.github/` `agent/` `hooks/` `data/` `package*.json` `CLAUDE.md` `.env*`）に
+3. 保護パス（`.github/` `agent/` `hooks/` `data/` `package*.json` `AGENTS.md` `CLAUDE.md` `.env*`）に
    変更があれば中止しIssueへ差し戻す
 4. `npm test` / `typecheck` / `lint` が通らなければ中止しIssueへ差し戻す
 5. commit → push → PR作成（`agent-authored` ラベル）→ Issueを `agent-done` に
@@ -106,7 +106,7 @@ Issueに `agent-ready` を付けるのが「実行してよい」という人間
 
 - **自動マージ（既定）**: README/CHANGELOG、docs直下の文書（設計文書・ADRを除く）、テスト（追加≧削除）、法令ロジックを含まないコード（src/web・src/core/documents・src/portal・scripts・e2e・load）。12ファイル以下。必須チェック成功後にマージされる
 - **承認が必要**: 法令判定・期限計算・様式生成の領域、設定・スキーマ・設計文書・ADR。理由がPRにコメントされ `agent-needs-review` が付く。`agent-approved` ラベル（所有者、またはAIレビュアー）で自動マージ。リポジトリ変数 `AGENT_AUTOMERGE_LEGAL=true` にすると法令領域も自動マージ
-- **常に人手**: 保護パス（.github・agent・hooks・data・package*.json・CLAUDE.md・.env*）。ただし `agent/` の運用系ファイル（`policy.js` の `AGENT_OPS_FILES`: README・report・sync・scout・triage・selftest）だけは、AIレビュアーの承認で自動マージされる（Amendment 19）
+- **常に人手**: 保護パス（.github・agent・hooks・data・package*.json・AGENTS.md・CLAUDE.md・.env*）。ただし `agent/` の運用系ファイル（`policy.js` の `AGENT_OPS_FILES`: README・report・sync・scout・triage・selftest）だけは、AIレビュアーの承認で自動マージされる（Amendment 19）
 
 ### AIレビュアーによる承認（人の承認とみなす）
 
