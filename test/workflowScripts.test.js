@@ -13,10 +13,14 @@ test('ワークフローが直接呼ぶ scripts/*.sh は実行できる印が付
     if (!/\.ya?ml$/.test(f)) continue;
     const text = readFileSync(`${dir}/${f}`, 'utf8');
     // 「bash scripts/x.sh」のように bash 経由で呼ぶものは印が要らないので外す
-    for (const m of text.matchAll(/(?<![\w./-])(?<!bash )(?<!sh )(scripts\/[\w.-]+\.sh)/g)) called.add(m[1]);
+    for (const m of text.matchAll(/(?<![\w./-])(?<!bash )(?<!sh )(?:\.\/)?(scripts\/[\w.-]+\.sh)/g)) called.add(m[1]);
   }
   assert.ok(called.size > 0, '直接呼ぶスクリプトが見つからない（検査の正規表現を見直す）');
   const modes = execFileSync('git', ['ls-files', '-s', ...called], { encoding: 'utf8' });
-  const notExec = modes.trim().split('\n').filter((l) => !l.startsWith('100755')).map((l) => l.split('\t')[1]);
+  const lines = modes.trim().split('\n').filter(Boolean);
+  const tracked = new Set(lines.map((l) => l.split('\t')[1]));
+  const missing = [...called].filter((p) => !tracked.has(p));
+  assert.deepEqual(missing, [], `ワークフローが呼ぶのに git に無い: ${missing.join(', ')}`);
+  const notExec = lines.filter((l) => !l.startsWith('100755')).map((l) => l.split('\t')[1]);
   assert.deepEqual(notExec, [], `実行の印が無い: ${notExec.join(', ')}（git update-index --chmod=+x で直す）`);
 });
