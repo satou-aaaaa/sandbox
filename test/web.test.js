@@ -248,6 +248,10 @@ test("GET /inshokuten-eigyo は飲食店営業許可インテイクフォーム�
     assert.match(html, /name="licenseCategory" value="inshokuten-eigyo"/);
     // HACCPは許可要件ではないため入力欄を置かない（eligibility/types.js冒頭の注記）。
     assert.doesNotMatch(html, /HACCP/);
+    // 資格欄は触らずに送っても資格ありにならないよう「未定」が初期値（先頭）。
+    assert.match(html, /<select id="qualificationType">\s*<option value="未定">/);
+    assert.match(html, /id="storeAddress" required/);
+    assert.match(html, /id="municipalityName" required/);
   } finally {
     await ctx.close();
   }

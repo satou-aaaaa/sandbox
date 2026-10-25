@@ -37,8 +37,10 @@ test("建設業許可インテイクフォームから飲食店営業許可イ�
 });
 
 test("飲食店営業許可インテイクフォーム: 下書きとして保存→一覧→続きから入力で、入力値が復元される", async ({ page }) => {
+  // 手元ではサーバーと .e2e-tmp/drafts.json が使い回されるため、回ごとに別の名前にして行の取り違えを防ぐ。
+  const draftName = `下書きE2Eテスト食堂-${Date.now()}`;
   await page.goto("/inshokuten-eigyo");
-  await page.locator("#applicantName").fill("下書きE2Eテスト食堂");
+  await page.locator("#applicantName").fill(draftName);
   await page.locator("#sinkCount").fill("3");
   await page.locator("#qualificationType").selectOption("栄養士");
   await page.locator("#usesTankOrWellWater").check();
@@ -47,12 +49,12 @@ test("飲食店営業許可インテイクフォーム: 下書きとして保存
   await expect(page.locator(".saved-notice")).toBeVisible();
 
   await page.goto("/drafts");
-  const draftRow = page.locator("tr", { hasText: "下書きE2Eテスト食堂" });
+  const draftRow = page.locator("tr", { hasText: draftName });
   await expect(draftRow).toContainText("飲食店営業許可");
 
   await draftRow.getByRole("link", { name: "続きから入力" }).click();
   await expect(page.locator("h1")).toHaveText("飲食店営業許可 申請者情報インテイク");
-  await expect(page.locator("#applicantName")).toHaveValue("下書きE2Eテスト食堂");
+  await expect(page.locator("#applicantName")).toHaveValue(draftName);
   await expect(page.locator("#sinkCount")).toHaveValue("3");
   await expect(page.locator("#qualificationType")).toHaveValue("栄養士");
   await expect(page.locator("#usesTankOrWellWater")).toBeChecked();

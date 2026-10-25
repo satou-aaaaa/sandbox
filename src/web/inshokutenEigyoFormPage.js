@@ -15,8 +15,11 @@
  */
 import { escapeHtml } from "./htmlUtils.js";
 
-/** `SekininshaInput.qualificationType` の選択肢（types.js と同じ並び）。 */
-const QUALIFICATION_OPTIONS = ["調理師", "製菓衛生師", "栄養士", "講習会受講修了", "未定"];
+/**
+ * `SekininshaInput.qualificationType` の選択肢。触らずに送っても資格があることにならないよう、
+ * 「未定」を先頭（初期値）に置く。
+ */
+const QUALIFICATION_OPTIONS = ["未定", "調理師", "製菓衛生師", "栄養士", "講習会受講修了"];
 
 /**
  * 飲食店営業許可のインテイクフォームのHTMLページを返す。
@@ -64,8 +67,8 @@ ${savedNoticeBlock}
     <h2>1. 基本情報</h2>
     <label>申請者（営業者）氏名または法人名 <input type="text" id="applicantName" required></label>
     <label>屋号（店舗名。任意） <input type="text" id="businessName"></label>
-    <label>営業所（店舗）所在地 <input type="text" id="storeAddress"></label>
-    <label>管轄保健所の自治体名（例: 東京都） <input type="text" id="municipalityName"></label>
+    <label>営業所（店舗）所在地 <input type="text" id="storeAddress" required></label>
+    <label>管轄保健所の自治体名（例: 東京都） <input type="text" id="municipalityName" required></label>
     <label>電話番号（任意） <input type="text" id="phoneNumber"></label>
     <label>開業予定日（任意） <input type="date" id="plannedOpeningDateIso"></label>
   </section>
