@@ -16,7 +16,10 @@ test('ワークフローが直接呼ぶ scripts/*.sh は実行できる印が付
     for (const m of text.matchAll(/(?<![\w./-])(?<!bash )(?<!sh )(?:\.\/)?(scripts\/[\w.-]+\.sh)/g)) called.add(m[1]);
   }
   assert.ok(called.size > 0, '直接呼ぶスクリプトが見つからない（検査の正規表現を見直す）');
-  const modes = execFileSync('git', ['ls-files', '-s', ...called], { encoding: 'utf8' });
+  // ミューテーション（Stryker）は .stryker-tmp/ の写しの中で動く。写しは git に無いので、
+  // リポジトリの一番上で ls-files する（写しの workflows は元と同じ中身）。
+  const top = execFileSync('git', ['rev-parse', '--show-toplevel'], { encoding: 'utf8' }).trim();
+  const modes = execFileSync('git', ['-C', top, 'ls-files', '-s', ...called], { encoding: 'utf8' });
   const lines = modes.trim().split('\n').filter(Boolean);
   const tracked = new Set(lines.map((l) => l.split('\t')[1]));
   const missing = [...called].filter((p) => !tracked.has(p));
