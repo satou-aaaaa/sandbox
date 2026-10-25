@@ -51,6 +51,9 @@ import { writeRirekishoDocx } from "../licenses/kobutsu/documents/rirekisho.js";
 import { evaluateNouchiTenyoEligibility, formatNouchiTenyoEligibilityReport } from "../licenses/nouchi-tenyo/eligibility/engine.js";
 import { writeShinseishoDocx as writeNouchiTenyoShinseishoDocx } from "../licenses/nouchi-tenyo/documents/shinseisho.js";
 import { writeJigyokeikakushoDocx } from "../licenses/nouchi-tenyo/documents/jigyokeikakusho.js";
+import { evaluateInshokutenEligibility, formatInshokutenEligibilityReport } from "../licenses/inshokuten-eigyo/eligibility/engine.js";
+import { writeShinseishoSummaryDocx as writeInshokutenShinseishoSummaryDocx } from "../licenses/inshokuten-eigyo/documents/shinseishoSummary.js";
+import { writeTenpuChecklistDocx as writeInshokutenTenpuChecklistDocx } from "../licenses/inshokuten-eigyo/documents/tenpuChecklist.js";
 import { loadClients, DEFAULT_CLIENTS_PATH } from "../core/reminders/clientStore.js";
 import {
   buildReminderDigest,
@@ -63,6 +66,7 @@ import { loadDrafts, getDraft, upsertDraft, removeDraft, getDraftLicenseCategory
 import { renderFormPage } from "./formPage.js";
 import { renderKobutsuFormPage } from "./kobutsuFormPage.js";
 import { renderNouchiTenyoFormPage } from "./nouchiTenyoFormPage.js";
+import { renderInshokutenEigyoFormPage } from "./inshokutenEigyoFormPage.js";
 import { renderResultPage } from "./resultPage.js";
 import { renderReminderPage } from "./reminderPage.js";
 import { renderDraftsPage } from "./draftsPage.js";
@@ -120,6 +124,20 @@ const KOBUTSU_DOCUMENT_TARGETS = [
 const NOUCHI_TENYO_DOCUMENT_TARGETS = [
   { label: "農地転用許可申請書", filename: "shinseisho.docx", write: writeNouchiTenyoShinseishoDocx },
   { label: "事業計画書", filename: "jigyokeikakusho.docx", write: writeJigyokeikakushoDocx },
+];
+
+/**
+ * 飲食店営業許可の様式生成モジュールの一覧（DOCUMENT_TARGETS参照）。
+ * 添付書類チェックリストは施設基準の入力だけを受け取るため、profileから渡し直す。
+ */
+const INSHOKUTEN_EIGYO_DOCUMENT_TARGETS = [
+  { label: "営業許可申請書サマリー", filename: "shinseisho-summary.docx", write: writeInshokutenShinseishoSummaryDocx },
+  {
+    label: "添付書類チェックリスト",
+    filename: "tenpu-checklist.docx",
+    /** @param {import('../licenses/inshokuten-eigyo/eligibility/types.js').InshokutenApplicantProfile} profile @param {string} outPath */
+    write: (profile, outPath) => writeInshokutenTenpuChecklistDocx(profile.shisetsu, outPath),
+  },
 ];
 
 /**
@@ -269,6 +287,7 @@ function renderDraftFormPage(licenseCategory, options) {
   const anyOptions = /** @type {any} */ (options);
   if (licenseCategory === "kobutsu") return renderKobutsuFormPage(anyOptions);
   if (licenseCategory === "nouchi-tenyo") return renderNouchiTenyoFormPage(anyOptions);
+  if (licenseCategory === "inshokuten-eigyo") return renderInshokutenEigyoFormPage(anyOptions);
   return renderFormPage(anyOptions);
 }
 
@@ -482,6 +501,44 @@ export function createServer({
             sessionId,
             judgmentLabels: { ok: "○ 要件を充足（申請準備を進められます）", ng: "× 未充足の要件があります" },
             formPath: "/nouchi-tenyo",
+          })
+        );
+        return;
+      }
+
+      if (req.method === "GET" && url === "/inshokuten-eigyo") {
+        respondHtml(res, 200, renderInshokutenEigyoFormPage());
+        return;
+      }
+
+      if (req.method === "POST" && url === "/inshokuten-eigyo/submit") {
+        const bodyText = await readRequestBody(req);
+        const params = new URLSearchParams(bodyText);
+        const profileJson = params.get("profileJson");
+        if (!profileJson) {
+          throw new Error("profileJson が送信されていません（フォームのJavaScriptが動作していない可能性があります）");
+        }
+        /** @type {import('../licenses/inshokuten-eigyo/eligibility/types.js').InshokutenApplicantProfile} */
+        const profile = JSON.parse(profileJson);
+
+        const result = evaluateInshokutenEligibility(profile);
+        const report = formatInshokutenEligibilityReport(profile, result);
+
+        const sessionId = crypto.randomUUID();
+        const sessionDir = path.join(outDir, sessionId);
+        const files = await generateAllDocuments(INSHOKUTEN_EIGYO_DOCUMENT_TARGETS, profile, sessionDir);
+
+        respondHtml(
+          res,
+          200,
+          renderResultPage({
+            profile,
+            result,
+            report,
+            files,
+            sessionId,
+            judgmentLabels: { ok: "○ 要件を充足（申請準備を進められます）", ng: "× 未充足の要件があります" },
+            formPath: "/inshokuten-eigyo",
           })
         );
         return;

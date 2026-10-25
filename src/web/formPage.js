@@ -55,6 +55,7 @@ export function renderFormPage(options = {}) {
     ・ <a href="/drafts">→ 保存済みの下書き一覧を見る</a>
     ・ <a href="/kobutsu">→ 古物商許可のインテイクフォームへ</a>
     ・ <a href="/nouchi-tenyo">→ 農地転用許可のインテイクフォームへ</a>
+    ・ <a href="/inshokuten-eigyo">→ 飲食店営業許可のインテイクフォームへ</a>
   </p>
 </header>
 ${errorBlock}
