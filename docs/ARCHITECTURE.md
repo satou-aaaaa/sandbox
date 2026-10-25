@@ -184,6 +184,7 @@ M11（`docs/DESIGN_kobutsu-core.md`）で、許可種別に依存しない共通
 - `documents/shinseishoSummary.js`（営業許可申請書サマリー）・`tenpuChecklist.js`（添付書類チェックリスト＋事前相談→実地検査→許可証交付の標準的な流れの案内） — 各様式のdocx自動生成
 - `reminders/koshinSchedule.js` — **可変期間型の一般化**。建設業許可・産廃許可が確立した「許可年月日＋有効期間年数」から満了日を計算するコア共通ロジック（`src/core/reminders/expirySchedule.js`の`calcExpirySchedule`）を、産廃許可の「5年or7年の2択」からさらに一般化し、自治体・施設の立入検査結果で個別に決まる可変の年数（5〜8年が目安。食品衛生法第55条第3項は「5年を下らない」とのみ定め上限を定めていない）に対応。`validityYears`が未入力（＝許可証交付前）の場合は空配列を返す
 - `index.js` — `registerInshokutenEigyoLicense()`でコアの`scheduleTypes.js`へ登録するエントリポイント
+- インテイクWebフォーム（`/inshokuten-eigyo`・`/inshokuten-eigyo/submit`）: **2026年10月実装済み**（#290）。`src/web/inshokutenEigyoFormPage.js`。農地転用許可の`nouchiTenyoFormPage.js`と同じ設計を踏襲し、下書き保存（`/drafts`）にも対応。HACCPの入力欄は持たせない
 - 深夜酒類提供飲食店営業届出・風俗営業許可（風俗営業法）、酒類販売業免許（酒税法）、飲食店営業以外の食品衛生法上の許可業種、自治体ごとの施設基準条例の網羅的データベース化は対象外（`docs/REQUIREMENTS_inshokuten-eigyo-core.md` 4.6節）
 
 ### 特定技能1号申請支援アドオン（`src/licenses/tokutei-ginou/`。コアの9例目）
@@ -292,9 +293,9 @@ BtoB下請けポータル・会社設立サポートとも異なり、判定す�
 
 ### Web・共通
 
-- `src/web/server.js` — インテイク用の簡易Webフォーム（M3。建設業許可用の`/`・`/submit`に加え、古物商許可用の`/kobutsu`・`/kobutsu/submit`、農地転用許可用の`/nouchi-tenyo`・`/nouchi-tenyo/submit`を2026年9月追加。古物商許可は個人申請のみ対応〈`shinseisho.js`等の書類生成モジュールが法人の記載項目に対応していないため〉）＋リマインド表示・残日数フィルタ（`/reminders`、M7）＋下書き保存（`/drafts`。3許可種別共通。2026年9月・#73）＋CSVダウンロード（`/clients.csv`）。node:http のみで実装し、127.0.0.1のみで待受
-- `src/web/formPage.js`（建設業許可）・`kobutsuFormPage.js`（古物商許可。2026年9月追加）・`nouchiTenyoFormPage.js`（農地転用許可。2026年9月追加） — 各許可種別のインテイクフォーム画面。`resultPage.js`（判定結果画面）は`judgmentLabels`・`formPath`オプションで許可種別ごとの文言・戻り先リンクを差し替えられる設計とし、3つの許可種別すべてで共用する
-- `src/web/draftStore.js` — インテイクフォームの入力途中データを `data/drafts.json` へ読み書きするローカル永続化層（DB不使用）。`DraftRecord.licenseCategory`（"construction"/"kobutsu"/"nouchi-tenyo"。省略時は"construction"扱い）で3許可種別を判別する（2026年9月・#73。同じ一覧に混在させても「続きから入力」が誤った種別のフォームを開くことはない）
+- `src/web/server.js` — インテイク用の簡易Webフォーム（M3。建設業許可用の`/`・`/submit`に加え、古物商許可用の`/kobutsu`・`/kobutsu/submit`、農地転用許可用の`/nouchi-tenyo`・`/nouchi-tenyo/submit`を2026年9月追加、飲食店営業許可用の`/inshokuten-eigyo`・`/inshokuten-eigyo/submit`を2026年10月追加。古物商許可は個人申請のみ対応〈`shinseisho.js`等の書類生成モジュールが法人の記載項目に対応していないため〉）＋リマインド表示・残日数フィルタ（`/reminders`、M7）＋下書き保存（`/drafts`。4許可種別共通。2026年9月・#73、飲食店営業許可は2026年10月・#290）＋CSVダウンロード（`/clients.csv`）。node:http のみで実装し、127.0.0.1のみで待受
+- `src/web/formPage.js`（建設業許可）・`kobutsuFormPage.js`（古物商許可。2026年9月追加）・`nouchiTenyoFormPage.js`（農地転用許可。2026年9月追加）・`inshokutenEigyoFormPage.js`（飲食店営業許可。2026年10月追加） — 各許可種別のインテイクフォーム画面。`resultPage.js`（判定結果画面）は`judgmentLabels`・`formPath`オプションで許可種別ごとの文言・戻り先リンクを差し替えられる設計とし、4つの許可種別すべてで共用する
+- `src/web/draftStore.js` — インテイクフォームの入力途中データを `data/drafts.json` へ読み書きするローカル永続化層（DB不使用）。`DraftRecord.licenseCategory`（"construction"/"kobutsu"/"nouchi-tenyo"/"inshokuten-eigyo"。省略時は"construction"扱い）で4許可種別を判別する（2026年9月・#73。同じ一覧に混在させても「続きから入力」が誤った種別のフォームを開くことはない）
 - `test/` — `node --test` で実行するユニットテスト（外部テストランナー不要）
 - `scripts/` — 動作確認用のサンプル実行スクリプト（`sampleProfile.js`・`sampleKobutsuProfile.js`が各許可種別共通のダミーデータ）
 
@@ -338,6 +339,8 @@ BtoB下請けポータル・会社設立サポートとも異なり、判定す�
   引き続き対象外
 - 農地転用許可のWebフォーム対応: **2026年9月実装済み**（`/nouchi-tenyo`・
   `/nouchi-tenyo/submit`）。下書き保存（`/drafts`）も**2026年9月・#73で対応済み**
+- 飲食店営業許可のWebフォーム対応: **2026年10月実装済み**（`/inshokuten-eigyo`・
+  `/inshokuten-eigyo/submit`、下書き保存を含む。#290。親Issue #233 の着手順 1/6）
 - `src/core/reminders/clientCsv.js`は各種`<種別>Detail`をCSV列としては
   意図的に持たせていない（`docs/DESIGN_kobutsu-core.md` 5.5節参照）。CSV
   エクスポートには`<種別>Detail`が含まれない（エクスポート→インポートの往復
