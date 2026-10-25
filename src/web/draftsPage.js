@@ -10,6 +10,7 @@ const LICENSE_CATEGORY_LABELS = {
   construction: "建設業許可",
   kobutsu: "古物商許可",
   "nouchi-tenyo": "農地転用許可",
+  "inshokuten-eigyo": "飲食店営業許可",
 };
 
 /**

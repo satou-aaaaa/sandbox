@@ -40,6 +40,7 @@ import axeCore from "axe-core";
 import { renderFormPage } from "../src/web/formPage.js";
 import { renderKobutsuFormPage } from "../src/web/kobutsuFormPage.js";
 import { renderNouchiTenyoFormPage } from "../src/web/nouchiTenyoFormPage.js";
+import { renderInshokutenEigyoFormPage } from "../src/web/inshokutenEigyoFormPage.js";
 import { renderResultPage } from "../src/web/resultPage.js";
 import { renderReminderPage } from "../src/web/reminderPage.js";
 import { renderDraftsPage } from "../src/web/draftsPage.js";
@@ -130,6 +131,11 @@ test("renderNouchiTenyoFormPage: 資金調達区分の行を追加した状態�
   assert.ok(template, "テンプレート #shikinChotatsuRowTemplate が見つかりません");
   const fragmentHtml = `<!doctype html><html lang="ja"><head><title>test</title></head><body><main>${template.innerHTML}</main></body></html>`;
   const results = await runAxe(fragmentHtml);
+  assert.equal(results.violations.length, 0, formatViolations(results));
+});
+
+test("renderInshokutenEigyoFormPage: アクセシビリティ違反が無い（飲食店営業許可インテイクフォーム。初期状態）", async () => {
+  const results = await runAxe(renderInshokutenEigyoFormPage());
   assert.equal(results.violations.length, 0, formatViolations(results));
 });
 

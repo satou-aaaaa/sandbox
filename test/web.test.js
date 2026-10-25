@@ -10,6 +10,7 @@ import { createServer, startServer } from "../src/web/server.js";
 import { buildSampleApplicantProfile } from "../scripts/sampleProfile.js";
 import { buildSampleKobutsuProfile } from "../scripts/sampleKobutsuProfile.js";
 import { buildSampleNouchiTenyoProfile } from "../scripts/sampleNouchiTenyoProfile.js";
+import { buildSampleInshokutenEigyoProfile } from "../scripts/sampleInshokutenEigyoProfile.js";
 import { saveClients } from "../src/core/reminders/clientStore.js";
 import { upsertDraft, loadDrafts } from "../src/web/draftStore.js";
 
@@ -226,6 +227,82 @@ test("POST /nouchi-tenyo/submit で profileJson が無ければ400を返す", as
   const ctx = await startTestServer();
   try {
     const res = await fetch(`${ctx.baseUrl}/nouchi-tenyo/submit`, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: "",
+    });
+    assert.equal(res.status, 400);
+  } finally {
+    await ctx.close();
+  }
+});
+
+test("GET /inshokuten-eigyo は飲食店営業許可インテイクフォームのHTMLを返す（#290）", async () => {
+  const ctx = await startTestServer();
+  try {
+    const res = await fetch(`${ctx.baseUrl}/inshokuten-eigyo`);
+    assert.equal(res.status, 200);
+    const html = await res.text();
+    assert.match(html, /飲食店営業許可 申請者情報インテイク/);
+    assert.match(html, /id="inshokutenEigyoForm"/);
+    assert.match(html, /name="licenseCategory" value="inshokuten-eigyo"/);
+    // HACCPは許可要件ではないため入力欄を置かない（eligibility/types.js冒頭の注記）。
+    assert.doesNotMatch(html, /HACCP/);
+  } finally {
+    await ctx.close();
+  }
+});
+
+test("POST /inshokuten-eigyo/submit は判定結果・人手確認の文言・書類ダウンロードリンクを含む結果画面を返す（#290）", async () => {
+  const ctx = await startTestServer();
+  try {
+    const profile = buildSampleInshokutenEigyoProfile();
+    const body = new URLSearchParams({ profileJson: JSON.stringify(profile) });
+    const res = await fetch(`${ctx.baseUrl}/inshokuten-eigyo/submit`, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: body.toString(),
+    });
+    assert.equal(res.status, 200);
+    const html = await res.text();
+    assert.match(html, /要件判定結果/);
+    assert.match(html, /○ 要件を充足/);
+    assert.match(html, /登録行政書士/);
+    assert.match(html, /\/download\/[^"]+\/shinseisho-summary\.docx/);
+    assert.match(html, /\/download\/[^"]+\/tenpu-checklist\.docx/);
+    assert.match(html, /href="\/inshokuten-eigyo"/); // 「新しい申請者情報を入力する」リンクは/inshokuten-eigyoへ戻る
+
+    const sessions = await fs.readdir(ctx.outDir);
+    assert.equal(sessions.length, 1);
+    const files = await fs.readdir(path.join(ctx.outDir, sessions[0]));
+    assert.equal(files.length, 2);
+  } finally {
+    await ctx.close();
+  }
+});
+
+test("POST /inshokuten-eigyo/submit の判定結果は評価エンジンと一致する（不合格ケース）", async () => {
+  const ctx = await startTestServer();
+  try {
+    const profile = buildSampleInshokutenEigyoProfile();
+    profile.shisetsu.hasNonTouchHandwashing = false; // 施設基準を不合格にする
+    const body = new URLSearchParams({ profileJson: JSON.stringify(profile) });
+    const res = await fetch(`${ctx.baseUrl}/inshokuten-eigyo/submit`, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: body.toString(),
+    });
+    const html = await res.text();
+    assert.match(html, /未充足の要件があります/);
+  } finally {
+    await ctx.close();
+  }
+});
+
+test("POST /inshokuten-eigyo/submit で profileJson が無ければ400を返す", async () => {
+  const ctx = await startTestServer();
+  try {
+    const res = await fetch(`${ctx.baseUrl}/inshokuten-eigyo/submit`, {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body: "",
@@ -818,6 +895,38 @@ test("POST /drafts: licenseCategory=nouchi-tenyoで保存すると農地転用�
     const reopenHtml = await reopenRes.text();
     assert.match(reopenHtml, /農地転用許可 申請者情報インテイク/);
     assert.match(reopenHtml, /"applicantName":"サンプル建設株式会社"/);
+  } finally {
+    await ctx.close();
+  }
+});
+
+test("POST /drafts: licenseCategory=inshokuten-eigyoで保存すると飲食店営業許可として記録され、続きから入力すると飲食店営業フォームが開く（#290）", async () => {
+  const ctx = await startTestServer();
+  try {
+    const profile = buildSampleInshokutenEigyoProfile();
+    const body = new URLSearchParams({
+      profileJson: JSON.stringify(profile),
+      licenseCategory: "inshokuten-eigyo",
+      draftId: "",
+    });
+    const saveRes = await fetch(`${ctx.baseUrl}/drafts`, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: body.toString(),
+    });
+    assert.equal(saveRes.status, 200);
+
+    const drafts = await loadDrafts(ctx.draftsPath);
+    assert.equal(drafts.length, 1);
+    assert.equal(drafts[0].licenseCategory, "inshokuten-eigyo");
+
+    const listHtml = await (await fetch(`${ctx.baseUrl}/drafts`)).text();
+    assert.match(listHtml, /飲食店営業許可/);
+
+    const reopenRes = await fetch(`${ctx.baseUrl}/drafts/${drafts[0].id}`);
+    const reopenHtml = await reopenRes.text();
+    assert.match(reopenHtml, /飲食店営業許可 申請者情報インテイク/);
+    assert.match(reopenHtml, /"applicantName":"サンプル太郎"/);
   } finally {
     await ctx.close();
   }

@@ -13,6 +13,7 @@ import { renderReminderPage } from "../src/web/reminderPage.js";
 import { renderDraftsPage } from "../src/web/draftsPage.js";
 import { renderKobutsuFormPage } from "../src/web/kobutsuFormPage.js";
 import { renderNouchiTenyoFormPage } from "../src/web/nouchiTenyoFormPage.js";
+import { renderInshokutenEigyoFormPage } from "../src/web/inshokutenEigyoFormPage.js";
 import { REMINDER_RANGES } from "../src/core/reminders/digest.js";
 
 test("renderFormPage: errorを指定するとエラーメッセージ用のブロックを表示する", () => {
@@ -130,6 +131,21 @@ test("renderNouchiTenyoFormPage: errorに含まれるHTMLタグをエスケー�
   const html = renderNouchiTenyoFormPage({ error: "<b>x</b>" });
   assert.doesNotMatch(html, /<b>x<\/b>/);
   assert.match(html, /&lt;b&gt;x&lt;\/b&gt;/);
+});
+
+test("renderInshokutenEigyoFormPage: errorに含まれるHTMLタグをエスケープする", () => {
+  const html = renderInshokutenEigyoFormPage({ error: "<b>x</b>" });
+  assert.doesNotMatch(html, /<b>x<\/b>/);
+  assert.match(html, /&lt;b&gt;x&lt;\/b&gt;/);
+});
+
+test("renderInshokutenEigyoFormPage: errorを指定しなければエラーブロックは表示されない", () => {
+  assert.doesNotMatch(renderInshokutenEigyoFormPage(), /class="error"/);
+});
+
+test("renderInshokutenEigyoFormPage: 下書きのprofile内の</script>はエスケープされ、スクリプトを閉じない", () => {
+  const html = renderInshokutenEigyoFormPage({ profile: /** @type {any} */ ({ applicantName: "</script><b>x</b>" }) });
+  assert.doesNotMatch(html, /<\/script><b>x<\/b>/);
 });
 
 // #206: renderResultPage のラベル差替え・エスケープ・リンク生成
