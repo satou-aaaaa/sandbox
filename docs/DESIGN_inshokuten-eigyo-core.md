@@ -393,7 +393,8 @@ export function registerInshokutenEigyoLicense() {
 ```
 
 CLIスクリプト（`scripts/generate-inshokuten-*.js`等、新規追加分）・
-将来Webフォームを本モジュール対応させる場合は、起動時に既存の
+Webフォーム（`/inshokuten-eigyo`。2026年10月・#290で対応。`src/web/server.js`は
+読み込み時に登録済み）では、起動時に既存の
 `registerConstructionLicense()`・`registerKobutsuLicense()`・
 `registerGijinkokuModule()`とあわせて`registerInshokutenEigyoLicense()`
 も呼ぶこと（呼び忘れるとリマインドが静かに生成されなくなる。
