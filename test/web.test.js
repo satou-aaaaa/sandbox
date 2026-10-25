@@ -252,6 +252,7 @@ test("GET /inshokuten-eigyo は飲食店営業許可インテイクフォーム�
     assert.match(html, /<select id="qualificationType">\s*<option value="未定">/);
     assert.match(html, /id="storeAddress" required/);
     assert.match(html, /id="municipalityName" required/);
+    assert.match(html, /id="sinkCount" min="0" step="1" required/);
   } finally {
     await ctx.close();
   }

@@ -75,7 +75,7 @@ ${savedNoticeBlock}
 
   <section>
     <h2>2. 施設基準（保健所への事前相談等で確認した内容）</h2>
-    <label>洗浄・すすぎ用のシンクの数 <input type="number" id="sinkCount" min="0" step="1"></label>
+    <label>洗浄・すすぎ用のシンクの数 <input type="number" id="sinkCount" min="0" step="1" required></label>
     <label class="inline"><input type="checkbox" id="hasNonTouchHandwashing"> 手洗い設備が洗浄後の手指の再汚染を防げる構造（レバー式・肘操作式・自動センサー式等）である</label>
     <label class="inline"><input type="checkbox" id="hasWashableWallFloorMaterial"> 床・壁・天井が耐水性で清掃しやすい材質である</label>
     <label class="inline"><input type="checkbox" id="hasAdequateVentilation"> 適切な換気設備がある</label>
@@ -144,6 +144,7 @@ function buildProfile() {
     phoneNumber: str("phoneNumber"),
     plannedOpeningDateIso: str("plannedOpeningDateIso"),
     shisetsu: {
+      // 空欄は不足側（0槽）として扱い、要件を満たしたことにしない（下書き保存は空欄のまま送れるため）。
       sinkCount: num("sinkCount") ?? 0,
       hasNonTouchHandwashing: checked("hasNonTouchHandwashing"),
       hasWashableWallFloorMaterial: checked("hasWashableWallFloorMaterial"),
