@@ -71,11 +71,16 @@ jobs:
       - name: レポートがあるか
         # 初回のテストが落ちた・異常終了したときはレポートが無い。ここでジョブを失敗にして見張りに知らせる
         shell: bash
-        run: test -s reports/mutation/mutation.json || { echo "::error::レポートが出ていません（上のログを見る）"; exit 1; }
+        env:
+          NAME: ${{ matrix.name }}
+        run: |
+          test -s reports/mutation/mutation.json || { echo "::error::レポートが出ていません（上のログを見る）"; exit 1; }
+          # artifact の中を <組>/mutation.json にしておく（下で merge-multiple でまとめて取るため）
+          mkdir -p "reports/upload/$NAME" && cp reports/mutation/mutation.json "reports/upload/$NAME/"
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: mutation-${{ matrix.name }}
-          path: reports/mutation/mutation.json
+          path: reports/upload
           retention-days: 14
 
   summary:
@@ -98,14 +103,14 @@ jobs:
         with:
           pattern: mutation-*
           path: reports/shards
+          # 1つだけのときも reports/shards/<組>/mutation.json になるように（中は <組>/ で始まる）
+          merge-multiple: true
       - name: 生き残りの要約
         id: summary
         shell: bash
         env:
           NAMES: ${{ needs.plan.outputs.names }}
         run: |
-          # artifact は reports/shards/mutation-<組>/mutation.json に置かれる
-          for d in reports/shards/mutation-*; do [ -d "$d" ] && mv "$d" "reports/shards/${d#reports/shards/mutation-}"; done
           set +e
           node scripts/mutation-summary.mjs --shards reports/shards --expect "$NAMES" > mutation-summary.md
           code=$?
