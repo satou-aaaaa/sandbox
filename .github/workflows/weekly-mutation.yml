@@ -2,7 +2,9 @@ name: Weekly mutation
 
 # ミューテーションテスト（Stryker）を週次で実行し、生き残りミュータントの要約をジョブサマリーと
 # 常設Issue（ラベル mutation-report）に出す（ADR-0018）。CIの必須チェックには含めず、閾値による失敗もしない。
-# 時間がかかるため（数分〜数十分。stryker.config.mjs 参照）、PRごとではなく週次にしている。
+# 1つのジョブで全部流すと約7時間かかり、2時間の上限で毎回止まっていた（2026-10）。そこでモジュールごとの
+# 組（シャード）に分けて並べて流し、各組ではその組のファイルを使うテストだけを流す（scripts/lib/mutationPlan.mjs）。
+# 公開リポジトリなので Actions の時間はかからない（無料）。
 on:
   schedule:
     # 毎週日曜 03:00 JST（= 土曜 18:00 UTC）
@@ -11,18 +13,47 @@ on:
 
 permissions:
   contents: read
-  issues: write
 
 concurrency:
   group: weekly-mutation
   cancel-in-progress: false
 
 jobs:
-  mutation:
+  plan:
     runs-on: ubuntu-latest
-    timeout-minutes: 120
+    timeout-minutes: 10
+    outputs:
+      matrix: ${{ steps.plan.outputs.matrix }}
+      names: ${{ steps.plan.outputs.names }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version-file: .nvmrc
+      - name: 組に分ける
+        id: plan
+        shell: bash
+        run: |
+          node scripts/mutation-plan.mjs --table
+          matrix=$(node scripts/mutation-plan.mjs)
+          echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
+          echo "names=$(node -e 'console.log(JSON.parse(process.argv[1]).include.map((s) => s.name).join(","))' "$matrix")" >> "$GITHUB_OUTPUT"
+
+  mutation:
+    needs: plan
+    name: mutation (${{ matrix.name }})
+    runs-on: ubuntu-latest
+    # 一番重い組で手元の計測は約35分（4コア）。上限に当たったら見張り（CI failure issue）が timed_out として Issue にする
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
           node-version-file: .nvmrc
@@ -30,16 +61,65 @@ jobs:
       - run: npm ci
       - name: ミューテーションテスト
         # スコアが stryker.config.mjs の thresholds.break を下回ると Stryker は終了コード1を返す。
-        # ADR-0018 の「閾値による自動失敗はしない」に合わせてジョブは止めず、下の要約・Issue で結果を知らせる
-        # （レポートが出ないほどの異常終了なら、次の要約の手順が失敗してジョブも失敗する）。
+        # ADR-0018 の「閾値による自動失敗はしない」に合わせてジョブは止めず、下の確認・要約で結果を知らせる。
         continue-on-error: true
-        run: npx stryker run --reporters json,clear-text
-      - name: 生き残りの要約
         shell: bash
+        env:
+          MUTATE: ${{ matrix.mutate }}
+          TESTS: ${{ matrix.tests }}
+        run: STRYKER_TEST_COMMAND="node --test $TESTS" npx stryker run --mutate "$MUTATE" --reporters json,clear-text --concurrency 2
+      - name: レポートがあるか
+        # 初回のテストが落ちた・異常終了したときはレポートが無い。ここでジョブを失敗にして見張りに知らせる
+        shell: bash
+        run: test -s reports/mutation/mutation.json || { echo "::error::レポートが出ていません（上のログを見る）"; exit 1; }
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: mutation-${{ matrix.name }}
+          path: reports/mutation/mutation.json
+          retention-days: 14
+
+  summary:
+    needs: [plan, mutation]
+    # 一部の組が落ちても、届いた分で要約を出す（届かなかった組は要約に書き、このジョブも失敗にする）
+    if: ${{ !cancelled() && needs.plan.result == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version-file: .nvmrc
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+        with:
+          pattern: mutation-*
+          path: reports/shards
+      - name: 生き残りの要約
+        id: summary
+        shell: bash
+        env:
+          NAMES: ${{ needs.plan.outputs.names }}
         run: |
-          node scripts/mutation-summary.mjs reports/mutation/mutation.json | tee mutation-summary.md >> "$GITHUB_STEP_SUMMARY"
+          # artifact は reports/shards/mutation-<組>/mutation.json に置かれる
+          for d in reports/shards/mutation-*; do [ -d "$d" ] && mv "$d" "reports/shards/${d#reports/shards/mutation-}"; done
+          set +e
+          node scripts/mutation-summary.mjs --shards reports/shards --expect "$NAMES" > mutation-summary.md
+          code=$?
+          set -e
+          cat mutation-summary.md >> "$GITHUB_STEP_SUMMARY"
+          echo "code=$code" >> "$GITHUB_OUTPUT"
       - name: 常設Issueに集約
         shell: bash
         run: scripts/gh-upsert-issue.sh mutation-report "ミューテーションテスト週次結果（自動投稿）" mutation-summary.md
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: 届かなかった組があれば失敗にする
+        if: ${{ steps.summary.outputs.code != '0' }}
+        shell: bash
+        run: |
+          echo "::error::結果が届かなかった組があります（要約の最後の行を見る）"
+          exit 1
