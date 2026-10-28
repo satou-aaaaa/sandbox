@@ -36,7 +36,9 @@ export default {
   testRunner: "command",
   commandRunner: {
     // npmラッパー分のオーバーヘッドを避けるため、npm test ではなく直接node --testを呼ぶ。
-    command: "node --test",
+    // 週次のCIは組（シャード）ごとに、その組のファイルを使うテストだけを STRYKER_TEST_COMMAND で渡す
+    // （scripts/lib/mutationPlan.mjs。全テストを毎回流すと1ジョブ約7時間かかり、2時間の上限で止まっていた）。
+    command: process.env.STRYKER_TEST_COMMAND || "node --test",
   },
   coverageAnalysis: "off",
   // 【既知の問題】このリポジトリのtsconfig.json（ADR-0007のJSDoc型チェック用。

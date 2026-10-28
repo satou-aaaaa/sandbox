@@ -139,3 +139,15 @@ ADR-0018 で、`.github/workflows/weekly-mutation.yml` が毎週（日曜 03:00 
 含めず、`thresholds.break`による失敗もさせない。手動実行は引き続き可能。
 あわせて、BDD（`npm run test:bdd`。ADR-0016）も `npm test` には含めず、
 `.github/workflows/nightly.yml` が毎晩実行している（ADR-0018）。
+
+## Amendment 3（2026-10-28）: 週次実行を組（シャード）に分ける（#310）
+
+週次実行は 3251 件のミュータントに対し、1件ごとに全テスト（約10秒）を流していたため、
+1ジョブで約7時間かかり、`timeout-minutes: 120` で初回から4週続けて止まっていた
+（GitHub では時間切れの実行は `cancelled` になり、CI失敗の見張りが拾っていなかった）。
+そこで `scripts/lib/mutationPlan.mjs` が `mutate` の対象をモジュールごとの組（8ファイルまで）に分け、
+各組では「その組のファイルを import でたどって使うテストファイル」だけを流す
+（`STRYKER_TEST_COMMAND`）。組は matrix で並べて流し、最後に要約を1つにまとめる。
+テストを絞っても、ある組のファイルを使わないテストはその組のミュータントを殺せないので、結果は変わらない
+（子プロセスで起動する CLI は、テスト中の文字列のパスもたどって含める）。
+incremental モードは command runner ではテストの変化を検知できない（公式ドキュメント）ため使わない。

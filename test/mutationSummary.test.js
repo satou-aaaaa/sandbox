@@ -32,3 +32,14 @@ test("summarizeMutation: 詳細の行数は maxLines で切る", () => {
   const r = summarizeMutation({ files: { "src/a.js": { mutants } } }, { maxLines: 3 });
   assert.equal((r.markdown.match(/^- `src\/a\.js:/gm) ?? []).length, 3);
 });
+
+test("mergeReports: 組ごとのレポートを足し合わせる", async () => {
+  const { mergeReports } = await import("../scripts/lib/mutationSummary.mjs");
+  const merged = mergeReports([
+    { files: { "src/a.js": { mutants: [m("Killed")] } } },
+    { files: { "src/a.js": { mutants: [m("Survived", 2)] }, "src/b.js": { mutants: [m("Killed")] } } },
+  ]);
+  const r = summarizeMutation(merged);
+  assert.equal(r.total, 3);
+  assert.equal(r.survived, 1);
+});

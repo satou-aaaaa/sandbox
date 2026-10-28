@@ -54,3 +54,19 @@ export function summarizeMutation(report, { maxLines = 40 } = {}) {
   lines.push("詳細なHTMLレポートは、ローカルで `npm run test:mutation` を実行すると `reports/mutation/mutation.html` に出力されます。", "スコアの閾値による自動失敗はしていません（実測値がたまるまで、傾向を見るだけ。ADR-0018）。", "");
   return { score, total, killed, survived, noCoverage, markdown: lines.join("\n") };
 }
+
+/**
+ * 組（シャード）ごとのレポートを1つにまとめる。同じファイルが複数の組にあれば、ミュータントを足し合わせる。
+ * @param {MutationReport[]} reports
+ * @returns {MutationReport}
+ */
+export function mergeReports(reports) {
+  /** @type {Map<string, Mutant[]>} */
+  const files = new Map();
+  for (const r of reports) {
+    for (const [file, data] of Object.entries(r.files ?? {})) {
+      files.set(file, [...(files.get(file) ?? []), ...(data.mutants ?? [])]);
+    }
+  }
+  return { files: Object.fromEntries([...files].map(([file, mutants]) => [file, { mutants }])) };
+}
