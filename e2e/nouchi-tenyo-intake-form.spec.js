@@ -59,8 +59,11 @@ test("建設業許可インテイクフォームから農地転用許可イン�
 test("農地転用許可インテイクフォーム: 下書きとして保存→一覧→続きから入力で、資金調達内訳の行を含めて入力値が復元される", async ({
   page,
 }) => {
+  // 実行ごとに一意な名前にする。固定だと、CI のやり直し（retries）や並行実行で前の回の下書きが一覧に残り、
+  // 同じ名前の行が2つになって落ちる（2026-11-04 main の Test。shared-workflows の手入れの記録）
+  const draftName = `下書きE2Eテスト農地${Date.now()}`;
   await page.goto("/nouchi-tenyo");
-  await page.locator("#applicantName").fill("下書きE2Eテスト農地");
+  await page.locator("#applicantName").fill(draftName);
   await page.locator("#landAreaSqm").fill("300");
 
   await page.getByRole("button", { name: "＋ 資金調達区分を追加" }).click();
@@ -70,17 +73,17 @@ test("農地転用許可インテイクフォーム: 下書きとして保存→
 
   await page.getByRole("button", { name: "下書きとして保存" }).click();
   await expect(page.locator(".saved-notice")).toBeVisible();
-  await expect(page.locator("#applicantName")).toHaveValue("下書きE2Eテスト農地");
+  await expect(page.locator("#applicantName")).toHaveValue(draftName);
 
   // 保存した下書きが、農地転用許可の種別つきで一覧画面に表示される。
   await page.goto("/drafts");
-  const draftRow = page.locator("tr", { hasText: "下書きE2Eテスト農地" });
+  const draftRow = page.locator("tr", { hasText: draftName });
   await expect(draftRow).toContainText("農地転用許可");
 
   // 「続きから入力」で農地転用許可のフォームに戻り、資金調達内訳の行を含めて値が復元される。
   await draftRow.getByRole("link", { name: "続きから入力" }).click();
   await expect(page.locator("h1")).toHaveText("農地転用許可 申請者情報インテイク");
-  await expect(page.locator("#applicantName")).toHaveValue("下書きE2Eテスト農地");
+  await expect(page.locator("#applicantName")).toHaveValue(draftName);
   await expect(page.locator("#landAreaSqm")).toHaveValue("300");
   await expect(rows).toHaveCount(1);
   await expect(rows.first().locator(".shikinChotatsu-kubun")).toHaveValue("自己資金");
