@@ -233,6 +233,11 @@ npm run gen:review-pack     # 押印前レビューパック（判定理由・�
 - 負荷テスト（`load/web-server.load.js`）はautocannonで同時アクセス時の
   エラー・タイムアウト有無のみを確認し、具体的な性能閾値は判定しない
   （閾値を決めるだけの実運用データがまだ無いため）。
+- 依存の脆弱性（`npm audit`）は `scripts/audit-gate.mjs` で判定する。PR では「その PR が持ち込んだ」
+  高深刻度以上だけで止め、main にも前からあるものは警告にする（main の push と Nightly が落として
+  ci-failure の Issue にまとめる）。上流が古い版を指定していて Dependabot が直せないとき
+  （`security_update_not_possible`）は `docs/DEPENDENCY_OVERRIDES.md` の手順で `overrides` に足す。
+  `overrides` は範囲（`^`）で書き、表に理由を書く（`test/dependencyOverrides.test.js` が見る）。
 
 ## 3. Git運用ルール
 

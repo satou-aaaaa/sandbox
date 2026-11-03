@@ -28,7 +28,14 @@ jobs:
           node-version-file: .nvmrc
           cache: npm
       - run: npm ci
+      # 依存の脆弱性は PR を待たずに毎晩見る（公表は PR と関係なく来るため）。高深刻度以上があればこのジョブを落とし、
+      # ci-failure の Issue（ci-failure-issue.yml が Nightly を見張る）にまとめる。次に通れば Issue は自動で閉じる。
+      # 落ちても下の BDD は回す（if: !cancelled()）。直し方は docs/DEPENDENCY_OVERRIDES.md
+      - name: npm audit（高深刻度以上・main）
+        id: audit
+        run: node scripts/audit-gate.mjs --level high
       - name: 受け入れテスト（BDD）
+        if: ${{ !cancelled() }}
         id: bdd
         shell: bash
         run: |
@@ -45,7 +52,7 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
           exit 0
       - name: 失敗をIssueに集約
-        if: steps.bdd.outputs.rc != '0'
+        if: ${{ !cancelled() && steps.bdd.outputs.rc != '0' }}
         shell: bash
         run: |
           {
