@@ -59,8 +59,11 @@ test("建設業許可インテイクフォームから古物商許可インテ�
  * （種別の取り違えはユニットテストでは気づきにくいため）。
  */
 test("古物商許可インテイクフォーム: 下書きとして保存→一覧→続きから入力で、営業所の行を含めて入力値が復元される", async ({ page }) => {
+  // 実行ごとに一意な名前にする。固定だと、CI のやり直し（retries）や並行実行で前の回の下書きが一覧に残り、
+  // 同じ名前の行が2つになって落ちる（2026-11-04 main の Test。shared-workflows の手入れの記録）
+  const draftName = `下書きE2Eテスト古物商${Date.now()}`;
   await page.goto("/kobutsu");
-  await page.locator("#applicantName").fill("下書きE2Eテスト古物商");
+  await page.locator("#applicantName").fill(draftName);
   await page.locator("#address").fill("東京都サンプル区9-9-9");
 
   const eigyoshoRows = page.locator("#eigyoshoContainer .eigyosho-row");
@@ -69,17 +72,17 @@ test("古物商許可インテイクフォーム: 下書きとして保存→一
 
   await page.getByRole("button", { name: "下書きとして保存" }).click();
   await expect(page.locator(".saved-notice")).toBeVisible();
-  await expect(page.locator("#applicantName")).toHaveValue("下書きE2Eテスト古物商");
+  await expect(page.locator("#applicantName")).toHaveValue(draftName);
 
   // 保存した下書きが、古物商許可の種別つきで一覧画面に表示される。
   await page.goto("/drafts");
-  const draftRow = page.locator("tr", { hasText: "下書きE2Eテスト古物商" });
+  const draftRow = page.locator("tr", { hasText: draftName });
   await expect(draftRow).toContainText("古物商許可");
 
   // 「続きから入力」で古物商許可のフォームに戻り、営業所の行を含めて値が復元される。
   await draftRow.getByRole("link", { name: "続きから入力" }).click();
   await expect(page.locator("h1")).toHaveText("古物商許可 申請者情報インテイク");
-  await expect(page.locator("#applicantName")).toHaveValue("下書きE2Eテスト古物商");
+  await expect(page.locator("#applicantName")).toHaveValue(draftName);
   await expect(page.locator("#address")).toHaveValue("東京都サンプル区9-9-9");
   await expect(eigyoshoRows).toHaveCount(1);
   await expect(eigyoshoRows.first().locator(".eigyosho-officeName")).toHaveValue("下書き営業所");

@@ -83,17 +83,19 @@ test("インテイクフォーム: 役員の欠格事由（折りたたみ）・
 });
 
 test("インテイクフォーム: 下書きとして保存すると、保存済み通知とともにフォームが再表示される", async ({ page }) => {
+  // 実行ごとに一意な名前にする（固定だと、やり直しや並行実行で前の回の下書きと混ざる。test/e2eHygiene.test.js が見る）
+  const draftName = `下書きE2Eテスト建設${Date.now()}`;
   await page.goto("/");
-  await page.locator("#applicantName").fill("下書きE2Eテスト建設");
+  await page.locator("#applicantName").fill(draftName);
 
   await page.getByRole("button", { name: "下書きとして保存" }).click();
 
   await expect(page.locator(".saved-notice")).toBeVisible();
-  await expect(page.locator("#applicantName")).toHaveValue("下書きE2Eテスト建設");
+  await expect(page.locator("#applicantName")).toHaveValue(draftName);
 
   // 保存した下書きが一覧画面にも表示されることを確認する。
   await page.goto("/drafts");
-  await expect(page.locator("table")).toContainText("下書きE2Eテスト建設");
+  await expect(page.locator("table")).toContainText(draftName);
 });
 
 test("リマインド画面: JSエラー無くページが表示される（クライアント未登録の状態）", async ({ page }) => {
