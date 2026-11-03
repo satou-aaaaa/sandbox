@@ -70,6 +70,7 @@ npm run scaffold:module -- <名前> "<和名>"   # 新モジュールの雛形
 - 新規の判定ロジックには法令根拠URLを書く（基準線・免除への逃げは不可。ADR-0018）。
 - `data/clients.json` 等の read-modify-write は `src/core/reminders/fileLock.js` の `withFileLock` で包む。
 - `digest.js` の型を変えたら `schemas/client-record.schema.json` も追従させる。
+- 依存を `package.json` の `overrides` で上書きするときは範囲（`^`）で書き、`docs/DEPENDENCY_OVERRIDES.md` の表に理由を書く（テストが見る）。
 
 ## Git運用（詳細は `docs/DEVELOPMENT_GUIDE.md` 3章）
 

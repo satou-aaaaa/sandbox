@@ -1,0 +1,1 @@
+- 依存の脆弱性の判定を `scripts/audit-gate.mjs` にし、PR ではその PR が持ち込んだ高深刻度以上だけで止めるようにした（前からあるものは main の Test・Nightly で落として ci-failure の Issue にまとめる）。minimatch・glob・qs の脆弱性を `overrides` で直し、`overrides` は範囲で書いて `docs/DEPENDENCY_OVERRIDES.md` に理由を書く決まりをテストで見るようにした（Dependabot のセキュリティ更新が `security_update_not_possible` で落ち続けていたため）

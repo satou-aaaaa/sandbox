@@ -110,9 +110,22 @@ jobs:
         run: npm run check-secrets
       # 依存パッケージの既知脆弱性チェック。package-lock.jsonのみに依存する結果であり
       # OS・Node.jsバージョンいずれにも依存しないため、ubuntu・24.xの1系統のみで足りる。
+      # PR では「その PR が持ち込んだ脆弱性」だけで止め、取り込み先（main）にも前からあるものは警告にする
+      # （2026-10-24、zod の公表で関係のない Dependabot の PR 5本が止まった。scripts/lib/auditGate.mjs）。
+      # 前からあるものは main の push と Nightly がこのスクリプトを基準なしで回して落とし、ci-failure の Issue にまとめる。
+      # ステップ名は agent/ の isExternalFailure が見ているので変えない。
       - name: npm audit（高深刻度以上）
         if: matrix.os == 'ubuntu-latest' && matrix.node-version == '24.x'
-        run: npm audit --audit-level=high
+        shell: bash
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          if [ -n "$BASE_REF" ]; then
+            git fetch --no-tags --depth=1 origin "$BASE_REF"
+            node scripts/audit-gate.mjs --level high --base FETCH_HEAD
+          else
+            node scripts/audit-gate.mjs --level high
+          fi
       # npmレジストリ上のパッケージ署名を検証する（サプライチェーン改ざん対策）。
       # 同上の理由でubuntu・24.xの1系統のみで足りる。
       # 【既知の問題】npmレジストリ側のSigstore署名添付（attestation）取得APIが
