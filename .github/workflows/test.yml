@@ -25,8 +25,9 @@ jobs:
     runs-on: ${{ matrix.os }}
     # まれなハング状態でActions利用時間を無駄に消費するのを防ぐ。
     # ubuntu・24.xのセルはPlaywrightのブラウザインストールが加わり時間が
-    # 伸びるため、他セルより若干余裕を持たせている。
-    timeout-minutes: 15
+    # 伸びる。apt が遅い日はインストールだけで8〜9分かかるため、20分にしている
+    # （shared-workflows incidents/2026-11-05-qa-timeout-slow-install.md・2026-11-07-tenbin-check-timeout.md）。
+    timeout-minutes: 20
     strategy:
       # 1つのOS/Node.jsバージョンで失敗しても、他の組み合わせの結果も
       # 確認できるよう最後まで実行する（診断のしやすさを優先）。
