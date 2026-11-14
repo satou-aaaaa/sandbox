@@ -98,7 +98,7 @@
     "data:restore": "node scripts/data-restore.js"
   },
   "dependencies": {
-    "docx": "^9.15.2"
+    "docx": "^9.15.3"
   },
   "devDependencies": {
     "@cucumber/cucumber": "^13.3.0",
