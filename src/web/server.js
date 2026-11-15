@@ -54,6 +54,9 @@ import { writeJigyokeikakushoDocx } from "../licenses/nouchi-tenyo/documents/jig
 import { evaluateInshokutenEligibility, formatInshokutenEligibilityReport } from "../licenses/inshokuten-eigyo/eligibility/engine.js";
 import { writeShinseishoSummaryDocx as writeInshokutenShinseishoSummaryDocx } from "../licenses/inshokuten-eigyo/documents/shinseishoSummary.js";
 import { writeTenpuChecklistDocx as writeInshokutenTenpuChecklistDocx } from "../licenses/inshokuten-eigyo/documents/tenpuChecklist.js";
+import { evaluateSanpaiEligibility, formatSanpaiEligibilityReport } from "../licenses/sanpai/eligibility/engine.js";
+import { writeShinseishoDocx as writeSanpaiShinseishoDocx } from "../licenses/sanpai/documents/shinseisho.js";
+import { writeJigyokeikakushoDocx as writeSanpaiJigyokeikakushoDocx } from "../licenses/sanpai/documents/jigyokeikakusho.js";
 import { loadClients, DEFAULT_CLIENTS_PATH } from "../core/reminders/clientStore.js";
 import {
   buildReminderDigest,
@@ -67,6 +70,7 @@ import { renderFormPage } from "./formPage.js";
 import { renderKobutsuFormPage } from "./kobutsuFormPage.js";
 import { renderNouchiTenyoFormPage } from "./nouchiTenyoFormPage.js";
 import { renderInshokutenEigyoFormPage } from "./inshokutenEigyoFormPage.js";
+import { renderSanpaiFormPage } from "./sanpaiFormPage.js";
 import { renderResultPage } from "./resultPage.js";
 import { renderReminderPage } from "./reminderPage.js";
 import { renderDraftsPage } from "./draftsPage.js";
@@ -138,6 +142,14 @@ const INSHOKUTEN_EIGYO_DOCUMENT_TARGETS = [
     /** @param {import('../licenses/inshokuten-eigyo/eligibility/types.js').InshokutenApplicantProfile} profile @param {string} outPath */
     write: (profile, outPath) => writeInshokutenTenpuChecklistDocx(profile.shisetsu, outPath),
   },
+];
+
+/**
+ * 産業廃棄物収集運搬業許可の様式生成モジュールの一覧（DOCUMENT_TARGETS参照。#291）。
+ */
+const SANPAI_DOCUMENT_TARGETS = [
+  { label: "産業廃棄物収集運搬業許可申請書", filename: "shinseisho.docx", write: writeSanpaiShinseishoDocx },
+  { label: "事業計画書", filename: "jigyokeikakusho.docx", write: writeSanpaiJigyokeikakushoDocx },
 ];
 
 /**
@@ -288,6 +300,7 @@ function renderDraftFormPage(licenseCategory, options) {
   if (licenseCategory === "kobutsu") return renderKobutsuFormPage(anyOptions);
   if (licenseCategory === "nouchi-tenyo") return renderNouchiTenyoFormPage(anyOptions);
   if (licenseCategory === "inshokuten-eigyo") return renderInshokutenEigyoFormPage(anyOptions);
+  if (licenseCategory === "sanpai") return renderSanpaiFormPage(anyOptions);
   return renderFormPage(anyOptions);
 }
 
@@ -539,6 +552,44 @@ export function createServer({
             sessionId,
             judgmentLabels: { ok: "○ 要件を充足（申請準備を進められます）", ng: "× 未充足の要件があります" },
             formPath: "/inshokuten-eigyo",
+          })
+        );
+        return;
+      }
+
+      if (req.method === "GET" && url === "/sanpai") {
+        respondHtml(res, 200, renderSanpaiFormPage());
+        return;
+      }
+
+      if (req.method === "POST" && url === "/sanpai/submit") {
+        const bodyText = await readRequestBody(req);
+        const params = new URLSearchParams(bodyText);
+        const profileJson = params.get("profileJson");
+        if (!profileJson) {
+          throw new Error("profileJson が送信されていません（フォームのJavaScriptが動作していない可能性があります）");
+        }
+        /** @type {import('../licenses/sanpai/eligibility/types.js').SanpaiApplicantProfile} */
+        const profile = JSON.parse(profileJson);
+
+        const result = evaluateSanpaiEligibility(profile);
+        const report = formatSanpaiEligibilityReport(profile, result);
+
+        const sessionId = crypto.randomUUID();
+        const sessionDir = path.join(outDir, sessionId);
+        const files = await generateAllDocuments(SANPAI_DOCUMENT_TARGETS, profile, sessionDir);
+
+        respondHtml(
+          res,
+          200,
+          renderResultPage({
+            profile,
+            result,
+            report,
+            files,
+            sessionId,
+            judgmentLabels: { ok: "○ 要件を充足（申請準備を進められます）", ng: "× 未充足の要件があります" },
+            formPath: "/sanpai",
           })
         );
         return;
