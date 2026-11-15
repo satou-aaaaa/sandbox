@@ -14,6 +14,7 @@ import { renderDraftsPage } from "../src/web/draftsPage.js";
 import { renderKobutsuFormPage } from "../src/web/kobutsuFormPage.js";
 import { renderNouchiTenyoFormPage } from "../src/web/nouchiTenyoFormPage.js";
 import { renderInshokutenEigyoFormPage } from "../src/web/inshokutenEigyoFormPage.js";
+import { renderSanpaiFormPage } from "../src/web/sanpaiFormPage.js";
 import { REMINDER_RANGES } from "../src/core/reminders/digest.js";
 
 test("renderFormPage: errorを指定するとエラーメッセージ用のブロックを表示する", () => {
@@ -146,6 +147,29 @@ test("renderInshokutenEigyoFormPage: errorを指定しなければエラーブ�
 test("renderInshokutenEigyoFormPage: 下書きのprofile内の</script>はエスケープされ、スクリプトを閉じない", () => {
   const html = renderInshokutenEigyoFormPage({ profile: /** @type {any} */ ({ applicantName: "</script><b>x</b>" }) });
   assert.doesNotMatch(html, /<\/script><b>x<\/b>/);
+});
+
+test("renderSanpaiFormPage: errorに含まれるHTMLタグをエスケープする", () => {
+  const html = renderSanpaiFormPage({ error: "<b>x</b>" });
+  assert.doesNotMatch(html, /<b>x<\/b>/);
+  assert.match(html, /&lt;b&gt;x&lt;\/b&gt;/);
+});
+
+test("renderSanpaiFormPage: errorを指定しなければエラーブロックは表示されない", () => {
+  assert.doesNotMatch(renderSanpaiFormPage(), /class="error"/);
+});
+
+test("renderSanpaiFormPage: 下書きのprofile内の</script>はエスケープされ、スクリプトを閉じない", () => {
+  const html = renderSanpaiFormPage({ profile: /** @type {any} */ ({ applicantName: "</script><b>x</b>" }) });
+  assert.doesNotMatch(html, /<\/script><b>x<\/b>/);
+});
+
+test("renderSanpaiFormPage: 欠格事由のチェック欄はSanpaiKekkakuInputの全項目と一致する（ADR-0002）", async () => {
+  const { buildSampleSanpaiProfile } = await import("../scripts/sampleSanpaiProfile.js");
+  const html = renderSanpaiFormPage();
+  for (const key of Object.keys(buildSampleSanpaiProfile().kekkaku)) {
+    assert.match(html, new RegExp(`<input type="checkbox" id="${key}">`));
+  }
 });
 
 // #206: renderResultPage のラベル差替え・エスケープ・リンク生成

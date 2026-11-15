@@ -216,6 +216,10 @@ export function registerSanpaiLicense() {
 }
 ```
 
+Webフォーム（`/sanpai`。2026年11月・#291で対応）は`src/web/sanpaiFormPage.js`。
+`src/web/server.js`は読み込み時に`registerSanpaiLicense()`を呼んでいる。
+判定は本モジュールの`eligibility/engine.js`をサーバー側で呼び、画面側では再実装しない。
+
 ## 5. 移行・実装ステップ
 
 コア抽出は既に完了している前提のため、追加のリファクタリングは発生
