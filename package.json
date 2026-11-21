@@ -109,7 +109,7 @@
     "ajv": "^8.20.0",
     "ajv-formats": "^3.0.1",
     "autocannon": "^9.0.0",
-    "axe-core": "^4.14.0",
+    "axe-core": "^4.14.1",
     "c8": "^12.0.0",
     "eslint": "^10.14.0",
     "eslint-plugin-security": "^4.2.1",
