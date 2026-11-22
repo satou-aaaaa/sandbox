@@ -12,6 +12,7 @@ import { buildSampleKobutsuProfile } from "../scripts/sampleKobutsuProfile.js";
 import { buildSampleNouchiTenyoProfile } from "../scripts/sampleNouchiTenyoProfile.js";
 import { buildSampleInshokutenEigyoProfile } from "../scripts/sampleInshokutenEigyoProfile.js";
 import { buildSampleSanpaiProfile } from "../scripts/sampleSanpaiProfile.js";
+import { buildSampleMinpakuProfile } from "../scripts/sampleMinpakuProfile.js";
 import { saveClients } from "../src/core/reminders/clientStore.js";
 import { upsertDraft, loadDrafts } from "../src/web/draftStore.js";
 
@@ -386,6 +387,84 @@ test("POST /sanpai/submit で profileJson が無ければ400を返す", async ()
   const ctx = await startTestServer();
   try {
     const res = await fetch(`${ctx.baseUrl}/sanpai/submit`, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: "",
+    });
+    assert.equal(res.status, 400);
+  } finally {
+    await ctx.close();
+  }
+});
+
+async function postMinpaku(ctx, profile) {
+  const body = new URLSearchParams({ profileJson: JSON.stringify(profile) });
+  return fetch(`${ctx.baseUrl}/minpaku/submit`, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: body.toString(),
+  });
+}
+
+test("GET /minpaku は住宅宿泊事業（民泊）届出インテイクフォームのHTMLを返す（#292）", async () => {
+  const ctx = await startTestServer();
+  try {
+    const res = await fetch(`${ctx.baseUrl}/minpaku`);
+    assert.equal(res.status, 200);
+    const html = await res.text();
+    assert.match(html, /住宅宿泊事業（民泊）届出 届出者情報インテイク/);
+    assert.match(html, /id="minpakuForm"/);
+    assert.match(html, /name="licenseCategory" value="minpaku"/);
+    assert.match(html, /登録行政書士/);
+  } finally {
+    await ctx.close();
+  }
+});
+
+test("POST /minpaku/submit は準備状況・人手確認の文言・書類ダウンロードリンクを含む結果画面を返す（#292）", async () => {
+  const ctx = await startTestServer();
+  try {
+    const res = await postMinpaku(ctx, buildSampleMinpakuProfile());
+    assert.equal(res.status, 200);
+    const html = await res.text();
+    assert.match(html, /要件判定結果/);
+    assert.match(html, /○ 準備が整っています/);
+    assert.match(html, /登録行政書士/);
+    assert.match(html, /\/download\/[^"]+\/todokedesho\.docx/);
+    assert.match(html, /\/download\/[^"]+\/seiyakusho\.docx/);
+    assert.match(html, /\/download\/[^"]+\/checklist\.docx/);
+    assert.match(html, /href="\/minpaku"/);
+
+    const sessions = await fs.readdir(ctx.outDir);
+    assert.equal(sessions.length, 1);
+    const files = await fs.readdir(path.join(ctx.outDir, sessions[0]));
+    assert.equal(files.length, 3);
+  } finally {
+    await ctx.close();
+  }
+});
+
+test("POST /minpaku/submit の結果は評価エンジンと一致する（欠格事由・未取得の書類）", async () => {
+  const ctx = await startTestServer();
+  try {
+    const kekkakuProfile = buildSampleMinpakuProfile();
+    kekkakuProfile.kekkaku.isBoryokudanRelated = true;
+    assert.match(await (await postMinpaku(ctx, kekkakuProfile)).text(), /未充足の項目があります/);
+
+    const docProfile = buildSampleMinpakuProfile();
+    docProfile.requiredDocuments[2].obtained = false;
+    const html = await (await postMinpaku(ctx, docProfile)).text();
+    assert.match(html, /未充足の項目があります/);
+    assert.match(html, /消防法令適合通知書が未取得です/);
+  } finally {
+    await ctx.close();
+  }
+});
+
+test("POST /minpaku/submit で profileJson が無ければ400を返す", async () => {
+  const ctx = await startTestServer();
+  try {
+    const res = await fetch(`${ctx.baseUrl}/minpaku/submit`, {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body: "",
@@ -1042,6 +1121,37 @@ test("POST /drafts: licenseCategory=sanpaiで保存すると産廃許可とし�
     const reopenHtml = await reopenRes.text();
     assert.match(reopenHtml, /産業廃棄物収集運搬業許可 申請者情報インテイク/);
     assert.match(reopenHtml, /"applicantName":"サンプル運輸株式会社"/);
+  } finally {
+    await ctx.close();
+  }
+});
+
+test("POST /drafts: licenseCategory=minpakuで保存すると民泊届出として記録され、続きから入力すると民泊フォームが開く（#292）", async () => {
+  const ctx = await startTestServer();
+  try {
+    const profile = buildSampleMinpakuProfile();
+    const body = new URLSearchParams({
+      profileJson: JSON.stringify(profile),
+      licenseCategory: "minpaku",
+      draftId: "",
+    });
+    const saveRes = await fetch(`${ctx.baseUrl}/drafts`, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: body.toString(),
+    });
+    assert.equal(saveRes.status, 200);
+
+    const drafts = await loadDrafts(ctx.draftsPath);
+    assert.equal(drafts.length, 1);
+    assert.equal(drafts[0].licenseCategory, "minpaku");
+
+    const listHtml = await (await fetch(`${ctx.baseUrl}/drafts`)).text();
+    assert.match(listHtml, /住宅宿泊事業（民泊）届出/);
+
+    const reopenHtml = await (await fetch(`${ctx.baseUrl}/drafts/${drafts[0].id}`)).text();
+    assert.match(reopenHtml, /住宅宿泊事業（民泊）届出 届出者情報インテイク/);
+    assert.match(reopenHtml, new RegExp(`"applicantName":"${profile.applicantName}"`));
   } finally {
     await ctx.close();
   }
