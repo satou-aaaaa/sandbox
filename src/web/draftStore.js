@@ -30,7 +30,7 @@ export const DEFAULT_DRAFTS_PATH = "data/drafts.json";
 export const DRAFT_STALE_THRESHOLD_DAYS = 30;
 
 /**
- * @typedef {"construction" | "kobutsu" | "nouchi-tenyo" | "inshokuten-eigyo" | "sanpai"} DraftLicenseCategory 下書きの許可種別
+ * @typedef {"construction" | "kobutsu" | "nouchi-tenyo" | "inshokuten-eigyo" | "sanpai" | "minpaku"} DraftLicenseCategory 下書きの許可種別
  *   （フォームの種類。#73で追加。既存レコードに`licenseCategory`が無い場合は
  *   建設業許可として扱う。他の許可種別のフォームにはこの識別子で判別する
  *   仕組みが無いと「続きから入力」が誤った種別のフォームを開いてしまうため）
@@ -45,7 +45,8 @@ export const DRAFT_STALE_THRESHOLD_DAYS = 30;
  *   | import('../licenses/kobutsu/eligibility/types.js').KobutsuApplicantProfile
  *   | import('../licenses/nouchi-tenyo/eligibility/types.js').NouchiTenyoApplicantProfile
  *   | import('../licenses/inshokuten-eigyo/eligibility/types.js').InshokutenApplicantProfile
- *   | import('../licenses/sanpai/eligibility/types.js').SanpaiApplicantProfile} profile
+ *   | import('../licenses/sanpai/eligibility/types.js').SanpaiApplicantProfile
+ *   | import('../licenses/minpaku/eligibility/types.js').MinpakuApplicantProfile} profile
  */
 
 /**

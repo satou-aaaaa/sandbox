@@ -57,6 +57,10 @@ import { writeTenpuChecklistDocx as writeInshokutenTenpuChecklistDocx } from "..
 import { evaluateSanpaiEligibility, formatSanpaiEligibilityReport } from "../licenses/sanpai/eligibility/engine.js";
 import { writeShinseishoDocx as writeSanpaiShinseishoDocx } from "../licenses/sanpai/documents/shinseisho.js";
 import { writeJigyokeikakushoDocx as writeSanpaiJigyokeikakushoDocx } from "../licenses/sanpai/documents/jigyokeikakusho.js";
+import { evaluateMinpakuEligibility, formatMinpakuEligibilityReport } from "../licenses/minpaku/eligibility/engine.js";
+import { writeTodokedeshoDocx as writeMinpakuTodokedeshoDocx } from "../licenses/minpaku/documents/todokedesho.js";
+import { writeSeiyakushoDocx as writeMinpakuSeiyakushoDocx } from "../licenses/minpaku/documents/seiyakusho.js";
+import { writeChecklistDocx as writeMinpakuChecklistDocx } from "../licenses/minpaku/documents/checklist.js";
 import { loadClients, DEFAULT_CLIENTS_PATH } from "../core/reminders/clientStore.js";
 import {
   buildReminderDigest,
@@ -71,6 +75,7 @@ import { renderKobutsuFormPage } from "./kobutsuFormPage.js";
 import { renderNouchiTenyoFormPage } from "./nouchiTenyoFormPage.js";
 import { renderInshokutenEigyoFormPage } from "./inshokutenEigyoFormPage.js";
 import { renderSanpaiFormPage } from "./sanpaiFormPage.js";
+import { renderMinpakuFormPage } from "./minpakuFormPage.js";
 import { renderResultPage } from "./resultPage.js";
 import { renderReminderPage } from "./reminderPage.js";
 import { renderDraftsPage } from "./draftsPage.js";
@@ -150,6 +155,21 @@ const INSHOKUTEN_EIGYO_DOCUMENT_TARGETS = [
 const SANPAI_DOCUMENT_TARGETS = [
   { label: "産業廃棄物収集運搬業許可申請書", filename: "shinseisho.docx", write: writeSanpaiShinseishoDocx },
   { label: "事業計画書", filename: "jigyokeikakusho.docx", write: writeSanpaiJigyokeikakushoDocx },
+];
+
+/**
+ * 住宅宿泊事業（民泊）届出の様式生成モジュールの一覧（DOCUMENT_TARGETS参照。#292）。
+ * 必要書類チェックリストは書類の一覧だけを受け取るため、profileから渡し直す。
+ */
+const MINPAKU_DOCUMENT_TARGETS = [
+  { label: "住宅宿泊事業届出書", filename: "todokedesho.docx", write: writeMinpakuTodokedeshoDocx },
+  { label: "誓約書", filename: "seiyakusho.docx", write: writeMinpakuSeiyakushoDocx },
+  {
+    label: "必要書類チェックリスト",
+    filename: "checklist.docx",
+    /** @param {import('../licenses/minpaku/eligibility/types.js').MinpakuApplicantProfile} profile @param {string} outPath */
+    write: (profile, outPath) => writeMinpakuChecklistDocx(profile.requiredDocuments, outPath),
+  },
 ];
 
 /**
@@ -301,6 +321,7 @@ function renderDraftFormPage(licenseCategory, options) {
   if (licenseCategory === "nouchi-tenyo") return renderNouchiTenyoFormPage(anyOptions);
   if (licenseCategory === "inshokuten-eigyo") return renderInshokutenEigyoFormPage(anyOptions);
   if (licenseCategory === "sanpai") return renderSanpaiFormPage(anyOptions);
+  if (licenseCategory === "minpaku") return renderMinpakuFormPage(anyOptions);
   return renderFormPage(anyOptions);
 }
 
@@ -590,6 +611,44 @@ export function createServer({
             sessionId,
             judgmentLabels: { ok: "○ 要件を充足（申請準備を進められます）", ng: "× 未充足の要件があります" },
             formPath: "/sanpai",
+          })
+        );
+        return;
+      }
+
+      if (req.method === "GET" && url === "/minpaku") {
+        respondHtml(res, 200, renderMinpakuFormPage());
+        return;
+      }
+
+      if (req.method === "POST" && url === "/minpaku/submit") {
+        const bodyText = await readRequestBody(req);
+        const params = new URLSearchParams(bodyText);
+        const profileJson = params.get("profileJson");
+        if (!profileJson) {
+          throw new Error("profileJson が送信されていません（フォームのJavaScriptが動作していない可能性があります）");
+        }
+        /** @type {import('../licenses/minpaku/eligibility/types.js').MinpakuApplicantProfile} */
+        const profile = JSON.parse(profileJson);
+
+        const result = evaluateMinpakuEligibility(profile);
+        const report = formatMinpakuEligibilityReport(profile, result);
+
+        const sessionId = crypto.randomUUID();
+        const sessionDir = path.join(outDir, sessionId);
+        const files = await generateAllDocuments(MINPAKU_DOCUMENT_TARGETS, profile, sessionDir);
+
+        respondHtml(
+          res,
+          200,
+          renderResultPage({
+            profile,
+            result,
+            report,
+            files,
+            sessionId,
+            judgmentLabels: { ok: "○ 準備が整っています（届出準備を進められます）", ng: "× 未充足の項目があります" },
+            formPath: "/minpaku",
           })
         );
         return;

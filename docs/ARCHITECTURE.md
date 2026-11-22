@@ -116,6 +116,7 @@ M11（`docs/DESIGN_kobutsu-core.md`）で、許可種別に依存しない共通
 - `documents/todokedesho.js`（届出書）・`seiyakusho.js`（誓約書）・`checklist.js`（必要書類チェックリスト） — 各様式のdocx自動生成
 - `reminders/periodicReportSchedule.js` — 定期報告（宿泊実績）の次回期限計算。**暦日固定型（新パターン）**: 施行規則第12条第2項により、報告実績・届出日に依存せず、毎年2/4/6/8/10/12月15日のうち直近で到来する日が次回期限になる。既存の「満了日ベース」（建設業許可・産廃許可）・「変更トリガー型」（古物商許可）とは異なる第3のリマインド方式だが、`ScheduleFn`契約自体（`(license) => ScheduleItem[]`）は変更せず、関数内部で`new Date()`により本日を取得することで対応できることを実証した
 - `index.js` — `registerMinpakuLicense()`でコアの`scheduleTypes.js`へ登録するエントリポイント
+- インテイクWebフォーム（`/minpaku`・`/minpaku/submit`）: **2026年11月実装済み**（#292）。`src/web/minpakuFormPage.js`。産廃許可の`sanpaiFormPage.js`と同じ設計を踏襲し、必要書類は行の追加・削除で入力する（初期行は登記事項証明書・図面・消防法令適合通知書・誓約書）。下書き保存（`/drafts`）にも対応
 - 電子申請の自動化・住宅宿泊管理業者の選定支援・消防法令適合通知書の取得代行・複数物件の一括管理は対象外（`docs/REQUIREMENTS_minpaku-core.md` 4.5節）
 
 ### 在留資格「技術・人文知識・国際業務」申請支援アドオン（`src/licenses/gijinkoku/`。コアの5例目）
@@ -294,9 +295,9 @@ BtoB下請けポータル・会社設立サポートとも異なり、判定す�
 
 ### Web・共通
 
-- `src/web/server.js` — インテイク用の簡易Webフォーム（M3。建設業許可用の`/`・`/submit`に加え、古物商許可用の`/kobutsu`・`/kobutsu/submit`、農地転用許可用の`/nouchi-tenyo`・`/nouchi-tenyo/submit`を2026年9月追加、飲食店営業許可用の`/inshokuten-eigyo`・`/inshokuten-eigyo/submit`を2026年10月追加、産業廃棄物収集運搬業許可用の`/sanpai`・`/sanpai/submit`を2026年11月追加。古物商許可は個人申請のみ対応〈`shinseisho.js`等の書類生成モジュールが法人の記載項目に対応していないため〉）＋リマインド表示・残日数フィルタ（`/reminders`、M7）＋下書き保存（`/drafts`。5許可種別共通。2026年9月・#73、飲食店営業許可は2026年10月・#290、産廃許可は2026年11月・#291）＋CSVダウンロード（`/clients.csv`）。node:http のみで実装し、127.0.0.1のみで待受
-- `src/web/formPage.js`（建設業許可）・`kobutsuFormPage.js`（古物商許可。2026年9月追加）・`nouchiTenyoFormPage.js`（農地転用許可。2026年9月追加）・`inshokutenEigyoFormPage.js`（飲食店営業許可。2026年10月追加）・`sanpaiFormPage.js`（産業廃棄物収集運搬業許可。2026年11月追加） — 各許可種別のインテイクフォーム画面。`resultPage.js`（判定結果画面）は`judgmentLabels`・`formPath`オプションで許可種別ごとの文言・戻り先リンクを差し替えられる設計とし、5つの許可種別すべてで共用する
-- `src/web/draftStore.js` — インテイクフォームの入力途中データを `data/drafts.json` へ読み書きするローカル永続化層（DB不使用）。`DraftRecord.licenseCategory`（"construction"/"kobutsu"/"nouchi-tenyo"/"inshokuten-eigyo"/"sanpai"。省略時は"construction"扱い）で5許可種別を判別する（2026年9月・#73。同じ一覧に混在させても「続きから入力」が誤った種別のフォームを開くことはない）
+- `src/web/server.js` — インテイク用の簡易Webフォーム（M3。建設業許可用の`/`・`/submit`に加え、古物商許可用の`/kobutsu`・`/kobutsu/submit`、農地転用許可用の`/nouchi-tenyo`・`/nouchi-tenyo/submit`を2026年9月追加、飲食店営業許可用の`/inshokuten-eigyo`・`/inshokuten-eigyo/submit`を2026年10月追加、産業廃棄物収集運搬業許可用の`/sanpai`・`/sanpai/submit`、住宅宿泊事業（民泊）届出用の`/minpaku`・`/minpaku/submit`を2026年11月追加。古物商許可は個人申請のみ対応〈`shinseisho.js`等の書類生成モジュールが法人の記載項目に対応していないため〉）＋リマインド表示・残日数フィルタ（`/reminders`、M7）＋下書き保存（`/drafts`。6許可種別共通。2026年9月・#73、飲食店営業許可は2026年10月・#290、産廃許可は2026年11月・#291、民泊届出は2026年11月・#292）＋CSVダウンロード（`/clients.csv`）。node:http のみで実装し、127.0.0.1のみで待受
+- `src/web/formPage.js`（建設業許可）・`kobutsuFormPage.js`（古物商許可。2026年9月追加）・`nouchiTenyoFormPage.js`（農地転用許可。2026年9月追加）・`inshokutenEigyoFormPage.js`（飲食店営業許可。2026年10月追加）・`sanpaiFormPage.js`（産業廃棄物収集運搬業許可。2026年11月追加）・`minpakuFormPage.js`（住宅宿泊事業（民泊）届出。2026年11月追加） — 各許可種別のインテイクフォーム画面。`resultPage.js`（判定結果画面）は`judgmentLabels`・`formPath`オプションで許可種別ごとの文言・戻り先リンクを差し替えられる設計とし、6つの許可種別すべてで共用する
+- `src/web/draftStore.js` — インテイクフォームの入力途中データを `data/drafts.json` へ読み書きするローカル永続化層（DB不使用）。`DraftRecord.licenseCategory`（"construction"/"kobutsu"/"nouchi-tenyo"/"inshokuten-eigyo"/"sanpai"/"minpaku"。省略時は"construction"扱い）で6許可種別を判別する（2026年9月・#73。同じ一覧に混在させても「続きから入力」が誤った種別のフォームを開くことはない）
 - `test/` — `node --test` で実行するユニットテスト（外部テストランナー不要）
 - `scripts/` — 動作確認用のサンプル実行スクリプト（`sampleProfile.js`・`sampleKobutsuProfile.js`が各許可種別共通のダミーデータ）
 
@@ -344,6 +345,8 @@ BtoB下請けポータル・会社設立サポートとも異なり、判定す�
   `/inshokuten-eigyo/submit`、下書き保存を含む。#290。親Issue #233 の着手順 1/6）
 - 産業廃棄物収集運搬業許可のWebフォーム対応: **2026年11月実装済み**（`/sanpai`・
   `/sanpai/submit`、下書き保存を含む。#291。親Issue #233 の着手順 2/6）
+- 住宅宿泊事業（民泊）届出のWebフォーム対応: **2026年11月実装済み**（`/minpaku`・
+  `/minpaku/submit`、下書き保存を含む。#292。親Issue #233 の着手順 3/6）
 - `src/core/reminders/clientCsv.js`は各種`<種別>Detail`をCSV列としては
   意図的に持たせていない（`docs/DESIGN_kobutsu-core.md` 5.5節参照）。CSV
   エクスポートには`<種別>Detail`が含まれない（エクスポート→インポートの往復

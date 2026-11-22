@@ -42,6 +42,7 @@ import { renderKobutsuFormPage } from "../src/web/kobutsuFormPage.js";
 import { renderNouchiTenyoFormPage } from "../src/web/nouchiTenyoFormPage.js";
 import { renderInshokutenEigyoFormPage } from "../src/web/inshokutenEigyoFormPage.js";
 import { renderSanpaiFormPage } from "../src/web/sanpaiFormPage.js";
+import { renderMinpakuFormPage } from "../src/web/minpakuFormPage.js";
 import { renderResultPage } from "../src/web/resultPage.js";
 import { renderReminderPage } from "../src/web/reminderPage.js";
 import { renderDraftsPage } from "../src/web/draftsPage.js";
@@ -142,6 +143,11 @@ test("renderInshokutenEigyoFormPage: アクセシビリティ違反が無い（�
 
 test("renderSanpaiFormPage: アクセシビリティ違反が無い（産業廃棄物収集運搬業許可インテイクフォーム。初期状態）", async () => {
   const results = await runAxe(renderSanpaiFormPage());
+  assert.equal(results.violations.length, 0, formatViolations(results));
+});
+
+test("renderMinpakuFormPage: アクセシビリティ違反が無い（住宅宿泊事業（民泊）届出インテイクフォーム。初期状態）", async () => {
+  const results = await runAxe(renderMinpakuFormPage());
   assert.equal(results.violations.length, 0, formatViolations(results));
 });
 

@@ -208,6 +208,10 @@ export function registerMinpakuLicense() {
 }
 ```
 
+Webフォーム（`/minpaku`。2026年11月・#292で対応）は`src/web/minpakuFormPage.js`。
+`src/web/server.js`は読み込み時に`registerMinpakuLicense()`を呼んでいる。
+判定は本モジュールの`eligibility/engine.js`をサーバー側で呼び、画面側では再実装しない。
+
 ## 5. 実装ステップ
 
 1. `eligibility/`（欠格事由→書類チェックリスト→統合エンジン）

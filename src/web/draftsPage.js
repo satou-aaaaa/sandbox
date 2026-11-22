@@ -12,6 +12,7 @@ const LICENSE_CATEGORY_LABELS = {
   "nouchi-tenyo": "農地転用許可",
   "inshokuten-eigyo": "飲食店営業許可",
   sanpai: "産業廃棄物収集運搬業許可",
+  minpaku: "住宅宿泊事業（民泊）届出",
 };
 
 /**
