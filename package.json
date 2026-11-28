@@ -105,7 +105,7 @@
     "@eslint/js": "^10.0.1",
     "@playwright/test": "^1.65.1",
     "@stryker-mutator/core": "^10.1.1",
-    "@types/node": "^26.6.6",
+    "@types/node": "^26.6.7",
     "ajv": "^8.20.0",
     "ajv-formats": "^3.0.1",
     "autocannon": "^9.0.0",
